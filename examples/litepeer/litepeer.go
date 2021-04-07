@@ -1,48 +1,38 @@
 package main
 
 // This example launches an IPFS-Lite peer and fetches a hello-world
-// hash from the IPFS network.
+// hash from the IPFS network.repo
 
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/ipfs/go-cid"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/multiformats/go-multiaddr"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ds, err := ipfslite.BadgerDatastore("test")
+	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
+	conf, err := ipfslite.ConfigInit(2048, "0")
 	if err != nil {
-		panic(err)
+		return
 	}
-	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	err = ipfslite.Init(root, conf)
 	if err != nil {
-		panic(err)
-	}
-
-	listen, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/4005")
-
-	h, dht, err := ipfslite.SetupLibp2p(
-		ctx,
-		priv,
-		nil,
-		[]multiaddr.Multiaddr{listen},
-		ds,
-		ipfslite.Libp2pOptionsExtra...,
-	)
-
-	if err != nil {
-		panic(err)
+		return
 	}
 
-	lite, err := ipfslite.New(ctx, ds, h, dht, nil)
+	r, err := ipfslite.Open(root)
+	if err != nil {
+		return
+	}
+
+	lite, err := ipfslite.New(ctx, r)
 	if err != nil {
 		panic(err)
 	}

@@ -4,21 +4,20 @@ package ipfslite
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
-	blockservice "github.com/ipfs/go-blockservice"
+	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
-	offline "github.com/ipfs/go-ipfs-exchange-offline"
 	provider "github.com/ipfs/go-ipfs-provider"
 	"github.com/ipfs/go-ipfs-provider/queue"
 	"github.com/ipfs/go-ipfs-provider/simple"
@@ -30,10 +29,14 @@ import (
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipfs/go-unixfs/importer/trickle"
 	ufsio "github.com/ipfs/go-unixfs/io"
-	host "github.com/libp2p/go-libp2p-core/host"
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	routing "github.com/libp2p/go-libp2p-core/routing"
-	multihash "github.com/multiformats/go-multihash"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/host"
+	inet "github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/routing"
+	swarm "github.com/libp2p/go-libp2p-swarm"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multihash"
 )
 
 func init() {
@@ -44,18 +47,6 @@ func init() {
 
 var logger = logging.Logger("ipfslite")
 
-var (
-	defaultReprovideInterval = 12 * time.Hour
-)
-
-// Config wraps configuration options for the Peer.
-type Config struct {
-	// The DAGService will not announce or retrieve blocks from the network
-	Offline bool
-	// ReprovideInterval sets how often to reprovide records to the DHT
-	ReprovideInterval time.Duration
-}
-
 func (cfg *Config) setDefaults() {
 	if cfg.ReprovideInterval == 0 {
 		cfg.ReprovideInterval = defaultReprovideInterval
@@ -65,14 +56,14 @@ func (cfg *Config) setDefaults() {
 // Peer is an IPFS-Lite peer. It provides a DAG service that can fetch and put
 // blocks from/to the IPFS network.
 type Peer struct {
-	ctx context.Context
-
-	cfg *Config
-
-	host  host.Host
-	dht   routing.Routing
-	store datastore.Batching
-
+	Ctx             context.Context
+	Host            host.Host
+	Store           datastore.Batching
+	Bstore          blockstore.Blockstore
+	DHT             routing.Routing
+	Bserv           blockservice.BlockService
+	Repo            Repo
+	Provider        provider.System
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
@@ -85,27 +76,45 @@ type Peer struct {
 // implements the ipld.DAGService interface.
 func New(
 	ctx context.Context,
-	store datastore.Batching,
-	host host.Host,
-	dht routing.Routing,
-	cfg *Config,
+	r Repo,
 ) (*Peer, error) {
-
-	if cfg == nil {
-		cfg = &Config{}
+	cfg, err := r.Config()
+	if err != nil {
+		return nil, err
 	}
 
-	cfg.setDefaults()
+	if err != nil {
+		return nil, err
+	}
+	privb, _ := base64.StdEncoding.DecodeString(cfg.Identity.PrivKey)
+	privKey, _ := crypto.UnmarshalPrivateKey(privb)
 
+	listenAddrs := []multiaddr.Multiaddr{}
+	confAddrs := cfg.Addresses.Swarm
+	for _, v := range confAddrs {
+		listen, _ := multiaddr.NewMultiaddr(v)
+		listenAddrs = append(listenAddrs, listen)
+	}
+	h, dht, err := SetupLibp2p(
+		ctx,
+		privKey,
+		nil,
+		listenAddrs,
+		r.Datastore(),
+		Libp2pOptionsExtra...,
+	)
+	if err != nil {
+		return nil, err
+	}
 	p := &Peer{
-		ctx:   ctx,
-		cfg:   cfg,
-		host:  host,
-		dht:   dht,
-		store: store,
+		Ctx:   ctx,
+		Host:  h,
+		DHT:   dht,
+		Store: r.Datastore(),
+		Repo:  r,
 	}
 
-	err := p.setupBlockstore()
+	err = p.setupBlockstore()
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +139,9 @@ func New(
 }
 
 func (p *Peer) setupBlockstore() error {
-	bs := blockstore.NewBlockstore(p.store)
+	bs := blockstore.NewBlockstore(p.Store)
 	bs = blockstore.NewIdStore(bs)
-	cachedbs, err := blockstore.CachedBlockstore(p.ctx, bs, blockstore.DefaultCacheOpts())
+	cachedbs, err := blockstore.CachedBlockstore(p.Ctx, bs, blockstore.DefaultCacheOpts())
 	if err != nil {
 		return err
 	}
@@ -141,13 +150,8 @@ func (p *Peer) setupBlockstore() error {
 }
 
 func (p *Peer) setupBlockService() error {
-	if p.cfg.Offline {
-		p.bserv = blockservice.New(p.bstore, offline.Exchange(p.bstore))
-		return nil
-	}
-
-	bswapnet := network.NewFromIpfsHost(p.host, p.dht)
-	bswap := bitswap.New(p.ctx, bswapnet, p.bstore)
+	bswapnet := network.NewFromIpfsHost(p.Host, p.DHT)
+	bswap := bitswap.New(p.Ctx, bswapnet, p.bstore)
 	p.bserv = blockservice.New(p.bstore, bswap)
 	return nil
 }
@@ -158,26 +162,24 @@ func (p *Peer) setupDAGService() error {
 }
 
 func (p *Peer) setupReprovider() error {
-	if p.cfg.Offline || p.cfg.ReprovideInterval < 0 {
-		p.reprovider = provider.NewOfflineProvider()
-		return nil
-	}
-
-	queue, err := queue.NewQueue(p.ctx, "repro", p.store)
+	queue, err := queue.NewQueue(p.Ctx, "repro", p.Store)
 	if err != nil {
 		return err
 	}
 
 	prov := simple.NewProvider(
-		p.ctx,
+		p.Ctx,
 		queue,
-		p.dht,
+		p.DHT,
 	)
-
+	cfg, err := p.Repo.Config()
+	if err != nil {
+		return err
+	}
 	reprov := simple.NewReprovider(
-		p.ctx,
-		p.cfg.ReprovideInterval,
-		p.dht,
+		p.Ctx,
+		cfg.ReprovideInterval,
+		p.DHT,
 		simple.NewBlockstoreProvider(p.bstore),
 	)
 
@@ -187,7 +189,9 @@ func (p *Peer) setupReprovider() error {
 }
 
 func (p *Peer) autoclose() {
-	<-p.ctx.Done()
+	<-p.Ctx.Done()
+	p.Repo.Datastore().Close()
+	p.Host.Close()
 	p.reprovider.Close()
 	p.bserv.Close()
 }
@@ -206,7 +210,7 @@ func (p *Peer) Bootstrap(peers []peer.AddrInfo) {
 		wg.Add(1)
 		go func(pinfo peer.AddrInfo) {
 			defer wg.Done()
-			err := p.host.Connect(p.ctx, pinfo)
+			err := p.Host.Connect(p.Ctx, pinfo)
 			if err != nil {
 				logger.Warn(err)
 				return
@@ -229,7 +233,7 @@ func (p *Peer) Bootstrap(peers []peer.AddrInfo) {
 		logger.Warnf("only connected to %d bootstrap peers out of %d", i, nPeers)
 	}
 
-	err := p.dht.Bootstrap(p.ctx)
+	err := p.DHT.Bootstrap(p.Ctx)
 	if err != nil {
 		logger.Error(err)
 		return
@@ -328,4 +332,65 @@ func (p *Peer) BlockStore() blockstore.Blockstore {
 // a shorthand for .Blockstore().Has().
 func (p *Peer) HasBlock(c cid.Cid) (bool, error) {
 	return p.BlockStore().Has(c)
+}
+
+const connectionManagerTag = "user-connect"
+const connectionManagerWeight = 100
+
+// Connect connects host to a given peer
+func (p *Peer) Connect(ctx context.Context, pi peer.AddrInfo) error {
+	if p.Host == nil {
+		return errors.New("peer is offline")
+	}
+
+	if swrm, ok := p.Host.Network().(*swarm.Swarm); ok {
+		swrm.Backoff().Clear(pi.ID)
+	}
+
+	if err := p.Host.Connect(ctx, pi); err != nil {
+		return err
+	}
+
+	p.Host.ConnManager().TagPeer(pi.ID, connectionManagerTag, connectionManagerWeight)
+	return nil
+}
+
+// Peers returns a list of connected peers
+func (p *Peer) Peers(ctx context.Context) ([]string, error) {
+	pIDs := p.Host.Network().Peers()
+	peerList := []string{}
+	for _, pID := range pIDs {
+		peerList = append(peerList, pID.String())
+	}
+	return peerList, nil
+}
+
+// Disconnect host from a given peer
+func (p *Peer) Disconnect(ctx context.Context, addr multiaddr.Multiaddr) error {
+	if p.Host == nil {
+		return errors.New("peer is offline")
+	}
+
+	taddr, id := peer.SplitAddr(addr)
+	if id == "" {
+		return peer.ErrInvalidAddr
+	}
+
+	net := p.Host.Network()
+	if taddr == nil {
+		if net.Connectedness(id) != inet.Connected {
+			return errors.New("not connected")
+		}
+		if err := net.ClosePeer(id); err != nil {
+			return err
+		}
+		return nil
+	}
+	for _, conn := range net.ConnsToPeer(id) {
+		if !conn.RemoteMultiaddr().Equal(taddr) {
+			continue
+		}
+		return conn.Close()
+	}
+	return nil
 }
