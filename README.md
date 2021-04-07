@@ -5,6 +5,13 @@ IPFS-Lite is an embeddable, lightweight IPFS peer. This fork started from [ipfs-
 It offers all the features of main [ipfs-lite](https://github.com/hsanjuan/ipfs-lite). For certain requirements of datahop 
 it adds some more features of full ipfs, such as config, repo, leveldb etc.
 
+## Running Example
+
+```
+ go run ./examples/litepeer/litepeer.go
+```
+
+
 ## Objectives
 
 * [ ] create cache repo as ipfs
