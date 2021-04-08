@@ -2,10 +2,11 @@ package ipfslite
 
 import (
 	"context"
-	leveldb "github.com/ipfs/go-ds-leveldb"
+	"os"
 	"time"
 
 	"github.com/ipfs/go-datastore"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	config "github.com/ipfs/go-ipfs-config"
 	ipns "github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
@@ -108,5 +109,13 @@ func newDHT(ctx context.Context, h host.Host, ds datastore.Batching) (*dualdht.D
 	}
 
 	return dualdht.New(ctx, h, dhtOpts...)
+}
 
+// FileExists check if the file with the given path exits.
+func FileExists(filename string) bool {
+	fi, err := os.Lstat(filename)
+	if fi != nil || (err != nil && !os.IsNotExist(err)) {
+		return true
+	}
+	return false
 }

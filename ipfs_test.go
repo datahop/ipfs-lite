@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
 
 	cbor "github.com/ipfs/go-ipld-cbor"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -17,8 +18,8 @@ var secret = "2cc2c79ea52c9cc85dfd3061961dd8c4230cce0b09f182a0822c1536bf1d5f21"
 func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	root1 := filepath.Join("/tmp", "root1")
-	root2 := filepath.Join("/tmp", "root2")
+	root1 := filepath.Join("./test", "root1")
+	root2 := filepath.Join("./test", "root2")
 	conf1, err := ConfigInit(2048, "0")
 	if err != nil {
 		t.Fatal(err)
@@ -118,6 +119,7 @@ func TestDAG(t *testing.T) {
 	if ok, err := p2.BlockStore().Has(node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
+	<-time.After(time.Second * 3)
 }
 
 func TestSession(t *testing.T) {
@@ -146,6 +148,7 @@ func TestSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	<-time.After(time.Second * 3)
 }
 
 func TestFiles(t *testing.T) {
@@ -175,4 +178,5 @@ func TestFiles(t *testing.T) {
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
 	}
+	<-time.After(time.Second * 3)
 }

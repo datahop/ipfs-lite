@@ -1,11 +1,9 @@
 package ipfslite
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"os"
+	"path/filepath"
 	"time"
 
 	ci "github.com/libp2p/go-libp2p-core/crypto"
@@ -36,48 +34,18 @@ type Addresses struct {
 
 // Config wraps configuration options for the Peer.
 type Config struct {
-	Identity   Identity  // local node's peer identity
-	Addresses  Addresses // local node's addresses
-	Bootstrap  []string
-	DeviceName string
+	Identity  Identity  // local node's peer identity
+	Addresses Addresses // local node's addresses
+	Bootstrap []string
+
 	// ReprovideInterval sets how often to reprovide records to the DHT
 	ReprovideInterval time.Duration
 }
 
-// Filename returns the configuration file path given a configuration root
+// ConfigFilename returns the configuration file path given a configuration root
 // directory. If the configuration root directory is empty, use the default one
-func Filename(configroot string) (string, error) {
-	return configroot + string(os.PathSeparator) + DefaultConfigFile, nil
-}
-
-// Marshal configuration with JSON
-func Marshal(value interface{}) ([]byte, error) {
-	// need to prettyprint, hence MarshalIndent, instead of Encoder
-	return json.MarshalIndent(value, "", "  ")
-}
-
-func FromMap(v map[string]interface{}) (*Config, error) {
-	buf := new(bytes.Buffer)
-	if err := json.NewEncoder(buf).Encode(v); err != nil {
-		return nil, err
-	}
-	var conf Config
-	if err := json.NewDecoder(buf).Decode(&conf); err != nil {
-		return nil, fmt.Errorf("failure to decode config: %s", err)
-	}
-	return &conf, nil
-}
-
-func ToMap(conf *Config) (map[string]interface{}, error) {
-	buf := new(bytes.Buffer)
-	if err := json.NewEncoder(buf).Encode(conf); err != nil {
-		return nil, err
-	}
-	var m map[string]interface{}
-	if err := json.NewDecoder(buf).Decode(&m); err != nil {
-		return nil, fmt.Errorf("failure to decode config: %s", err)
-	}
-	return m, nil
+func ConfigFilename(configroot string) (string, error) {
+	return filepath.Join(configroot, DefaultConfigFile), nil
 }
 
 func ConfigInit(nbits int, swarmPort string) (*Config, error) {

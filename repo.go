@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	Root     = ".datahop"
-	LockFile = "repo.lock"
+	Root                       = ".datahop"
+	LockFile                   = "repo.lock"
+	DefaultDatastoreFolderName = "datastore"
 )
 
 var (
@@ -71,9 +72,8 @@ func (r *FSRepo) Path() string {
 
 func (r *FSRepo) Datastore() Datastore {
 	packageLock.Lock()
-	d := r.ds
-	packageLock.Unlock()
-	return d
+	defer packageLock.Unlock()
+	return r.ds
 }
 
 func Init(repoPath string, conf *Config) error {
@@ -131,7 +131,7 @@ func open(repoPath string) (Repo, error) {
 }
 
 func (r *FSRepo) openDatastore() error {
-	d, err := LevelDatastore(filepath.Join(r.Path(), "datastore"))
+	d, err := LevelDatastore(filepath.Join(r.Path(), DefaultDatastoreFolderName))
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func newFSRepo(rpath string) (*FSRepo, error) {
 }
 
 func initConfig(path string, cfg *Config) error {
-	configFilename, err := Filename(path)
+	configFilename, err := ConfigFilename(path)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func encode(w io.Writer, value interface{}) error {
 
 // openConfig returns an error if the config file is not present.
 func (r *FSRepo) openConfig() error {
-	configFilename, err := Filename(r.path)
+	configFilename, err := ConfigFilename(r.path)
 	if err != nil {
 		return err
 	}
@@ -215,13 +215,4 @@ func configIsInitialized(path string) bool {
 // hold the packageLock.
 func isInitializedUnsynced(repoPath string) bool {
 	return configIsInitialized(repoPath)
-}
-
-// FileExists check if the file with the given path exits.
-func FileExists(filename string) bool {
-	fi, err := os.Lstat(filename)
-	if fi != nil || (err != nil && !os.IsNotExist(err)) {
-		return true
-	}
-	return false
 }
