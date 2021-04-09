@@ -76,6 +76,37 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	return
 }
 
+func TestHost(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	root1 := filepath.Join("./test", "root1")
+	conf1, err := ConfigInit(2048, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Init(root1, conf1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1, err := New(ctx, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnf, err := r1.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Config id %s, Host Id %s", cnf.Identity.PeerID, p1.Host.ID().Pretty())
+	if cnf.Identity.PeerID != p1.Host.ID().Pretty() {
+		t.Fatal("Peer id does not match config")
+	}
+	<-time.After(time.Second * 3)
+}
+
 func TestDAG(t *testing.T) {
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
@@ -177,6 +208,56 @@ func TestFiles(t *testing.T) {
 		t.Error(string(content))
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
+	}
+	<-time.After(time.Second * 3)
+}
+
+func TestOperations(t *testing.T) {
+	p1, p2, closer := setupPeers(t)
+	defer closer(t)
+
+	p1peers, err := p1.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2peers, err := p2.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("P1 peers %v", p1peers)
+	t.Logf("P2 peers %v", p2peers)
+	if len(p1peers) != len(p2peers) {
+		t.Fatal("Peer count should be same")
+	}
+	if p1peers[0] != p2.Host.ID().Pretty() || p2peers[0] != p1.Host.ID().Pretty() {
+		t.Fatal("Peer connection did not happen")
+	}
+	p2aInfo := peer.AddrInfo{
+		ID:    p2.Host.ID(),
+		Addrs: p2.Host.Addrs(),
+	}
+
+	err = p1.Disconnect(p2aInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1peers, err = p1.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p1peers) != 0 {
+		t.Fatal("Peer count should be zero")
+	}
+	err = p1.Connect(context.Background(), p2aInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1peers, err = p1.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p1peers) != 1 {
+		t.Fatal("Peer count should be one")
 	}
 	<-time.After(time.Second * 3)
 }

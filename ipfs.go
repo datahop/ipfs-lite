@@ -356,7 +356,7 @@ func (p *Peer) Connect(ctx context.Context, pi peer.AddrInfo) error {
 }
 
 // Peers returns a list of connected peers
-func (p *Peer) Peers(ctx context.Context) ([]string, error) {
+func (p *Peer) Peers() ([]string, error) {
 	pIDs := p.Host.Network().Peers()
 	peerList := []string{}
 	for _, pID := range pIDs {
@@ -366,30 +366,22 @@ func (p *Peer) Peers(ctx context.Context) ([]string, error) {
 }
 
 // Disconnect host from a given peer
-func (p *Peer) Disconnect(ctx context.Context, addr multiaddr.Multiaddr) error {
+func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 	if p.Host == nil {
 		return errors.New("peer is offline")
 	}
-
-	taddr, id := peer.SplitAddr(addr)
-	if id == "" {
+	if pi.ID.String() == "" {
 		return peer.ErrInvalidAddr
 	}
-
 	net := p.Host.Network()
-	if taddr == nil {
-		if net.Connectedness(id) != inet.Connected {
-			return errors.New("not connected")
-		}
-		if err := net.ClosePeer(id); err != nil {
-			return err
-		}
-		return nil
+	if net.Connectedness(pi.ID) != inet.Connected {
+		return errors.New("not connected")
 	}
-	for _, conn := range net.ConnsToPeer(id) {
-		if !conn.RemoteMultiaddr().Equal(taddr) {
-			continue
-		}
+	if err := net.ClosePeer(pi.ID); err != nil {
+		return err
+	}
+
+	for _, conn := range net.ConnsToPeer(pi.ID) {
 		return conn.Close()
 	}
 	return nil

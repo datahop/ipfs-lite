@@ -59,7 +59,6 @@ func ConfigInit(nbits int, swarmPort string) (*Config, error) {
 		Identity:          identity,
 		ReprovideInterval: defaultReprovideInterval,
 	}
-
 	return conf, nil
 }
 
