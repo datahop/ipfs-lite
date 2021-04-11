@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	ci "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -15,10 +14,6 @@ const (
 	DefaultConfigFile = "config"
 
 	SwarmPort = "4501"
-)
-
-var (
-	defaultReprovideInterval = 12 * time.Hour
 )
 
 // Identity tracks the configuration of the local node's identity.
@@ -37,9 +32,6 @@ type Config struct {
 	Identity  Identity  // local node's peer identity
 	Addresses Addresses // local node's addresses
 	Bootstrap []string
-
-	// ReprovideInterval sets how often to reprovide records to the DHT
-	ReprovideInterval time.Duration
 }
 
 // ConfigFilename returns the configuration file path given a configuration root
@@ -54,10 +46,9 @@ func ConfigInit(nbits int, swarmPort string) (*Config, error) {
 		return nil, err
 	}
 	conf := &Config{
-		Addresses:         addressesConfig(swarmPort),
-		Bootstrap:         nil,
-		Identity:          identity,
-		ReprovideInterval: defaultReprovideInterval,
+		Addresses: addressesConfig(swarmPort),
+		Bootstrap: []string{},
+		Identity:  identity,
 	}
 	return conf, nil
 }

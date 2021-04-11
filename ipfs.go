@@ -19,8 +19,6 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
 	provider "github.com/ipfs/go-ipfs-provider"
-	"github.com/ipfs/go-ipfs-provider/queue"
-	"github.com/ipfs/go-ipfs-provider/simple"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
@@ -47,12 +45,6 @@ func init() {
 
 var logger = logging.Logger("ipfslite")
 
-func (cfg *Config) setDefaults() {
-	if cfg.ReprovideInterval == 0 {
-		cfg.ReprovideInterval = defaultReprovideInterval
-	}
-}
-
 // Peer is an IPFS-Lite peer. It provides a DAG service that can fetch and put
 // blocks from/to the IPFS network.
 type Peer struct {
@@ -67,7 +59,6 @@ type Peer struct {
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
-	reprovider      provider.System
 }
 
 // New creates an IPFS-Lite Peer. It uses the given datastore, libp2p Host and
@@ -127,7 +118,6 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
-	err = p.setupReprovider()
 	if err != nil {
 		p.bserv.Close()
 		return nil, err
@@ -161,38 +151,10 @@ func (p *Peer) setupDAGService() error {
 	return nil
 }
 
-func (p *Peer) setupReprovider() error {
-	queue, err := queue.NewQueue(p.Ctx, "repro", p.Store)
-	if err != nil {
-		return err
-	}
-
-	prov := simple.NewProvider(
-		p.Ctx,
-		queue,
-		p.DHT,
-	)
-	cfg, err := p.Repo.Config()
-	if err != nil {
-		return err
-	}
-	reprov := simple.NewReprovider(
-		p.Ctx,
-		cfg.ReprovideInterval,
-		p.DHT,
-		simple.NewBlockstoreProvider(p.bstore),
-	)
-
-	p.reprovider = provider.NewSystem(prov, reprov)
-	p.reprovider.Run()
-	return nil
-}
-
 func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
 	p.Repo.Datastore().Close()
 	p.Host.Close()
-	p.reprovider.Close()
 	p.bserv.Close()
 }
 
