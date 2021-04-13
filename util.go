@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	leveldb "github.com/ipfs/go-ds-leveldb"
-	config "github.com/ipfs/go-ipfs-config"
+	ipfsconfig "github.com/ipfs/go-ipfs-config"
 	ipns "github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -26,7 +26,7 @@ import (
 // DefaultBootstrapPeers returns the default go-ipfs bootstrap peers (for use
 // with NewLibp2pHost.
 func DefaultBootstrapPeers() []peer.AddrInfo {
-	defaults, _ := config.DefaultBootstrapPeers()
+	defaults, _ := ipfsconfig.DefaultBootstrapPeers()
 	return defaults
 }
 

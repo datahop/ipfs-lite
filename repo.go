@@ -13,7 +13,6 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	syncds "github.com/ipfs/go-datastore/sync"
 	lockfile "github.com/ipfs/go-fs-lock"
-	config "github.com/ipfs/go-ipfs-config"
 	"github.com/mitchellh/go-homedir"
 )
 
@@ -21,6 +20,8 @@ const (
 	Root                       = ".datahop"
 	LockFile                   = "repo.lock"
 	DefaultDatastoreFolderName = "datastore"
+	// DefaultConfigFile is the filename of the configuration file
+	DefaultConfigFile = "config"
 )
 
 var (
@@ -76,7 +77,7 @@ func (r *FSRepo) Datastore() Datastore {
 	return r.ds
 }
 
-func Init(repoPath string, conf *Config) error {
+func Init(repoPath, swarmPort string) error {
 	// packageLock must be held to ensure that the repo is not initialized more
 	// than once.
 	packageLock.Lock()
@@ -86,11 +87,13 @@ func Init(repoPath string, conf *Config) error {
 	if isInitializedUnsynced(repoPath) {
 		return nil
 	}
-
+	conf, err := NewConfig(swarmPort)
+	if err != nil {
+		return err
+	}
 	if err := initConfig(repoPath, conf); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -167,10 +170,16 @@ func initConfig(path string, cfg *Config) error {
 	return encode(f, cfg)
 }
 
+// ConfigFilename returns the configuration file path given a configuration root
+// directory. If the configuration root directory is empty, use the default one
+func ConfigFilename(configroot string) (string, error) {
+	return filepath.Join(configroot, DefaultConfigFile), nil
+}
+
 // encode configuration with JSON
 func encode(w io.Writer, value interface{}) error {
 	// need to prettyprint, hence MarshalIndent, instead of Encoder
-	buf, err := config.Marshal(value)
+	buf, err := Marshal(value)
 	if err != nil {
 		return err
 	}
@@ -200,7 +209,7 @@ func (r *FSRepo) openConfig() error {
 // configIsInitialized returns true if the repo is initialized at
 // provided |path|.
 func configIsInitialized(path string) bool {
-	configFilename, err := config.Filename(path)
+	configFilename, err := ConfigFilename(path)
 	if err != nil {
 		return false
 	}

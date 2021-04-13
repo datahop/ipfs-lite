@@ -8,11 +8,7 @@ import (
 
 func TestInit(t *testing.T) {
 	root := filepath.Join("./test", "root")
-	conf, err := ConfigInit(2048, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Init(root, conf)
+	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,11 +25,7 @@ func TestInit(t *testing.T) {
 
 func TestOpen(t *testing.T) {
 	root := filepath.Join("./test", "root")
-	conf, err := ConfigInit(2048, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Init(root, conf)
+	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
 	}

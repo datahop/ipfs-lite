@@ -13,18 +13,13 @@ import (
 	multihash "github.com/multiformats/go-multihash"
 )
 
-var secret = "2cc2c79ea52c9cc85dfd3061961dd8c4230cce0b09f182a0822c1536bf1d5f21"
-
 func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	root1 := filepath.Join("./test", "root1")
 	root2 := filepath.Join("./test", "root2")
-	conf1, err := ConfigInit(2048, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Init(root1, conf1)
+
+	err := Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,11 +28,7 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 		t.Fatal(err)
 	}
 
-	conf2, err := ConfigInit(2048, "4502")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Init(root2, conf2)
+	err = Init(root2, "4502")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +68,13 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 }
 
 func TestHost(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	root1 := filepath.Join("./test", "root1")
-	conf1, err := ConfigInit(2048, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Init(root1, conf1)
+	err := Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,10 +94,12 @@ func TestHost(t *testing.T) {
 	if cnf.Identity.PeerID != p1.Host.ID().Pretty() {
 		t.Fatal("Peer id does not match config")
 	}
-	<-time.After(time.Second * 3)
 }
 
 func TestDAG(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
@@ -150,10 +142,12 @@ func TestDAG(t *testing.T) {
 	if ok, err := p2.BlockStore().Has(node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
-	<-time.After(time.Second * 3)
 }
 
 func TestSession(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
@@ -179,10 +173,12 @@ func TestSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 3)
 }
 
 func TestFiles(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
 
@@ -209,10 +205,12 @@ func TestFiles(t *testing.T) {
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
 	}
-	<-time.After(time.Second * 3)
 }
 
 func TestOperations(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
 
@@ -259,5 +257,4 @@ func TestOperations(t *testing.T) {
 	if len(p1peers) != 1 {
 		t.Fatal("Peer count should be one")
 	}
-	<-time.After(time.Second * 3)
 }

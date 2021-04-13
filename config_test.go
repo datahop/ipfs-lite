@@ -6,7 +6,7 @@ import (
 )
 
 func TestConfigInit(t *testing.T) {
-	conf, err := ConfigInit(2048, "0")
+	conf, err := NewConfig("0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,7 @@ func TestConfigInit(t *testing.T) {
 }
 
 func TestConfigInitCustomPort(t *testing.T) {
-	conf, err := ConfigInit(2048, "5000")
+	conf, err := NewConfig("5000")
 	if err != nil {
 		t.Fatal(err)
 	}

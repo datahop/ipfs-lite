@@ -62,9 +62,7 @@ type Peer struct {
 }
 
 // New creates an IPFS-Lite Peer. It uses the given datastore, libp2p Host and
-// Routing (usuall the DHT). The Host and the Routing may be nil if
-// config.Offline is set to true, as they are not used in that case. Peer
-// implements the ipld.DAGService interface.
+// Routing (usuall the DHT). Peer implements the ipld.DAGService interface.
 func New(
 	ctx context.Context,
 	r Repo,
@@ -104,7 +102,6 @@ func New(
 		Store: r.Datastore(),
 		Repo:  r,
 	}
-
 	err = p.setupBlockstore()
 	if err != nil {
 		return nil, err
@@ -122,9 +119,7 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
-
 	go p.autoclose()
-
 	return p, nil
 }
 

@@ -18,11 +18,7 @@ func main() {
 	defer cancel()
 
 	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
-	conf, err := ipfslite.ConfigInit(2048, "0")
-	if err != nil {
-		return
-	}
-	err = ipfslite.Init(root, conf)
+	err := ipfslite.Init(root, "0")
 	if err != nil {
 		return
 	}
@@ -38,7 +34,6 @@ func main() {
 	}
 
 	lite.Bootstrap(ipfslite.DefaultBootstrapPeers())
-
 	c, _ := cid.Decode("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u")
 	rsc, err := lite.GetFile(ctx, c)
 	if err != nil {
