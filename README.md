@@ -14,10 +14,10 @@ it adds some more features of full ipfs, such as config, repo, leveldb etc.
 
 ## Objectives
 
-* [ ] create cache repo as ipfs
-* [ ] have persistent config information (Id, keys, ports, bootstraps etc)
-* [ ] use leveldb as datastore to set up peer
-* [ ] generate gomobile binding from android
+* [x] create cache repo as ipfs
+* [x] have persistent config information (Id, keys, ports, bootstraps etc)
+* [x] use leveldb as datastore to set up peer
+* [ ] generate gomobile binding for android
 
 ## License
 

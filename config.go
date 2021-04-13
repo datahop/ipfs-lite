@@ -1,0 +1,84 @@
+package ipfslite
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+
+	ci "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
+)
+
+const (
+	SwarmPort = "4501"
+
+	DefaultPrivKeyBitSize = 2048
+)
+
+// Identity tracks the configuration of the local node's identity.
+type Identity struct {
+	PeerID  string
+	PrivKey string `json:",omitempty"`
+}
+
+// Addresses stores the (string) multiaddr addresses for the node.
+type Addresses struct {
+	Swarm []string // addresses for the swarm to listen on
+}
+
+// Config wraps configuration options for the Peer.
+type Config struct {
+	Identity  Identity  // local node's peer identity
+	Addresses Addresses // local node's addresses
+	Bootstrap []string
+}
+
+func NewConfig(swarmPort string) (*Config, error) {
+	identity, err := identityConfig(DefaultPrivKeyBitSize)
+	if err != nil {
+		return nil, err
+	}
+	conf := &Config{
+		Addresses: addressesConfig(swarmPort),
+		Bootstrap: []string{},
+		Identity:  identity,
+	}
+	return conf, nil
+}
+
+// Marshal configuration with JSON
+func Marshal(value interface{}) ([]byte, error) {
+	// need to prettyprint, hence MarshalIndent, instead of Encoder
+	return json.MarshalIndent(value, "", "  ")
+}
+
+func identityConfig(nbits int) (Identity, error) {
+	ident := Identity{}
+	sk, pk, err := ci.GenerateKeyPair(ci.Ed25519, nbits)
+	if err != nil {
+		return ident, err
+	}
+	skbytes, err := sk.Bytes()
+	if err != nil {
+		return ident, err
+	}
+	ident.PrivKey = base64.StdEncoding.EncodeToString(skbytes)
+	id, err := peer.IDFromPublicKey(pk)
+	if err != nil {
+		return ident, err
+	}
+	ident.PeerID = id.Pretty()
+	return ident, nil
+}
+
+func addressesConfig(swarmPort string) Addresses {
+	if swarmPort == "0" {
+		swarmPort = SwarmPort
+	}
+	return Addresses{
+		Swarm: []string{
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", swarmPort),
+			fmt.Sprintf("/ip6/::/tcp/%s", swarmPort),
+		},
+	}
+}

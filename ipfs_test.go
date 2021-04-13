@@ -3,103 +3,103 @@ package ipfslite
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
-	"io"
 	"io/ioutil"
+	"path/filepath"
 	"testing"
+	"time"
 
-	datastore "github.com/ipfs/go-datastore"
-	dssync "github.com/ipfs/go-datastore/sync"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
-	multiaddr "github.com/multiformats/go-multiaddr"
 	multihash "github.com/multiformats/go-multihash"
 )
-
-var secret = "2cc2c79ea52c9cc85dfd3061961dd8c4230cce0b09f182a0822c1536bf1d5f21"
 
 func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ds1 := dssync.MutexWrap(datastore.NewMapDatastore())
-	ds2 := dssync.MutexWrap(datastore.NewMapDatastore())
-	priv1, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	root1 := filepath.Join("./test", "root1")
+	root2 := filepath.Join("./test", "root2")
+
+	err := Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	priv2, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	psk, err := hex.DecodeString(secret)
-	if err != nil {
-		t.Fatal(t)
-	}
-
-	listen, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/0")
-	h1, dht1, err := SetupLibp2p(
-		ctx,
-		priv1,
-		psk,
-		[]multiaddr.Multiaddr{listen},
-		nil,
-		Libp2pOptionsExtra...,
-	)
+	r1, err := Open(root1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pinfo1 := peer.AddrInfo{
-		ID:    h1.ID(),
-		Addrs: h1.Addrs(),
-	}
-
-	h2, dht2, err := SetupLibp2p(
-		ctx,
-		priv2,
-		psk,
-		[]multiaddr.Multiaddr{listen},
-		nil,
-		Libp2pOptionsExtra...,
-	)
+	err = Init(root2, "4502")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	pinfo2 := peer.AddrInfo{
-		ID:    h2.ID(),
-		Addrs: h2.Addrs(),
+	r2, err := Open(root2)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	closer = func(t *testing.T) {
 		cancel()
-		for _, cl := range []io.Closer{dht1, dht2, h1, h2} {
-			err := cl.Close()
-			if err != nil {
-				t.Error(err)
-			}
-		}
 	}
-	p1, err = New(ctx, ds1, h1, dht1, nil)
+
+	p1, err = New(ctx, r1)
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
 	}
-	p2, err = New(ctx, ds2, h2, dht2, nil)
+	p2, err = New(ctx, r2)
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
 	}
 
+	pinfo1 := peer.AddrInfo{
+		ID:    p1.Host.ID(),
+		Addrs: p1.Host.Addrs(),
+	}
+
+	pinfo2 := peer.AddrInfo{
+		ID:    p2.Host.ID(),
+		Addrs: p2.Host.Addrs(),
+	}
 	p1.Bootstrap([]peer.AddrInfo{pinfo2})
 	p2.Bootstrap([]peer.AddrInfo{pinfo1})
 
 	return
 }
 
+func TestHost(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	root1 := filepath.Join("./test", "root1")
+	err := Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1, err := New(ctx, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnf, err := r1.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Config id %s, Host Id %s", cnf.Identity.PeerID, p1.Host.ID().Pretty())
+	if cnf.Identity.PeerID != p1.Host.ID().Pretty() {
+		t.Fatal("Peer id does not match config")
+	}
+}
+
 func TestDAG(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
@@ -145,6 +145,9 @@ func TestDAG(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
@@ -159,7 +162,7 @@ func TestSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log("created node: ", node.Cid())
+	t.Log("created node: ", node.Cid(), p1)
 	err = p1.Add(ctx, node)
 	if err != nil {
 		t.Fatal(err)
@@ -173,6 +176,9 @@ func TestSession(t *testing.T) {
 }
 
 func TestFiles(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
 
@@ -198,5 +204,57 @@ func TestFiles(t *testing.T) {
 		t.Error(string(content))
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
+	}
+}
+
+func TestOperations(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	p1, p2, closer := setupPeers(t)
+	defer closer(t)
+
+	p1peers, err := p1.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2peers, err := p2.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("P1 peers %v", p1peers)
+	t.Logf("P2 peers %v", p2peers)
+	if len(p1peers) != len(p2peers) {
+		t.Fatal("Peer count should be same")
+	}
+	if p1peers[0] != p2.Host.ID().Pretty() || p2peers[0] != p1.Host.ID().Pretty() {
+		t.Fatal("Peer connection did not happen")
+	}
+	p2aInfo := peer.AddrInfo{
+		ID:    p2.Host.ID(),
+		Addrs: p2.Host.Addrs(),
+	}
+
+	err = p1.Disconnect(p2aInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1peers, err = p1.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p1peers) != 0 {
+		t.Fatal("Peer count should be zero")
+	}
+	err = p1.Connect(context.Background(), p2aInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1peers, err = p1.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p1peers) != 1 {
+		t.Fatal("Peer count should be one")
 	}
 }
