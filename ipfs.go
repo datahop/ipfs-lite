@@ -43,7 +43,7 @@ func init() {
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 }
 
-var logger = logging.Logger("ipfslite")
+var log = logging.Logger("ipfslite")
 
 // Peer is an IPFS-Lite peer. It provides a DAG service that can fetch and put
 // blocks from/to the IPFS network.
@@ -87,7 +87,6 @@ func New(
 	h, dht, err := SetupLibp2p(
 		ctx,
 		privKey,
-		nil,
 		listenAddrs,
 		r.Datastore(),
 		Libp2pOptionsExtra...,
@@ -169,10 +168,10 @@ func (p *Peer) Bootstrap(peers []peer.AddrInfo) {
 			defer wg.Done()
 			err := p.Host.Connect(p.Ctx, pinfo)
 			if err != nil {
-				logger.Warn(err)
+				log.Warn(err)
 				return
 			}
-			logger.Info("Connected to", pinfo.ID)
+			log.Info("Connected to", pinfo.ID)
 			connected <- struct{}{}
 		}(pinfo)
 	}
@@ -187,12 +186,12 @@ func (p *Peer) Bootstrap(peers []peer.AddrInfo) {
 		i++
 	}
 	if nPeers := len(peers); i < nPeers/2 {
-		logger.Warnf("only connected to %d bootstrap peers out of %d", i, nPeers)
+		log.Warnf("only connected to %d bootstrap peers out of %d", i, nPeers)
 	}
 
 	err := p.DHT.Bootstrap(p.Ctx)
 	if err != nil {
-		logger.Error(err)
+		log.Error(err)
 		return
 	}
 }
@@ -201,7 +200,7 @@ func (p *Peer) Bootstrap(peers []peer.AddrInfo) {
 func (p *Peer) Session(ctx context.Context) ipld.NodeGetter {
 	ng := merkledag.NewSession(ctx, p.DAGService)
 	if ng == p.DAGService {
-		logger.Warn("DAGService does not support sessions")
+		log.Warn("DAGService does not support sessions")
 	}
 	return ng
 }
