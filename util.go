@@ -42,6 +42,7 @@ func LevelDatastore(path string) (datastore.Batching, error) {
 // SetupLibp2p.
 var Libp2pOptionsExtra = []libp2p.Option{
 	libp2p.Transport(tcp.NewTCPTransport),
+	libp2p.DisableRelay(),
 	libp2p.NATPortMap(),
 	libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
 	libp2p.EnableNATService(),

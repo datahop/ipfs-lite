@@ -43,15 +43,16 @@ func Start() error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	hop.ctx = ctx
-	hop.cancel = cancel
+
 	r, err := ipfslite.Open(hop.root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
 		return err
 	}
 	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		hop.ctx = ctx
+		hop.cancel = cancel
 		peer, err := ipfslite.New(hop.ctx, r)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
@@ -63,6 +64,7 @@ func Start() error {
 			log.Debug("Context Closed")
 		}
 	}()
+	log.Debug("Node Started")
 	return nil
 }
 
