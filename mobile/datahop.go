@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	logger "github.com/ipfs/go-log/v2"
@@ -82,20 +83,41 @@ func Connect(address string) error {
 }
 
 func GetID() string {
-	if hop.peer != nil {
-		return hop.peer.Host.ID().String()
+	for i := 0; i < 5; i++ {
+		if hop.peer != nil {
+			return hop.peer.Host.ID().String()
+		}
+		<-time.After(time.Millisecond * 200)
 	}
-	return ""
+	return "Could not get peer ID"
 }
 
 func GetAddress() string {
-	addrs := []string{}
-	if hop.peer != nil {
-		for _, v := range hop.peer.Host.Addrs() {
-			addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+	for i := 0; i < 5; i++ {
+		addrs := []string{}
+		if hop.peer != nil {
+			for _, v := range hop.peer.Host.Addrs() {
+				addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+			}
+			return strings.Join(addrs, ",")
 		}
+		<-time.After(time.Millisecond * 200)
 	}
-	return strings.Join(addrs, ",")
+	return "Could not get peer address"
+}
+
+func IsNodeOnline() bool {
+	if hop.peer != nil {
+		return hop.peer.IsOnline()
+	}
+	return false
+}
+
+func Peers() string {
+	if hop != nil && hop.peer != nil {
+		return strings.Join(hop.peer.Peers(), ",")
+	}
+	return "No Peers connected"
 }
 
 func Stop() {

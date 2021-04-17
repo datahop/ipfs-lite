@@ -59,6 +59,8 @@ type Peer struct {
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
+	online          bool
+	mtx             sync.Mutex
 }
 
 // New creates an IPFS-Lite Peer. It uses the given datastore, libp2p Host and
@@ -118,6 +120,9 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
+	p.mtx.Lock()
+	p.online = true
+	p.mtx.Unlock()
 	go p.autoclose()
 	return p, nil
 }
@@ -147,6 +152,9 @@ func (p *Peer) setupDAGService() error {
 
 func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	p.online = false
 	p.Repo.Datastore().Close()
 	p.Host.Close()
 	p.bserv.Close()
@@ -312,13 +320,13 @@ func (p *Peer) Connect(ctx context.Context, pi peer.AddrInfo) error {
 }
 
 // Peers returns a list of connected peers
-func (p *Peer) Peers() ([]string, error) {
+func (p *Peer) Peers() []string {
 	pIDs := p.Host.Network().Peers()
 	peerList := []string{}
 	for _, pID := range pIDs {
 		peerList = append(peerList, pID.String())
 	}
-	return peerList, nil
+	return peerList
 }
 
 // Disconnect host from a given peer
@@ -341,4 +349,10 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 		return conn.Close()
 	}
 	return nil
+}
+
+func (p *Peer) IsOnline() bool {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	return p.online
 }
