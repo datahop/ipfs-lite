@@ -9,6 +9,7 @@ import (
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/version"
 	logger "github.com/ipfs/go-log/v2"
 	lpeer "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -118,6 +119,10 @@ func Peers() string {
 		return strings.Join(hop.peer.Peers(), ",")
 	}
 	return "No Peers connected"
+}
+
+func Version() string {
+	return version.Version
 }
 
 func Stop() {
