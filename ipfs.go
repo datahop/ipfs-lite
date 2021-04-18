@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 
@@ -86,6 +87,20 @@ func New(
 		listen, _ := multiaddr.NewMultiaddr(v)
 		listenAddrs = append(listenAddrs, listen)
 	}
+
+	// Listen for local interface addresses
+	ifaces := listMulticastInterfaces()
+	for _, iface := range ifaces {
+		v4, v6 := addrsForInterface(&iface)
+		for _, v := range v4 {
+			listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", v.String(), cfg.SwarmPort))
+			listenAddrs = append(listenAddrs, listen)
+		}
+		for _, v := range v6 {
+			listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/%s", v.String(), cfg.SwarmPort))
+			listenAddrs = append(listenAddrs, listen)
+		}
+	}
 	h, dht, err := SetupLibp2p(
 		ctx,
 		privKey,
@@ -158,6 +173,47 @@ func (p *Peer) autoclose() {
 	p.Repo.Datastore().Close()
 	p.Host.Close()
 	p.bserv.Close()
+}
+
+func addrsForInterface(iface *net.Interface) ([]net.IP, []net.IP) {
+	var v4, v6, v6local []net.IP
+	addrs, _ := iface.Addrs()
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				v4 = append(v4, ipnet.IP)
+			} else {
+				switch ip := ipnet.IP.To16(); ip != nil {
+				case ip.IsGlobalUnicast():
+					v6 = append(v6, ipnet.IP)
+				case ip.IsLinkLocalUnicast():
+					v6local = append(v6local, ipnet.IP)
+				}
+			}
+		}
+	}
+	if len(v6) == 0 {
+		v6 = v6local
+	}
+	return v4, v6
+}
+
+func listMulticastInterfaces() []net.Interface {
+	var interfaces []net.Interface
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	for _, ifi := range ifaces {
+		if (ifi.Flags & net.FlagUp) == 0 {
+			continue
+		}
+		if (ifi.Flags & net.FlagMulticast) > 0 {
+			interfaces = append(interfaces, ifi)
+		}
+	}
+
+	return interfaces
 }
 
 // Bootstrap is an optional helper to connect to the given peers and bootstrap
@@ -310,12 +366,12 @@ func (p *Peer) Connect(ctx context.Context, pi peer.AddrInfo) error {
 	if swrm, ok := p.Host.Network().(*swarm.Swarm); ok {
 		swrm.Backoff().Clear(pi.ID)
 	}
-
-	if err := p.Host.Connect(ctx, pi); err != nil {
-		return err
+	if p.Host.Network().Connectedness(pi.ID) != inet.Connected {
+		if err := p.Host.Connect(ctx, pi); err != nil {
+			return err
+		}
+		p.Host.ConnManager().TagPeer(pi.ID, connectionManagerTag, connectionManagerWeight)
 	}
-
-	p.Host.ConnManager().TagPeer(pi.ID, connectionManagerTag, connectionManagerWeight)
 	return nil
 }
 
