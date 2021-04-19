@@ -31,6 +31,7 @@ type Config struct {
 	Identity  Identity  // local node's peer identity
 	Addresses Addresses // local node's addresses
 	Bootstrap []string
+	SwarmPort string
 }
 
 func NewConfig(swarmPort string) (*Config, error) {
@@ -38,10 +39,14 @@ func NewConfig(swarmPort string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if swarmPort == "0" {
+		swarmPort = SwarmPort
+	}
 	conf := &Config{
 		Addresses: addressesConfig(swarmPort),
 		Bootstrap: []string{},
 		Identity:  identity,
+		SwarmPort: swarmPort,
 	}
 	return conf, nil
 }
@@ -72,9 +77,6 @@ func identityConfig(nbits int) (Identity, error) {
 }
 
 func addressesConfig(swarmPort string) Addresses {
-	if swarmPort == "0" {
-		swarmPort = SwarmPort
-	}
 	return Addresses{
 		Swarm: []string{
 			fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", swarmPort),

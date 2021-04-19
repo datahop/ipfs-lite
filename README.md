@@ -11,7 +11,6 @@ it adds some more features of full ipfs, such as config, repo, leveldb etc.
  go run ./examples/litepeer/litepeer.go
 ```
 
-
 ## Objectives
 
 * [x] create cache repo as ipfs
