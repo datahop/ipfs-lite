@@ -31,4 +31,5 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/multiformats/go-multihash v0.0.15
+	golang.org/x/tools v0.1.0 // indirect
 )

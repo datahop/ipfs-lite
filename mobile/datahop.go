@@ -1,3 +1,4 @@
+//package datahop is a mobile client for running a minimalistic ipfs node.
 package datahop
 
 //go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
@@ -17,10 +18,10 @@ import (
 
 var (
 	log = logger.Logger("datahop")
-	hop *Datahop
+	hop *datahop
 )
 
-type Datahop struct {
+type datahop struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	root   string
@@ -31,16 +32,19 @@ func init() {
 	logger.SetLogLevel("*", "Debug")
 }
 
+// Initialises the .datahop repo, if required at the given location with the given swarm port as config.
+// Default swarm port is 4501
 func Init(root string) error {
 	if err := ipfslite.Init(root, "0"); err != nil {
 		return err
 	}
-	hop = &Datahop{
+	hop = &datahop{
 		root: root,
 	}
 	return nil
 }
 
+// Starts an ipfs node in a go routine
 func Start() error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
@@ -70,6 +74,7 @@ func Start() error {
 	return nil
 }
 
+// Connects to a given peer address
 func Connect(address string) error {
 	addr, _ := ma.NewMultiaddr(address)
 	peerInfo, _ := lpeer.AddrInfosFromP2pAddrs(addr)
@@ -83,6 +88,7 @@ func Connect(address string) error {
 	return nil
 }
 
+// Returns peerId of the node
 func GetID() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {
@@ -93,6 +99,7 @@ func GetID() string {
 	return "Could not get peer ID"
 }
 
+// Returns a comma(,) separated string of all the possible addresses of a node
 func GetAddress() string {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
@@ -107,6 +114,7 @@ func GetAddress() string {
 	return "Could not get peer address"
 }
 
+// Checks if the node is running
 func IsNodeOnline() bool {
 	if hop.peer != nil {
 		return hop.peer.IsOnline()
@@ -114,6 +122,7 @@ func IsNodeOnline() bool {
 	return false
 }
 
+// Returns a comma(,) separated string of all the connected peers of a node
 func Peers() string {
 	if hop != nil && hop.peer != nil {
 		return strings.Join(hop.peer.Peers(), ",")
@@ -121,10 +130,12 @@ func Peers() string {
 	return "No Peers connected"
 }
 
+// App version
 func Version() string {
 	return version.Version
 }
 
+// Stops the node
 func Stop() {
 	hop.cancel()
 }
