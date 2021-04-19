@@ -9,7 +9,7 @@ import (
 	"time"
 
 	cbor "github.com/ipfs/go-ipld-cbor"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	multihash "github.com/multiformats/go-multihash"
 )
 
@@ -214,14 +214,9 @@ func TestOperations(t *testing.T) {
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
 
-	p1peers, err := p1.Peers()
-	if err != nil {
-		t.Fatal(err)
-	}
-	p2peers, err := p2.Peers()
-	if err != nil {
-		t.Fatal(err)
-	}
+	p1peers := p1.Peers()
+	p2peers := p2.Peers()
+
 	t.Logf("P1 peers %v", p1peers)
 	t.Logf("P2 peers %v", p2peers)
 	if len(p1peers) != len(p2peers) {
@@ -235,14 +230,11 @@ func TestOperations(t *testing.T) {
 		Addrs: p2.Host.Addrs(),
 	}
 
-	err = p1.Disconnect(p2aInfo)
+	err := p1.Disconnect(p2aInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p1peers, err = p1.Peers()
-	if err != nil {
-		t.Fatal(err)
-	}
+	p1peers = p1.Peers()
 	if len(p1peers) != 0 {
 		t.Fatal("Peer count should be zero")
 	}
@@ -250,10 +242,7 @@ func TestOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p1peers, err = p1.Peers()
-	if err != nil {
-		t.Fatal(err)
-	}
+	p1peers = p1.Peers()
 	if len(p1peers) != 1 {
 		t.Fatal("Peer count should be one")
 	}

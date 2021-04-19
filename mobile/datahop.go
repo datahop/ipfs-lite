@@ -12,7 +12,7 @@ import (
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/version"
 	logger "github.com/ipfs/go-log/v2"
-	lpeer "github.com/libp2p/go-libp2p-core/peer"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -29,7 +29,8 @@ type datahop struct {
 }
 
 func init() {
-	logger.SetLogLevel("*", "Debug")
+	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("ipfslite", "Debug")
 }
 
 // Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -75,9 +76,9 @@ func Start() error {
 }
 
 // Connects to a given peer address
-func Connect(address string) error {
+func ConnectWithAddress(address string) error {
 	addr, _ := ma.NewMultiaddr(address)
-	peerInfo, _ := lpeer.AddrInfosFromP2pAddrs(addr)
+	peerInfo, _ := peer.AddrInfosFromP2pAddrs(addr)
 
 	for _, v := range peerInfo {
 		err := hop.peer.Connect(context.Background(), v)
@@ -86,6 +87,39 @@ func Connect(address string) error {
 		}
 	}
 	return nil
+}
+
+// Connects to a given peerInfo string
+func ConnectWithPeerInfo(peerInfoByteString string) error {
+	var peerInfo peer.AddrInfo
+	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
+	if err != nil {
+		return err
+	}
+	err = hop.peer.Connect(context.Background(), peerInfo)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Returns string of the peer.AddrInfo []byte of the node
+func GetPeerInfo() string {
+	for i := 0; i < 5; i++ {
+		if hop.peer != nil {
+			pr := peer.AddrInfo{
+				ID:    hop.peer.Host.ID(),
+				Addrs: hop.peer.Host.Addrs(),
+			}
+			prb, err := pr.MarshalJSON()
+			if err != nil {
+				return "Could not get peerInfo"
+			}
+			return string(prb)
+		}
+		<-time.After(time.Millisecond * 200)
+	}
+	return "Could not get peerInfo"
 }
 
 // Returns peerId of the node

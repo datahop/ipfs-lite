@@ -74,10 +74,6 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-
-	if err != nil {
-		return nil, err
-	}
 	privb, _ := base64.StdEncoding.DecodeString(cfg.Identity.PrivKey)
 	privKey, _ := crypto.UnmarshalPrivateKey(privb)
 
