@@ -12,6 +12,7 @@ import (
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/version"
 	logger "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p-core/network"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -21,12 +22,33 @@ var (
 	hop *datahop
 )
 
+// Hook is used by clients
+type Hook interface {
+	PeerConnected(string)
+	PeerDisconnected(string)
+}
+
+type Notifier struct{}
+
+func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
+func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
+func (n *Notifier) Connected(net network.Network, c network.Conn) {
+	hop.hook.PeerConnected(c.RemotePeer().String())
+}
+func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
+	hop.hook.PeerDisconnected(c.RemotePeer().String())
+}
+func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
+func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
+
 type datahop struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	root     string
-	peer     *ipfslite.Peer
-	identity *ipfslite.Identity
+	ctx             context.Context
+	cancel          context.CancelFunc
+	root            string
+	peer            *ipfslite.Peer
+	identity        *ipfslite.Identity
+	hook            Hook
+	networkNotifier network.Notifiee
 }
 
 func init() {
@@ -36,14 +58,17 @@ func init() {
 
 // Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string) error {
+func Init(root string, h Hook) error {
 	identity, err := ipfslite.Init(root, "0")
 	if err != nil {
 		return err
 	}
+	n := &Notifier{}
 	hop = &datahop{
-		root:     root,
-		identity: identity,
+		root:            root,
+		identity:        identity,
+		hook:            h,
+		networkNotifier: n,
 	}
 	return nil
 }
@@ -69,6 +94,7 @@ func Start() error {
 			return
 		}
 		hop.peer = p
+		hop.peer.Host.Network().Notify(hop.networkNotifier)
 		select {
 		case <-hop.ctx.Done():
 			log.Debug("Context Closed")
