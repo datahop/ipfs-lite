@@ -13,8 +13,7 @@ func TestConfigInit(t *testing.T) {
 	if conf.Identity.PeerID == "" || conf.Identity.PrivKey == "" {
 		t.Fatal("Could not create identity properly")
 	}
-	if !strings.HasSuffix(conf.Addresses.Swarm[0], SwarmPort) ||
-		!strings.HasSuffix(conf.Addresses.Swarm[1], SwarmPort) {
+	if !strings.HasSuffix(conf.Addresses.Swarm[0], SwarmPort) {
 		t.Fatal("Wrong swarm port")
 	}
 }
@@ -25,12 +24,10 @@ func TestConfigInitCustomPort(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if strings.HasSuffix(conf.Addresses.Swarm[0], SwarmPort) ||
-		strings.HasSuffix(conf.Addresses.Swarm[1], SwarmPort) {
+	if strings.HasSuffix(conf.Addresses.Swarm[0], SwarmPort) {
 		t.Fatal("Wrong swarm port")
 	}
-	if !strings.HasSuffix(conf.Addresses.Swarm[0], "5000") ||
-		!strings.HasSuffix(conf.Addresses.Swarm[1], "5000") {
+	if !strings.HasSuffix(conf.Addresses.Swarm[0], "5000") {
 		t.Fatal("Wrong swarm port")
 	}
 }

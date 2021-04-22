@@ -8,7 +8,7 @@ import (
 
 func TestInit(t *testing.T) {
 	root := filepath.Join("./test", "root")
-	err := Init(root, "0")
+	_, err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestInit(t *testing.T) {
 
 func TestOpen(t *testing.T) {
 	root := filepath.Join("./test", "root")
-	err := Init(root, "0")
+	_, err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
 	}

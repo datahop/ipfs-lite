@@ -22,10 +22,11 @@ var (
 )
 
 type datahop struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	root   string
-	peer   *ipfslite.Peer
+	ctx      context.Context
+	cancel   context.CancelFunc
+	root     string
+	peer     *ipfslite.Peer
+	identity *ipfslite.Identity
 }
 
 func init() {
@@ -36,11 +37,13 @@ func init() {
 // Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
 func Init(root string) error {
-	if err := ipfslite.Init(root, "0"); err != nil {
+	identity, err := ipfslite.Init(root, "0")
+	if err != nil {
 		return err
 	}
 	hop = &datahop{
-		root: root,
+		root:     root,
+		identity: identity,
 	}
 	return nil
 }
@@ -60,12 +63,12 @@ func Start() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		hop.ctx = ctx
 		hop.cancel = cancel
-		peer, err := ipfslite.New(hop.ctx, r)
+		p, err := ipfslite.New(hop.ctx, r)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			return
 		}
-		hop.peer = peer
+		hop.peer = p
 		select {
 		case <-hop.ctx.Done():
 			log.Debug("Context Closed")
@@ -124,13 +127,7 @@ func GetPeerInfo() string {
 
 // Returns peerId of the node
 func GetID() string {
-	for i := 0; i < 5; i++ {
-		if hop.peer != nil {
-			return hop.peer.Host.ID().String()
-		}
-		<-time.After(time.Millisecond * 200)
-	}
-	return "Could not get peer ID"
+	return hop.identity.PeerID
 }
 
 // Returns a comma(,) separated string of all the possible addresses of a node
