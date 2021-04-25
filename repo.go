@@ -3,7 +3,6 @@ package ipfslite
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -77,7 +76,7 @@ func (r *FSRepo) Datastore() Datastore {
 	return r.ds
 }
 
-func Init(repoPath, swarmPort string) error {
+func Init(repoPath, swarmPort string) (*Identity, error) {
 	// packageLock must be held to ensure that the repo is not initialized more
 	// than once.
 	packageLock.Lock()
@@ -85,16 +84,20 @@ func Init(repoPath, swarmPort string) error {
 
 	// Check if already initialised
 	if isInitializedUnsynced(repoPath) {
-		return nil
+		conf, err := openConfig(repoPath)
+		if err != nil {
+			return nil, err
+		}
+		return &conf.Identity, nil
 	}
 	conf, err := NewConfig(swarmPort)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := initConfig(repoPath, conf); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &conf.Identity, nil
 }
 
 // Open the FSRepo at path. Returns an error if the repo is not
@@ -189,21 +192,29 @@ func encode(w io.Writer, value interface{}) error {
 
 // openConfig returns an error if the config file is not present.
 func (r *FSRepo) openConfig() error {
-	configFilename, err := ConfigFilename(r.path)
+	conf, err := openConfig(r.path)
 	if err != nil {
 		return err
 	}
-	conf := Config{}
+	r.config = conf
+	return nil
+}
+
+func openConfig(path string) (conf *Config, err error) {
+	configFilename, err := ConfigFilename(path)
+	conf = &Config{}
+	if err != nil {
+		return
+	}
 	f, err := os.Open(configFilename)
 	if err != nil {
-		return err
+		return
 	}
 	defer f.Close()
-	if err := json.NewDecoder(f).Decode(&conf); err != nil {
-		return fmt.Errorf("failure to decode config: %s", err)
+	if err = json.NewDecoder(f).Decode(&conf); err != nil {
+		return
 	}
-	r.config = &conf
-	return nil
+	return
 }
 
 // configIsInitialized returns true if the repo is initialized at

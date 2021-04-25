@@ -80,7 +80,6 @@ func addressesConfig(swarmPort string) Addresses {
 	return Addresses{
 		Swarm: []string{
 			fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", swarmPort),
-			fmt.Sprintf("/ip6/::/tcp/%s", swarmPort),
 		},
 	}
 }

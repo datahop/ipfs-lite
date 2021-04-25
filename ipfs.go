@@ -11,6 +11,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
@@ -34,6 +35,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	swarm "github.com/libp2p/go-libp2p-swarm"
+	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
@@ -43,6 +45,8 @@ func init() {
 	ipld.Register(cid.Raw, merkledag.DecodeRawBlock)
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 }
+
+const ServiceTag = "_datahop-discovery._tcp"
 
 var log = logging.Logger("ipfslite")
 
@@ -87,13 +91,9 @@ func New(
 	// Listen for local interface addresses
 	ifaces := listMulticastInterfaces()
 	for _, iface := range ifaces {
-		v4, v6 := addrsForInterface(&iface)
+		v4, _ := addrsForInterface(&iface)
 		for _, v := range v4 {
 			listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", v.String(), cfg.SwarmPort))
-			listenAddrs = append(listenAddrs, listen)
-		}
-		for _, v := range v6 {
-			listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/%s", v.String(), cfg.SwarmPort))
 			listenAddrs = append(listenAddrs, listen)
 		}
 	}
@@ -134,7 +134,17 @@ func New(
 	p.mtx.Lock()
 	p.online = true
 	p.mtx.Unlock()
+
 	go p.autoclose()
+
+	// Register mDNS
+	mDnsService, err := discovery.NewMdnsService(ctx, p.Host, time.Second, ServiceTag)
+	if err != nil {
+		log.Error("mDns service failed")
+	} else {
+		mDnsService.RegisterNotifee(p)
+		log.Debug("mDNS service stared")
+	}
 	return p, nil
 }
 
@@ -401,6 +411,13 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 		return conn.Close()
 	}
 	return nil
+}
+
+func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
+	log.Debug("mDNS Found Peer : ", pi.ID)
+	if err := p.Host.Connect(context.Background(), pi); err != nil {
+		log.Error("Failed to connect to peer : ", pi.ID.String())
+	}
 }
 
 func (p *Peer) IsOnline() bool {

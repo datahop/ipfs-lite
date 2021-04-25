@@ -19,7 +19,7 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	root1 := filepath.Join("./test", "root1")
 	root2 := filepath.Join("./test", "root2")
 
-	err := Init(root1, "0")
+	_, err := Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 		t.Fatal(err)
 	}
 
-	err = Init(root2, "4502")
+	_, err = Init(root2, "4502")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestHost(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	root1 := filepath.Join("./test", "root1")
-	err := Init(root1, "0")
+	_, err := Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
