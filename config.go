@@ -59,7 +59,7 @@ func Marshal(value interface{}) ([]byte, error) {
 
 func identityConfig(nbits int) (Identity, error) {
 	ident := Identity{}
-	sk, pk, err := ci.GenerateKeyPair(ci.Ed25519, nbits)
+	sk, pk, err := ci.GenerateKeyPair(ci.RSA, nbits)
 	if err != nil {
 		return ident, err
 	}

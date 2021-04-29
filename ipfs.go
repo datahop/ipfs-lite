@@ -82,21 +82,26 @@ func New(
 	privKey, _ := crypto.UnmarshalPrivateKey(privb)
 
 	listenAddrs := []multiaddr.Multiaddr{}
-	confAddrs := cfg.Addresses.Swarm
-	for _, v := range confAddrs {
-		listen, _ := multiaddr.NewMultiaddr(v)
-		listenAddrs = append(listenAddrs, listen)
-	}
 
 	// Listen for local interface addresses
 	ifaces := listMulticastInterfaces()
 	for _, iface := range ifaces {
 		v4, _ := addrsForInterface(&iface)
 		for _, v := range v4 {
-			listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", v.String(), cfg.SwarmPort))
+			if !strings.HasPrefix(v.String(), "127") {
+				listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", v.String(), cfg.SwarmPort))
+				listenAddrs = append(listenAddrs, listen)
+			}
+		}
+	}
+	if len(listenAddrs) == 0 {
+		confAddrs := cfg.Addresses.Swarm
+		for _, v := range confAddrs {
+			listen, _ := multiaddr.NewMultiaddr(v)
 			listenAddrs = append(listenAddrs, listen)
 		}
 	}
+	fmt.Println(listenAddrs)
 	h, dht, err := SetupLibp2p(
 		ctx,
 		privKey,
