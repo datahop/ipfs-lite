@@ -23,9 +23,26 @@ var (
 )
 
 // Hook is used by clients
-type Hook interface {
+type ConnectionHook interface {
 	PeerConnected(string)
 	PeerDisconnected(string)
+}
+
+// BleHook is used by clients
+type BleHook interface {
+	StartAdvertising()
+	StopAdvertising()
+	StartScanning()
+	StopScanning()
+	StartGATTServer()
+	StopGATTServer()
+}
+
+// Hook is used by clients
+type WifiHook interface {
+	StartHotspot() (string, string)
+	StopHotspot()
+	Connect(string, string)
 }
 
 type Notifier struct{}
@@ -47,7 +64,7 @@ type datahop struct {
 	root            string
 	peer            *ipfslite.Peer
 	identity        *ipfslite.Identity
-	hook            Hook
+	hook            ConnectionHook
 	networkNotifier network.Notifiee
 }
 
@@ -58,7 +75,7 @@ func init() {
 
 // Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, h Hook) error {
+func Init(root string, h ConnectionHook) error {
 	identity, err := ipfslite.Init(root, "0")
 	if err != nil {
 		return err

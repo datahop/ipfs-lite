@@ -101,7 +101,7 @@ func New(
 			listenAddrs = append(listenAddrs, listen)
 		}
 	}
-	fmt.Println(listenAddrs)
+
 	h, dht, err := SetupLibp2p(
 		ctx,
 		privKey,
