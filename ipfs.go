@@ -61,9 +61,7 @@ type Peer struct {
 	Ctx             context.Context
 	Host            host.Host
 	Store           datastore.Batching
-	Bstore          blockstore.Blockstore
 	DHT             routing.Routing
-	Bserv           blockservice.BlockService
 	Repo            Repo
 	Provider        provider.System
 	ipld.DAGService // become a DAG service
