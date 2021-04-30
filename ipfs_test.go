@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ipfs/go-datastore"
+
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	multihash "github.com/multiformats/go-multihash"
@@ -245,5 +247,32 @@ func TestOperations(t *testing.T) {
 	p1peers = p1.Peers()
 	if len(p1peers) != 1 {
 		t.Fatal("Peer count should be one")
+	}
+}
+
+func TestCRDT(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	p1, p2, closer := setupPeers(t)
+	defer closer(t)
+	myvalue := "myValue"
+	key := datastore.NewKey("mykey")
+	err := p1.CrdtStore.Put(key, []byte(myvalue))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p1.CrdtStore.Sync(datastore.NewKey("crdt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 6)
+	v, err := p2.CrdtStore.Get(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Got %s on %s", string(v), key.String())
+	if string(v) != myvalue {
+		t.Fatal("data mismatch on crdt")
 	}
 }

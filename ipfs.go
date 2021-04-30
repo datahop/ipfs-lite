@@ -18,6 +18,7 @@ import (
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	crdt "github.com/ipfs/go-ds-crdt"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
 	provider "github.com/ipfs/go-ipfs-provider"
@@ -34,6 +35,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
@@ -46,7 +48,10 @@ func init() {
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 }
 
-const ServiceTag = "_datahop-discovery._tcp"
+const (
+	ServiceTag              = "_datahop-discovery._tcp"
+	CrdtRebroadcastInterval = time.Second * 3
+)
 
 var log = logging.Logger("ipfslite")
 
@@ -66,6 +71,7 @@ type Peer struct {
 	bserv           blockservice.BlockService
 	online          bool
 	mtx             sync.Mutex
+	CrdtStore       *crdt.Datastore
 }
 
 // New creates an IPFS-Lite Peer. It uses the given datastore, libp2p Host and
@@ -136,6 +142,8 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
+	err = p.setupCrdtStore()
+
 	p.mtx.Lock()
 	p.online = true
 	p.mtx.Unlock()
@@ -176,11 +184,60 @@ func (p *Peer) setupDAGService() error {
 	return nil
 }
 
+func (p *Peer) setupCrdtStore() error {
+	psub, err := pubsub.NewGossipSub(p.Ctx, p.Host)
+	if err != nil {
+		return err
+	}
+
+	topic, err := psub.Join("datahop-net")
+	if err != nil {
+		return err
+	}
+	netSubs, err := topic.Subscribe()
+	if err != nil {
+		return err
+	}
+	go func() {
+		for {
+			msg, err := netSubs.Next(p.Ctx)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+			p.Host.ConnManager().TagPeer(msg.ReceivedFrom, "keep", 100)
+		}
+	}()
+	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, "datahop")
+	if err != nil {
+		return err
+	}
+
+	opts := crdt.DefaultOptions()
+	opts.Logger = log
+	opts.RebroadcastInterval = CrdtRebroadcastInterval
+	opts.PutHook = func(k datastore.Key, v []byte) {
+		fmt.Printf("Added: [%s] -> %s\n", k, string(v))
+
+	}
+	opts.DeleteHook = func(k datastore.Key) {
+		fmt.Printf("Removed: [%s]\n", k)
+	}
+
+	crdtStore, err := crdt.New(p.Store, datastore.NewKey("crdt"), p, pubsubBC, opts)
+	if err != nil {
+		return err
+	}
+	p.CrdtStore = crdtStore
+	return nil
+}
+
 func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.online = false
+	p.CrdtStore.Close()
 	p.Repo.Datastore().Close()
 	p.Host.Close()
 	p.bserv.Close()
