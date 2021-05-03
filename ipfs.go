@@ -215,11 +215,10 @@ func (p *Peer) setupCrdtStore() error {
 	opts.Logger = log
 	opts.RebroadcastInterval = CrdtRebroadcastInterval
 	opts.PutHook = func(k datastore.Key, v []byte) {
-		fmt.Printf("Added: [%s] -> %s\n", k, string(v))
-
+		log.Debugf("Added: [%s] -> %s\n", k, string(v))
 	}
 	opts.DeleteHook = func(k datastore.Key) {
-		fmt.Printf("Removed: [%s]\n", k)
+		log.Debugf("Removed: [%s]\n", k)
 	}
 
 	crdtStore, err := crdt.New(p.Store, datastore.NewKey("crdt"), p, pubsubBC, opts)

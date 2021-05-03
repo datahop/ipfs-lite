@@ -1,4 +1,4 @@
-//package datahop is a mobile client for running a minimalistic ipfs node.
+// Package datahop is a mobile client for running a minimalistic ipfs node.
 package datahop
 
 //go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
@@ -11,6 +11,7 @@ import (
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/version"
+	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -22,13 +23,13 @@ var (
 	hop *datahop
 )
 
-// Hook is used by clients
+// ConnectionHook is used by clients to get notified client connection
 type ConnectionHook interface {
 	PeerConnected(string)
 	PeerDisconnected(string)
 }
 
-// BleHook is used by clients
+// BleHook is used by clients to interact with Bluetooth Low Energy
 type BleHook interface {
 	StartAdvertising()
 	StopAdvertising()
@@ -38,11 +39,11 @@ type BleHook interface {
 	StopGATTServer()
 }
 
-// Hook is used by clients
+// WifiHook is used by clients to interact with wifi
 type WifiHook interface {
-	StartHotspot() (string, string)
+	StartHotspot() (string, string) // Returns ssid and password
 	StopHotspot()
-	Connect(string, string)
+	Connect(string, string) // takes in ssid and password
 }
 
 type Notifier struct{}
@@ -73,7 +74,7 @@ func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 }
 
-// Initialises the .datahop repo, if required at the given location with the given swarm port as config.
+// Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
 func Init(root string, h ConnectionHook) error {
 	identity, err := ipfslite.Init(root, "0")
@@ -90,7 +91,7 @@ func Init(root string, h ConnectionHook) error {
 	return nil
 }
 
-// Starts an ipfs node in a go routine
+// Start an ipfslite node in a go routine
 func Start() error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
@@ -121,7 +122,7 @@ func Start() error {
 	return nil
 }
 
-// Connects to a given peer address
+// ConnectWithAddress Connects to a given peer address
 func ConnectWithAddress(address string) error {
 	addr, _ := ma.NewMultiaddr(address)
 	peerInfo, _ := peer.AddrInfosFromP2pAddrs(addr)
@@ -135,7 +136,7 @@ func ConnectWithAddress(address string) error {
 	return nil
 }
 
-// Connects to a given peerInfo string
+// ConnectWithPeerInfo Connects to a given peerInfo string
 func ConnectWithPeerInfo(peerInfoByteString string) error {
 	var peerInfo peer.AddrInfo
 	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
@@ -149,7 +150,18 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	return nil
 }
 
-// Returns string of the peer.AddrInfo []byte of the node
+// Bootstrap Connects to a given peerInfo string
+func Bootstrap(peerInfoByteString string) error {
+	var peerInfo peer.AddrInfo
+	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
+	if err != nil {
+		return err
+	}
+	hop.peer.Bootstrap([]peer.AddrInfo{peerInfo})
+	return nil
+}
+
+// GetPeerInfo Returns string of the peer.AddrInfo []byte of the node
 func GetPeerInfo() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {
@@ -168,12 +180,12 @@ func GetPeerInfo() string {
 	return "Could not get peerInfo"
 }
 
-// Returns peerId of the node
+// GetID Returns peerId of the node
 func GetID() string {
 	return hop.identity.PeerID
 }
 
-// Returns a comma(,) separated string of all the possible addresses of a node
+// GetAddress Returns a comma(,) separated string of all the possible addresses of a node
 func GetAddress() string {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
@@ -188,7 +200,7 @@ func GetAddress() string {
 	return "Could not get peer address"
 }
 
-// Checks if the node is running
+// IsNodeOnline Checks if the node is running
 func IsNodeOnline() bool {
 	if hop.peer != nil {
 		return hop.peer.IsOnline()
@@ -196,7 +208,7 @@ func IsNodeOnline() bool {
 	return false
 }
 
-// Returns a comma(,) separated string of all the connected peers of a node
+// Peers Returns a comma(,) separated string of all the connected peers of a node
 func Peers() string {
 	if hop != nil && hop.peer != nil {
 		return strings.Join(hop.peer.Peers(), ",")
@@ -204,12 +216,56 @@ func Peers() string {
 	return "No Peers connected"
 }
 
-// App version
+// Replicate adds a record in the crdt store
+func Replicate(key string, value []byte) error {
+	if hop != nil && hop.peer != nil {
+		dsKey := datastore.NewKey(key)
+		err := hop.peer.CrdtStore.Put(dsKey, value)
+		if err != nil {
+			return err
+		}
+	}
+	return errors.New("datahop ipfs-lite node is not running")
+}
+
+// GetReplicatedValue retrieves a record from the crdt store
+func GetReplicatedValue(key string) ([]byte, error) {
+	if hop != nil && hop.peer != nil {
+		dsKey := datastore.NewKey(key)
+		value , err := hop.peer.CrdtStore.Get(dsKey)
+		if err != nil {
+			return []byte{}, err
+		}
+		return value, nil
+	}
+	return []byte{}, errors.New("datahop ipfs-lite node is not running")
+}
+
+// GetReplicatedContent retrieves all records from the crdt store
+// Not implemented
+func GetReplicatedContent(key string) ([]byte, error) {
+	// Datastore.Query
+	return []byte{}, nil
+}
+
+// RemoveReplication deletes record from the crdt store
+func RemoveReplication(key string) error {
+	if hop != nil && hop.peer != nil {
+		dsKey := datastore.NewKey(key)
+		err := hop.peer.CrdtStore.Delete(dsKey)
+		if err != nil {
+			return err
+		}
+	}
+	return errors.New("datahop ipfs-lite node is not running")
+}
+
+// Version of ipfs-lite
 func Version() string {
 	return version.Version
 }
 
-// Stops the node
+// Stop the node
 func Stop() {
 	hop.cancel()
 }

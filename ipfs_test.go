@@ -3,6 +3,8 @@ package ipfslite
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"github.com/ipfs/go-datastore/query"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -267,12 +269,64 @@ func TestCRDT(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-time.After(time.Second * 6)
-	v, err := p2.CrdtStore.Get(key)
+	ok, err := p2.CrdtStore.Has(key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Got %s on %s", string(v), key.String())
-	if string(v) != myvalue {
-		t.Fatal("data mismatch on crdt")
+	if !ok {
+		t.Fatal("Data not replicated")
+	}
+}
+
+func TestFilesWithCRDT(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	p1, p2, closer := setupPeers(t)
+	defer closer(t)
+
+	content := []byte("hola")
+	buf := bytes.NewReader(content)
+	b := new(bytes.Buffer)
+	_, err := b.ReadFrom(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := datastore.NewKey("myfile")
+
+	err = p1.CrdtStore.Put(key, b.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := p1.Store.Query(query.Query{})
+	for v:= range r.Next() {
+		fmt.Println(v.Key)
+	}
+
+	<-time.After(time.Second * 6)
+	ok, err := p2.CrdtStore.Has(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Data not replicated")
+	}
+
+	c2, err := p2.CrdtStore.Get(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b2 := bytes.NewReader(c2)
+
+	content2, err := ioutil.ReadAll(b2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(content, content2) {
+		t.Error(string(content))
+		t.Error(string(content2))
+		t.Error("different content put and retrieved")
 	}
 }
