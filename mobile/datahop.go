@@ -23,14 +23,14 @@ var (
 	hop *datahop
 )
 
-// ConnectionHook is used by clients to get notified client connection
-type ConnectionHook interface {
+// ConnectionManager is used by clients to get notified client connection
+type ConnectionManager interface {
 	PeerConnected(string)
 	PeerDisconnected(string)
 }
 
-// BleHook is used by clients to interact with Bluetooth Low Energy
-type BleHook interface {
+// BleManager is used by clients to interact with Bluetooth Low Energy
+type BleManager interface {
 	StartAdvertising()
 	StopAdvertising()
 	StartScanning()
@@ -39,9 +39,9 @@ type BleHook interface {
 	StopGATTServer()
 }
 
-// WifiHook is used by clients to interact with wifi
-type WifiHook interface {
-	StartHotspot() (string, string) // Returns ssid and password
+// WifiManager is used by clients to interact with wifi
+type WifiManager interface {
+	StartHotspot() (string, error) // Returns "ssid:password"
 	StopHotspot()
 	Connect(string, string) // takes in ssid and password
 }
@@ -65,7 +65,7 @@ type datahop struct {
 	root            string
 	peer            *ipfslite.Peer
 	identity        *ipfslite.Identity
-	hook            ConnectionHook
+	hook            ConnectionManager
 	networkNotifier network.Notifiee
 }
 
@@ -76,7 +76,7 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, h ConnectionHook) error {
+func Init(root string, h ConnectionManager) error {
 	identity, err := ipfslite.Init(root, "0")
 	if err != nil {
 		return err
