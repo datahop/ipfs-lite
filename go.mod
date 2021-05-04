@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5
+	github.com/golang/protobuf v1.5.2
 	github.com/ipfs/go-bitswap v0.3.3
 	github.com/ipfs/go-blockservice v0.1.4
 	github.com/ipfs/go-cid v0.0.7
@@ -34,4 +35,5 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/multiformats/go-multihash v0.0.15
 	golang.org/x/tools v0.1.0 // indirect
+	google.golang.org/protobuf v1.26.0
 )

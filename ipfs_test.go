@@ -3,15 +3,14 @@ package ipfslite
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"github.com/ipfs/go-datastore/query"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 	"time"
 
+	types "github.com/datahop/ipfs-lite/pb"
+	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
-
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	multihash "github.com/multiformats/go-multihash"
@@ -299,11 +298,6 @@ func TestFilesWithCRDT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := p1.Store.Query(query.Query{})
-	for v:= range r.Next() {
-		fmt.Println(v.Key)
-	}
-
 	<-time.After(time.Second * 6)
 	ok, err := p2.CrdtStore.Has(key)
 	if err != nil {
@@ -328,5 +322,30 @@ func TestFilesWithCRDT(t *testing.T) {
 		t.Error(string(content))
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
+	}
+}
+
+func TestReplicaArray(t *testing.T) {
+	replicas := types.Content{}
+	replicas.Replicas = append(replicas.Replicas, &types.Replica{
+		Key:   "k",
+		Value: []byte("k"),
+	})
+	replicas.Replicas = append(replicas.Replicas, &types.Replica{
+		Key:   "n",
+		Value: []byte("n"),
+	})
+	asd, err := proto.Marshal(&replicas)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newReplicas := types.Content{}
+	err = proto.Unmarshal(asd, &newReplicas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newReplicas.Replicas[0].Key != replicas.Replicas[0].Key {
+		t.Fatal("proto marshal unmarshal not working")
 	}
 }

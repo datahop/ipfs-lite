@@ -10,8 +10,11 @@ import (
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
+	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
+	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/query"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -217,10 +220,16 @@ func Peers() string {
 }
 
 // Replicate adds a record in the crdt store
-func Replicate(key string, value []byte) error {
+func Replicate(replica []byte) error {
 	if hop != nil && hop.peer != nil {
-		dsKey := datastore.NewKey(key)
-		err := hop.peer.CrdtStore.Put(dsKey, value)
+		r := types.Replica{}
+		err := proto.Unmarshal(replica, &r)
+		if err != nil {
+			return err
+		}
+
+		dsKey := datastore.NewKey(r.GetKey())
+		err = hop.peer.CrdtStore.Put(dsKey, r.GetValue())
 		if err != nil {
 			return err
 		}
@@ -236,16 +245,37 @@ func GetReplicatedValue(key string) ([]byte, error) {
 		if err != nil {
 			return []byte{}, err
 		}
-		return value, nil
+		r := types.Replica{
+			Key: key,
+			Value: value,
+		}
+		data, err := proto.Marshal(&r)
+		if err != nil {
+			return []byte{}, err
+		}
+		return data, nil
 	}
 	return []byte{}, errors.New("datahop ipfs-lite node is not running")
 }
 
 // GetReplicatedContent retrieves all records from the crdt store
-// Not implemented
-func GetReplicatedContent(key string) ([]byte, error) {
-	// Datastore.Query
-	return []byte{}, nil
+func GetReplicatedContent() ([]byte, error) {
+	records := types.Content{}
+	results, err := hop.peer.CrdtStore.Query(query.Query{})
+	if err != nil {
+		return []byte{}, err
+	}
+	for v := range results.Next() {
+		records.Replicas = append(records.Replicas, &types.Replica{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+	content, err := proto.Marshal(&records)
+	if err != nil {
+		return []byte{}, err
+	}
+	return content, nil
 }
 
 // RemoveReplication deletes record from the crdt store
