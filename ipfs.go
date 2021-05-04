@@ -50,10 +50,14 @@ func init() {
 
 const (
 	ServiceTag              = "_datahop-discovery._tcp"
-	CrdtRebroadcastInterval = time.Second * 3
 )
 
-var log = logging.Logger("ipfslite")
+var (
+	log = logging.Logger("ipfslite")
+	defaultCrdtNamespace = "/crdt"
+	defaultCrdtRebroadcastInterval = time.Second * 3
+	defaultTopic  = "datahop-crdt"
+)
 
 // Peer is an IPFS-Lite peer. It provides a DAG service that can fetch and put
 // blocks from/to the IPFS network.
@@ -187,33 +191,15 @@ func (p *Peer) setupCrdtStore() error {
 	if err != nil {
 		return err
 	}
-
-	topic, err := psub.Join("datahop-net")
-	if err != nil {
-		return err
-	}
-	netSubs, err := topic.Subscribe()
-	if err != nil {
-		return err
-	}
-	go func() {
-		for {
-			msg, err := netSubs.Next(p.Ctx)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-			p.Host.ConnManager().TagPeer(msg.ReceivedFrom, "keep", 100)
-		}
-	}()
-	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, "datahop")
+	// TODO Add RegisterTopicValidator
+	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, defaultTopic)
 	if err != nil {
 		return err
 	}
 
 	opts := crdt.DefaultOptions()
 	opts.Logger = log
-	opts.RebroadcastInterval = CrdtRebroadcastInterval
+	opts.RebroadcastInterval = defaultCrdtRebroadcastInterval
 	opts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("Added: [%s] -> %s\n", k, string(v))
 	}
@@ -221,7 +207,7 @@ func (p *Peer) setupCrdtStore() error {
 		log.Debugf("Removed: [%s]\n", k)
 	}
 
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey("crdt"), p, pubsubBC, opts)
+	crdtStore, err := crdt.New(p.Store, datastore.NewKey(defaultCrdtNamespace), p, pubsubBC, opts)
 	if err != nil {
 		return err
 	}
