@@ -42,11 +42,16 @@ type BleManager interface {
 	StopGATTServer()
 }
 
-// WifiManager is used by clients to interact with wifi
-type WifiManager interface {
+// WifiP2PManager is used by clients to mange wifi direct
+type WifiP2PManager interface {
 	StartHotspot() (string, error) // Returns "ssid:password"
 	StopHotspot()
+}
+
+// WifiManager is used by clients to mange wifi connection
+type WifiManager interface {
 	Connect(string, string) // takes in ssid and password
+	Disconnect()
 }
 
 type Notifier struct{}
@@ -70,6 +75,7 @@ type datahop struct {
 	identity        *ipfslite.Identity
 	hook            ConnectionManager
 	networkNotifier network.Notifiee
+	ble             BleManager
 }
 
 func init() {
@@ -79,7 +85,7 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, h ConnectionManager) error {
+func Init(root string, h ConnectionManager, ble BleManager) error {
 	identity, err := ipfslite.Init(root, "0")
 	if err != nil {
 		return err
@@ -90,7 +96,25 @@ func Init(root string, h ConnectionManager) error {
 		identity:        identity,
 		hook:            h,
 		networkNotifier: n,
+		ble:             ble,
 	}
+	return nil
+}
+
+// StartDiscovery initialises ble services
+func StartDiscovery() error {
+	if hop == nil {
+		return errors.New("start failed. datahop not initialised")
+	}
+	go func() {
+		hop.ble.StartAdvertising()
+	}()
+	go func() {
+		hop.ble.StartGATTServer()
+	}()
+	go func() {
+		hop.ble.StartScanning()
+	}()
 	return nil
 }
 
@@ -222,6 +246,9 @@ func Peers() string {
 // Replicate adds a record in the crdt store
 func Replicate(replica []byte) error {
 	if hop != nil && hop.peer != nil {
+		if hop.peer.CrdtStore == nil {
+			return errors.New("replication module not running")
+		}
 		r := types.Replica{}
 		err := proto.Unmarshal(replica, &r)
 		if err != nil {
@@ -240,13 +267,16 @@ func Replicate(replica []byte) error {
 // GetReplicatedValue retrieves a record from the crdt store
 func GetReplicatedValue(key string) ([]byte, error) {
 	if hop != nil && hop.peer != nil {
+		if hop.peer.CrdtStore == nil {
+			return []byte{}, errors.New("replication module not running")
+		}
 		dsKey := datastore.NewKey(key)
-		value , err := hop.peer.CrdtStore.Get(dsKey)
+		value, err := hop.peer.CrdtStore.Get(dsKey)
 		if err != nil {
 			return []byte{}, err
 		}
 		r := types.Replica{
-			Key: key,
+			Key:   key,
 			Value: value,
 		}
 		data, err := proto.Marshal(&r)
@@ -260,27 +290,36 @@ func GetReplicatedValue(key string) ([]byte, error) {
 
 // GetReplicatedContent retrieves all records from the crdt store
 func GetReplicatedContent() ([]byte, error) {
-	records := types.Content{}
-	results, err := hop.peer.CrdtStore.Query(query.Query{})
-	if err != nil {
-		return []byte{}, err
+	if hop != nil && hop.peer != nil {
+		if hop.peer.CrdtStore == nil {
+			return []byte{}, errors.New("replication module not running")
+		}
+		records := types.Content{}
+		results, err := hop.peer.CrdtStore.Query(query.Query{})
+		if err != nil {
+			return []byte{}, err
+		}
+		for v := range results.Next() {
+			records.Replicas = append(records.Replicas, &types.Replica{
+				Key:   v.Key,
+				Value: v.Value,
+			})
+		}
+		content, err := proto.Marshal(&records)
+		if err != nil {
+			return []byte{}, err
+		}
+		return content, nil
 	}
-	for v := range results.Next() {
-		records.Replicas = append(records.Replicas, &types.Replica{
-			Key:   v.Key,
-			Value: v.Value,
-		})
-	}
-	content, err := proto.Marshal(&records)
-	if err != nil {
-		return []byte{}, err
-	}
-	return content, nil
+	return []byte{}, errors.New("datahop ipfs-lite node is not running")
 }
 
 // RemoveReplication deletes record from the crdt store
 func RemoveReplication(key string) error {
 	if hop != nil && hop.peer != nil {
+		if hop.peer.CrdtStore == nil {
+			return errors.New("replication module not running")
+		}
 		dsKey := datastore.NewKey(key)
 		err := hop.peer.CrdtStore.Delete(dsKey)
 		if err != nil {

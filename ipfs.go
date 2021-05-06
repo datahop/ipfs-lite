@@ -49,14 +49,15 @@ func init() {
 }
 
 const (
-	ServiceTag              = "_datahop-discovery._tcp"
+	ServiceTag                     = "_datahop-discovery._tcp"
+	defaultCrdtNamespace           = "/crdt"
+	defaultCrdtRebroadcastInterval = time.Second * 3
+	defaultMDNSInterval            = time.Minute
+	defaultTopic                   = "datahop-crdt"
 )
 
 var (
 	log = logging.Logger("ipfslite")
-	defaultCrdtNamespace = "/crdt"
-	defaultCrdtRebroadcastInterval = time.Second * 3
-	defaultTopic  = "datahop-crdt"
 )
 
 // Peer is an IPFS-Lite peer. It provides a DAG service that can fetch and put
@@ -76,12 +77,75 @@ type Peer struct {
 	CrdtStore       *crdt.Datastore
 }
 
+type Option func(*Options)
+
+func WithmDNSInterval(interval time.Duration) Option {
+	return func(h *Options) {
+		h.mDNSInterval = interval
+	}
+}
+
+func WithRebroadcastInterval(interval time.Duration) Option {
+	return func(h *Options) {
+		h.crdtRebroadcastInterval = interval
+	}
+}
+
+func WithmDNS(withmDNS bool) Option {
+	return func(h *Options) {
+		h.withmDNS = withmDNS
+	}
+}
+
+func WithCrdt(withCrdt bool) Option {
+	return func(h *Options) {
+		h.withCRDT = withCrdt
+	}
+}
+
+func WithCrdtTopic(topic string) Option {
+	return func(h *Options) {
+		h.crdtTopic = topic
+	}
+}
+
+func WithCrdtNamespace(namespace string) Option {
+	return func(h *Options) {
+		h.crdtNamespace = namespace
+	}
+}
+
+type Options struct {
+	mDNSInterval            time.Duration
+	crdtRebroadcastInterval time.Duration
+	withmDNS                bool
+	withCRDT                bool
+	crdtTopic               string
+	crdtNamespace           string
+}
+
+func defaultOptions() *Options {
+	return &Options{
+		mDNSInterval:            defaultMDNSInterval,
+		crdtRebroadcastInterval: defaultCrdtRebroadcastInterval,
+		withmDNS:                true,
+		withCRDT:                true,
+		crdtTopic:               defaultTopic,
+		crdtNamespace:           defaultCrdtNamespace,
+	}
+}
+
 // New creates an IPFS-Lite Peer. It uses the given datastore, libp2p Host and
 // Routing (usuall the DHT). Peer implements the ipld.DAGService interface.
 func New(
 	ctx context.Context,
 	r Repo,
+	opts ...Option,
 ) (*Peer, error) {
+	options := defaultOptions()
+	for _, option := range opts {
+		option(options)
+	}
 	cfg, err := r.Config()
 	if err != nil {
 		return nil, err
@@ -144,22 +208,30 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
-	err = p.setupCrdtStore()
+	if options.withCRDT {
+		err = p.setupCrdtStore(options)
+		if err != nil {
+			p.bserv.Close()
+			return nil, err
+		}
+	}
 
 	p.mtx.Lock()
 	p.online = true
 	p.mtx.Unlock()
 
 	go p.autoclose()
-
-	// Register mDNS
-	mDnsService, err := discovery.NewMdnsService(ctx, p.Host, time.Second, ServiceTag)
-	if err != nil {
-		log.Error("mDns service failed")
-	} else {
-		mDnsService.RegisterNotifee(p)
-		log.Debug("mDNS service stared")
+	if options.withmDNS {
+		// Register mDNS
+		mDnsService, err := discovery.NewMdnsService(ctx, p.Host, options.mDNSInterval, ServiceTag)
+		if err != nil {
+			log.Error("mDns service failed")
+		} else {
+			mDnsService.RegisterNotifee(p)
+			log.Debug("mDNS service stared")
+		}
 	}
+
 	return p, nil
 }
 
@@ -186,28 +258,28 @@ func (p *Peer) setupDAGService() error {
 	return nil
 }
 
-func (p *Peer) setupCrdtStore() error {
+func (p *Peer) setupCrdtStore(opts *Options) error {
 	psub, err := pubsub.NewGossipSub(p.Ctx, p.Host)
 	if err != nil {
 		return err
 	}
 	// TODO Add RegisterTopicValidator
-	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, defaultTopic)
+	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, opts.crdtTopic)
 	if err != nil {
 		return err
 	}
 
-	opts := crdt.DefaultOptions()
-	opts.Logger = log
-	opts.RebroadcastInterval = defaultCrdtRebroadcastInterval
-	opts.PutHook = func(k datastore.Key, v []byte) {
+	crdtOpts := crdt.DefaultOptions()
+	crdtOpts.Logger = log
+	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
+	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("Added: [%s] -> %s\n", k, string(v))
 	}
-	opts.DeleteHook = func(k datastore.Key) {
+	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("Removed: [%s]\n", k)
 	}
 
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey(defaultCrdtNamespace), p, pubsubBC, opts)
+	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtNamespace), p, pubsubBC, crdtOpts)
 	if err != nil {
 		return err
 	}
