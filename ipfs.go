@@ -51,7 +51,7 @@ func init() {
 const (
 	ServiceTag                     = "_datahop-discovery._tcp"
 	defaultCrdtNamespace           = "/crdt"
-	defaultCrdtRebroadcastInterval = time.Second * 3
+	defaultCrdtRebroadcastInterval = time.Second * 20
 	defaultMDNSInterval            = time.Minute
 	defaultTopic                   = "datahop-crdt"
 )

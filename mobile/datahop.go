@@ -91,29 +91,61 @@ func Init(root string, h ConnectionManager, ble BleManager) error {
 		return err
 	}
 	n := &Notifier{}
+	ctx, cancel := context.WithCancel(context.Background())
 	hop = &datahop{
 		root:            root,
 		identity:        identity,
 		hook:            h,
 		networkNotifier: n,
 		ble:             ble,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 	return nil
 }
 
 // StartDiscovery initialises ble services
+//
+// It starts three services in three different go routines. Advertising scanning and gatt server
+// Advertising happens every one minute interval for 30 seconds. Same for scanning. Although
+// scanning starts 30 seconds after initials start, i.e. After advertising stops.
 func StartDiscovery() error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
 	go func() {
-		hop.ble.StartAdvertising()
+		advertiseTicker := time.NewTicker(time.Minute * 1)
+		defer advertiseTicker.Stop()
+		for {
+			hop.ble.StartAdvertising()
+			<-time.After(time.Second * 30)
+			hop.ble.StopAdvertising()
+			select {
+			case <-hop.ctx.Done():
+				return
+			case <-advertiseTicker.C:
+			}
+		}
 	}()
 	go func() {
 		hop.ble.StartGATTServer()
+		<-hop.ctx.Done()
+		hop.ble.StopGATTServer()
 	}()
 	go func() {
-		hop.ble.StartScanning()
+		<-time.After(time.Second * 30)
+		scannerTicker := time.NewTicker(time.Minute * 1)
+		defer scannerTicker.Stop()
+		for {
+			hop.ble.StartScanning()
+			<-time.After(time.Second * 30)
+			hop.ble.StopScanning()
+			select {
+			case <-hop.ctx.Done():
+				return
+			case <-scannerTicker.C:
+			}
+		}
 	}()
 	return nil
 }
@@ -130,9 +162,6 @@ func Start() error {
 		return err
 	}
 	go func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		hop.ctx = ctx
-		hop.cancel = cancel
 		p, err := ipfslite.New(hop.ctx, r)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
