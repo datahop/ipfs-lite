@@ -1,7 +1,9 @@
 // Package datahop is a mobile client for running a minimalistic ipfs node.
 package datahop
 
-//go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
+// add a separate GOMODCACHE fro faster builds
+
+//go:generate ./generate.sh
 
 import (
 	"context"
