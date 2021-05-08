@@ -50,7 +50,7 @@ func init() {
 
 const (
 	ServiceTag                     = "_datahop-discovery._tcp"
-	defaultCrdtNamespace           = "/crdt"
+	DefaultCrdtNamespace           = "/crdt"
 	defaultCrdtRebroadcastInterval = time.Second * 20
 	defaultMDNSInterval            = time.Minute
 	defaultTopic                   = "datahop-crdt"
@@ -109,19 +109,12 @@ func WithCrdtTopic(topic string) Option {
 	}
 }
 
-func WithCrdtNamespace(namespace string) Option {
-	return func(h *Options) {
-		h.crdtNamespace = namespace
-	}
-}
-
 type Options struct {
 	mDNSInterval            time.Duration
 	crdtRebroadcastInterval time.Duration
 	withmDNS                bool
 	withCRDT                bool
 	crdtTopic               string
-	crdtNamespace           string
 }
 
 func defaultOptions() *Options {
@@ -131,7 +124,6 @@ func defaultOptions() *Options {
 		withmDNS:                true,
 		withCRDT:                true,
 		crdtTopic:               defaultTopic,
-		crdtNamespace:           defaultCrdtNamespace,
 	}
 }
 
@@ -200,10 +192,6 @@ func New(
 		return nil, err
 	}
 	err = p.setupDAGService()
-	if err != nil {
-		p.bserv.Close()
-		return nil, err
-	}
 	if err != nil {
 		p.bserv.Close()
 		return nil, err
@@ -279,7 +267,7 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 		log.Debugf("Removed: [%s]\n", k)
 	}
 
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtNamespace), p, pubsubBC, crdtOpts)
+	crdtStore, err := crdt.New(p.Store, datastore.NewKey(DefaultCrdtNamespace), p, pubsubBC, crdtOpts)
 	if err != nil {
 		return err
 	}
@@ -293,7 +281,7 @@ func (p *Peer) autoclose() {
 	defer p.mtx.Unlock()
 	p.online = false
 	p.CrdtStore.Close()
-	p.Repo.Datastore().Close()
+	p.Repo.Close()
 	p.Host.Close()
 	p.bserv.Close()
 }

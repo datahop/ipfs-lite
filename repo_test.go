@@ -8,7 +8,7 @@ import (
 
 func TestInit(t *testing.T) {
 	root := filepath.Join("./test", "root")
-	_, err := Init(root, "0")
+	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestInit(t *testing.T) {
 
 func TestOpen(t *testing.T) {
 	root := filepath.Join("./test", "root")
-	_, err := Init(root, "0")
+	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Datastore().Close()
+	defer r.Close()
 	_, err = os.Stat(filepath.Join(root, DefaultDatastoreFolderName))
 	if err != nil {
 		t.Fatal(err)

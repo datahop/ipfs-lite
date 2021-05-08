@@ -31,6 +31,7 @@ type Repo interface {
 	Path() string
 	Config() (*Config, error)
 	Datastore() Datastore
+	Close() error
 }
 
 // Datastore is the interface required from a datastore to be
@@ -49,6 +50,7 @@ type FSRepo struct {
 	lockfile io.Closer
 	config   *Config
 	ds       Datastore
+	io.Closer
 }
 
 func (r *FSRepo) Config() (*Config, error) {
@@ -73,10 +75,17 @@ func (r *FSRepo) Path() string {
 func (r *FSRepo) Datastore() Datastore {
 	packageLock.Lock()
 	defer packageLock.Unlock()
+
 	return r.ds
 }
 
-func Init(repoPath, swarmPort string) (*Identity, error) {
+func (r *FSRepo) Close() error {
+	packageLock.Lock()
+	defer packageLock.Unlock()
+	return r.ds.Close()
+}
+
+func Init(repoPath, swarmPort string) error {
 	// packageLock must be held to ensure that the repo is not initialized more
 	// than once.
 	packageLock.Lock()
@@ -84,20 +93,16 @@ func Init(repoPath, swarmPort string) (*Identity, error) {
 
 	// Check if already initialised
 	if isInitializedUnsynced(repoPath) {
-		conf, err := openConfig(repoPath)
-		if err != nil {
-			return nil, err
-		}
-		return &conf.Identity, nil
+		return nil
 	}
 	conf, err := NewConfig(swarmPort)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := initConfig(repoPath, conf); err != nil {
-		return nil, err
+		return err
 	}
-	return &conf.Identity, nil
+	return nil
 }
 
 // Open the FSRepo at path. Returns an error if the repo is not

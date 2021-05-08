@@ -74,10 +74,11 @@ type datahop struct {
 	cancel          context.CancelFunc
 	root            string
 	peer            *ipfslite.Peer
-	identity        *ipfslite.Identity
+	identity        ipfslite.Identity
 	hook            ConnectionManager
 	networkNotifier network.Notifiee
 	ble             BleManager
+	repo            ipfslite.Repo
 }
 
 func init() {
@@ -88,22 +89,44 @@ func init() {
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
 func Init(root string, h ConnectionManager, ble BleManager) error {
-	identity, err := ipfslite.Init(root, "0")
+	err := ipfslite.Init(root, "0")
 	if err != nil {
 		return err
 	}
 	n := &Notifier{}
+	r, err := ipfslite.Open(root)
+	if err != nil {
+		log.Error("Repo Open Failed : ", err.Error())
+		return err
+	}
+	cfg, err := r.Config()
+	if err != nil {
+		log.Error("Config Failed : ", err.Error())
+		return err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	hop = &datahop{
 		root:            root,
-		identity:        identity,
+		identity:        cfg.Identity,
 		hook:            h,
 		networkNotifier: n,
 		ble:             ble,
 		ctx:             ctx,
 		cancel:          cancel,
+		repo:            r,
 	}
 	return nil
+}
+
+func DiskUsage() (uint64, error) {
+	if hop == nil {
+		return 0, errors.New("datahop not initialised")
+	}
+	ds, err := hop.repo.Datastore()
+	if err != nil {
+		return 0, err
+	}
+	return datastore.DiskUsage(ds)
 }
 
 // StartDiscovery initialises ble services
@@ -158,13 +181,8 @@ func Start() error {
 		return errors.New("start failed. datahop not initialised")
 	}
 
-	r, err := ipfslite.Open(hop.root)
-	if err != nil {
-		log.Error("Repo Open Failed : ", err.Error())
-		return err
-	}
 	go func() {
-		p, err := ipfslite.New(hop.ctx, r)
+		p, err := ipfslite.New(hop.ctx, hop.repo)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			return
