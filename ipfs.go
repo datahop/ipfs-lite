@@ -18,6 +18,7 @@ import (
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	crdt "github.com/ipfs/go-ds-crdt"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
 	provider "github.com/ipfs/go-ipfs-provider"
@@ -34,6 +35,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
@@ -46,9 +48,17 @@ func init() {
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 }
 
-const ServiceTag = "_datahop-discovery._tcp"
+const (
+	ServiceTag                     = "_datahop-discovery._tcp"
+	defaultCrdtNamespace           = "/crdt"
+	defaultCrdtRebroadcastInterval = time.Second * 20
+	defaultMDNSInterval            = time.Minute
+	defaultTopic                   = "datahop-crdt"
+)
 
-var log = logging.Logger("ipfslite")
+var (
+	log = logging.Logger("ipfslite")
+)
 
 // Peer is an IPFS-Lite peer. It provides a DAG service that can fetch and put
 // blocks from/to the IPFS network.
@@ -56,9 +66,7 @@ type Peer struct {
 	Ctx             context.Context
 	Host            host.Host
 	Store           datastore.Batching
-	Bstore          blockstore.Blockstore
 	DHT             routing.Routing
-	Bserv           blockservice.BlockService
 	Repo            Repo
 	Provider        provider.System
 	ipld.DAGService // become a DAG service
@@ -66,6 +74,65 @@ type Peer struct {
 	bserv           blockservice.BlockService
 	online          bool
 	mtx             sync.Mutex
+	CrdtStore       *crdt.Datastore
+}
+
+type Option func(*Options)
+
+func WithmDNSInterval(interval time.Duration) Option {
+	return func(h *Options) {
+		h.mDNSInterval = interval
+	}
+}
+
+func WithRebroadcastInterval(interval time.Duration) Option {
+	return func(h *Options) {
+		h.crdtRebroadcastInterval = interval
+	}
+}
+
+func WithmDNS(withmDNS bool) Option {
+	return func(h *Options) {
+		h.withmDNS = withmDNS
+	}
+}
+
+func WithCrdt(withCrdt bool) Option {
+	return func(h *Options) {
+		h.withCRDT = withCrdt
+	}
+}
+
+func WithCrdtTopic(topic string) Option {
+	return func(h *Options) {
+		h.crdtTopic = topic
+	}
+}
+
+func WithCrdtNamespace(namespace string) Option {
+	return func(h *Options) {
+		h.crdtNamespace = namespace
+	}
+}
+
+type Options struct {
+	mDNSInterval            time.Duration
+	crdtRebroadcastInterval time.Duration
+	withmDNS                bool
+	withCRDT                bool
+	crdtTopic               string
+	crdtNamespace           string
+}
+
+func defaultOptions() *Options {
+	return &Options{
+		mDNSInterval:            defaultMDNSInterval,
+		crdtRebroadcastInterval: defaultCrdtRebroadcastInterval,
+		withmDNS:                true,
+		withCRDT:                true,
+		crdtTopic:               defaultTopic,
+		crdtNamespace:           defaultCrdtNamespace,
+	}
 }
 
 // New creates an IPFS-Lite Peer. It uses the given datastore, libp2p Host and
@@ -73,7 +140,12 @@ type Peer struct {
 func New(
 	ctx context.Context,
 	r Repo,
+	opts ...Option,
 ) (*Peer, error) {
+	options := defaultOptions()
+	for _, option := range opts {
+		option(options)
+	}
 	cfg, err := r.Config()
 	if err != nil {
 		return nil, err
@@ -136,20 +208,30 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
+	if options.withCRDT {
+		err = p.setupCrdtStore(options)
+		if err != nil {
+			p.bserv.Close()
+			return nil, err
+		}
+	}
+
 	p.mtx.Lock()
 	p.online = true
 	p.mtx.Unlock()
 
 	go p.autoclose()
-
-	// Register mDNS
-	mDnsService, err := discovery.NewMdnsService(ctx, p.Host, time.Second, ServiceTag)
-	if err != nil {
-		log.Error("mDns service failed")
-	} else {
-		mDnsService.RegisterNotifee(p)
-		log.Debug("mDNS service stared")
+	if options.withmDNS {
+		// Register mDNS
+		mDnsService, err := discovery.NewMdnsService(ctx, p.Host, options.mDNSInterval, ServiceTag)
+		if err != nil {
+			log.Error("mDns service failed")
+		} else {
+			mDnsService.RegisterNotifee(p)
+			log.Debug("mDNS service stared")
+		}
 	}
+
 	return p, nil
 }
 
@@ -176,11 +258,41 @@ func (p *Peer) setupDAGService() error {
 	return nil
 }
 
+func (p *Peer) setupCrdtStore(opts *Options) error {
+	psub, err := pubsub.NewGossipSub(p.Ctx, p.Host)
+	if err != nil {
+		return err
+	}
+	// TODO Add RegisterTopicValidator
+	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, opts.crdtTopic)
+	if err != nil {
+		return err
+	}
+
+	crdtOpts := crdt.DefaultOptions()
+	crdtOpts.Logger = log
+	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
+	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
+		log.Debugf("Added: [%s] -> %s\n", k, string(v))
+	}
+	crdtOpts.DeleteHook = func(k datastore.Key) {
+		log.Debugf("Removed: [%s]\n", k)
+	}
+
+	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtNamespace), p, pubsubBC, crdtOpts)
+	if err != nil {
+		return err
+	}
+	p.CrdtStore = crdtStore
+	return nil
+}
+
 func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.online = false
+	p.CrdtStore.Close()
 	p.Repo.Datastore().Close()
 	p.Host.Close()
 	p.bserv.Close()

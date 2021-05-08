@@ -6,8 +6,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-datastore"
 	"io/ioutil"
 	"os"
+	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/ipfs/go-cid"
@@ -46,4 +48,12 @@ func main() {
 	}
 
 	fmt.Println(string(content))
+	myvalue := "myValue"
+	key := datastore.NewKey("mykey2")
+	err = lite.CrdtStore.Put(key, []byte(myvalue))
+	if err != nil {
+		panic(err)
+	}
+
+	<-time.After(time.Minute * 1)
 }

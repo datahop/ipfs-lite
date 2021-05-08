@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	types "github.com/datahop/ipfs-lite/pb"
+	"github.com/golang/protobuf/proto"
+	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	multihash "github.com/multiformats/go-multihash"
@@ -245,5 +248,104 @@ func TestOperations(t *testing.T) {
 	p1peers = p1.Peers()
 	if len(p1peers) != 1 {
 		t.Fatal("Peer count should be one")
+	}
+}
+
+func TestCRDT(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	p1, p2, closer := setupPeers(t)
+	defer closer(t)
+	myvalue := "myValue"
+	key := datastore.NewKey("mykey")
+	err := p1.CrdtStore.Put(key, []byte(myvalue))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p1.CrdtStore.Sync(datastore.NewKey("crdt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 6)
+	ok, err := p2.CrdtStore.Has(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Data not replicated")
+	}
+}
+
+func TestFilesWithCRDT(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	p1, p2, closer := setupPeers(t)
+	defer closer(t)
+
+	content := []byte("hola")
+	buf := bytes.NewReader(content)
+	b := new(bytes.Buffer)
+	_, err := b.ReadFrom(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := datastore.NewKey("myfile")
+
+	err = p1.CrdtStore.Put(key, b.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	<-time.After(time.Second * 6)
+	ok, err := p2.CrdtStore.Has(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Data not replicated")
+	}
+
+	c2, err := p2.CrdtStore.Get(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b2 := bytes.NewReader(c2)
+
+	content2, err := ioutil.ReadAll(b2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(content, content2) {
+		t.Error(string(content))
+		t.Error(string(content2))
+		t.Error("different content put and retrieved")
+	}
+}
+
+func TestReplicaArray(t *testing.T) {
+	replicas := types.Content{}
+	replicas.Replicas = append(replicas.Replicas, &types.Replica{
+		Key:   "k",
+		Value: []byte("k"),
+	})
+	replicas.Replicas = append(replicas.Replicas, &types.Replica{
+		Key:   "n",
+		Value: []byte("n"),
+	})
+	asd, err := proto.Marshal(&replicas)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newReplicas := types.Content{}
+	err = proto.Unmarshal(asd, &newReplicas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newReplicas.Replicas[0].Key != replicas.Replicas[0].Key {
+		t.Fatal("proto marshal unmarshal not working")
 	}
 }
