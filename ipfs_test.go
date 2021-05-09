@@ -44,12 +44,12 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 		cancel()
 	}
 
-	p1, err = New(ctx, cancel, r1)
+	p1, err = New(ctx, cancel, r1, WithRebroadcastInterval(time.Second))
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
 	}
-	p2, err = New(ctx, cancel, r2)
+	p2, err = New(ctx, cancel, r2, WithRebroadcastInterval(time.Second))
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
@@ -267,7 +267,7 @@ func TestCRDT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 6)
+	<-time.After(time.Second * 3)
 	ok, err := p2.CrdtStore.Has(key)
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +298,7 @@ func TestFilesWithCRDT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	<-time.After(time.Second * 6)
+	<-time.After(time.Second * 3)
 	ok, err := p2.CrdtStore.Has(key)
 	if err != nil {
 		t.Fatal(err)
