@@ -88,7 +88,7 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, h ConnectionManager, ble BleManager) error {
+func Init(root string, connManager ConnectionManager, bleManager BleManager) error {
 	err := ipfslite.Init(root, "0")
 	if err != nil {
 		return err
@@ -108,9 +108,9 @@ func Init(root string, h ConnectionManager, ble BleManager) error {
 	hop = &datahop{
 		root:            root,
 		identity:        cfg.Identity,
-		hook:            h,
+		hook:            connManager,
 		networkNotifier: n,
-		ble:             ble,
+		ble:             bleManager,
 		ctx:             ctx,
 		cancel:          cancel,
 		repo:            r,

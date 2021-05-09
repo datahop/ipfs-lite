@@ -8,9 +8,20 @@ import (
 	ipfslite "github.com/datahop/ipfs-lite"
 )
 
+type MockConnManager struct{}
+
+func (m MockConnManager) PeerConnected(s string) {
+	// do nothing
+}
+
+func (m MockConnManager) PeerDisconnected(s string) {
+	// do nothing
+}
+
 func TestContentLength(t *testing.T) {
 	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
-	err := Init(root, nil, nil)
+	cm := MockConnManager{}
+	err := Init(root, cm, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +35,8 @@ func TestContentLength(t *testing.T) {
 func TestMultipleStart(t *testing.T) {
 	<-time.After(time.Second * 1)
 	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
-	err := Init(root, nil, nil)
+	cm := MockConnManager{}
+	err := Init(root, cm, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
