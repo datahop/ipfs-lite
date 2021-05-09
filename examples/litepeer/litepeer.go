@@ -6,10 +6,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/go-datastore"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/ipfs/go-datastore"
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/ipfs/go-cid"
@@ -20,7 +21,7 @@ func main() {
 	defer cancel()
 
 	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
-	_, err := ipfslite.Init(root, "0")
+	err := ipfslite.Init(root, "0")
 	if err != nil {
 		return
 	}
@@ -30,7 +31,7 @@ func main() {
 		return
 	}
 
-	lite, err := ipfslite.New(ctx, r)
+	lite, err := ipfslite.New(ctx, cancel, r)
 	if err != nil {
 		panic(err)
 	}
