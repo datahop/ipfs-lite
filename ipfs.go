@@ -64,6 +64,7 @@ var (
 // blocks from/to the IPFS network.
 type Peer struct {
 	Ctx             context.Context
+	Cancel          context.CancelFunc
 	Host            host.Host
 	Store           datastore.Batching
 	DHT             routing.Routing
@@ -131,6 +132,7 @@ func defaultOptions() *Options {
 // Routing (usuall the DHT). Peer implements the ipld.DAGService interface.
 func New(
 	ctx context.Context,
+	cancelFunc context.CancelFunc,
 	r Repo,
 	opts ...Option,
 ) (*Peer, error) {
@@ -177,11 +179,12 @@ func New(
 		return nil, err
 	}
 	p := &Peer{
-		Ctx:   ctx,
-		Host:  h,
-		DHT:   dht,
-		Store: r.Datastore(),
-		Repo:  r,
+		Ctx:    ctx,
+		Cancel: cancelFunc,
+		Host:   h,
+		DHT:    dht,
+		Store:  r.Datastore(),
+		Repo:   r,
 	}
 	err = p.setupBlockstore()
 	if err != nil {

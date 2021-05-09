@@ -122,11 +122,7 @@ func DiskUsage() (uint64, error) {
 	if hop == nil {
 		return 0, errors.New("datahop not initialised")
 	}
-	ds, err := hop.repo.Datastore()
-	if err != nil {
-		return 0, err
-	}
-	return datastore.DiskUsage(ds)
+	return datastore.DiskUsage(hop.repo.Datastore())
 }
 
 // StartDiscovery initialises ble services
@@ -182,7 +178,8 @@ func Start() error {
 	}
 
 	go func() {
-		p, err := ipfslite.New(hop.ctx, hop.repo)
+		ctx, cancel := context.WithCancel(hop.ctx)
+		p, err := ipfslite.New(ctx, cancel, hop.repo)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			return
@@ -385,5 +382,11 @@ func Version() string {
 
 // Stop the node
 func Stop() {
+	hop.peer.Cancel()
+}
+
+// Close the repo and all
+func Close() {
+	hop.repo.Close()
 	hop.cancel()
 }

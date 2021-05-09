@@ -44,12 +44,12 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 		cancel()
 	}
 
-	p1, err = New(ctx, r1)
+	p1, err = New(ctx, cancel, r1)
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
 	}
-	p2, err = New(ctx, r2)
+	p2, err = New(ctx, cancel, r2)
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p1, err := New(ctx, r1)
+	p1, err := New(ctx, cancel, r1)
 	if err != nil {
 		t.Fatal(err)
 	}
