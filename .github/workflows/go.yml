@@ -1,0 +1,29 @@
+name: Go
+
+on:
+  push:
+    branches: [ alpha.0 ]
+  pull_request:
+    branches: [ alpha.0 ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2.1.3
+        with:
+          go-version: 1.16
+
+      - name: Test
+        run: go test -v `go list ./... | grep -v mobile/mod-cache`
+
+      - name: Build
+        run: cd mobile && ./generate.sh
