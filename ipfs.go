@@ -80,24 +80,28 @@ type Peer struct {
 
 type Option func(*Options)
 
+// WithmDNSInterval changes default mDNS rebroadcast interval
 func WithmDNSInterval(interval time.Duration) Option {
 	return func(h *Options) {
 		h.mDNSInterval = interval
 	}
 }
 
+// WithRebroadcastInterval changes default crdt rebroadcast interval
 func WithRebroadcastInterval(interval time.Duration) Option {
 	return func(h *Options) {
 		h.crdtRebroadcastInterval = interval
 	}
 }
 
+// WithmDNS decides if the ipfs node will start with mDNS or not
 func WithmDNS(withmDNS bool) Option {
 	return func(h *Options) {
 		h.withmDNS = withmDNS
 	}
 }
 
+// WithCrdt decides if the ipfs node will start with crdt datastore or not
 func WithCrdt(withCrdt bool) Option {
 	return func(h *Options) {
 		h.withCRDT = withCrdt

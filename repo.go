@@ -85,6 +85,7 @@ func (r *FSRepo) Close() error {
 	return r.ds.Close()
 }
 
+// Init initialises ipfs persistent repository to a given location
 func Init(repoPath, swarmPort string) error {
 	// packageLock must be held to ensure that the repo is not initialized more
 	// than once.
@@ -187,7 +188,7 @@ func ConfigFilename(configroot string) (string, error) {
 // encode configuration with JSON
 func encode(w io.Writer, value interface{}) error {
 	// need to prettyprint, hence MarshalIndent, instead of Encoder
-	buf, err := Marshal(value)
+	buf, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -230,10 +231,11 @@ func configIsInitialized(path string) bool {
 		return false
 	}
 
-	if !FileExists(configFilename) {
-		return false
+	fi, err := os.Lstat(configFilename)
+	if fi != nil || (err != nil && !os.IsNotExist(err)) {
+		return true
 	}
-	return true
+	return false
 }
 
 // isInitializedUnsynced reports whether the repo is initialized. Caller must

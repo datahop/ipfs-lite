@@ -11,13 +11,6 @@ it adds some more features of full ipfs, such as config, repo, leveldb etc.
  go run ./examples/litepeer/litepeer.go
 ```
 
-## Objectives
-
-* [x] create cache repo as ipfs
-* [x] have persistent config information (Id, keys, ports, bootstraps etc)
-* [x] use leveldb as datastore to set up peer
-* [ ] generate gomobile binding for android
-
 ## License
 
 Copyright 2021 Datahop

@@ -2,7 +2,6 @@ package ipfslite
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/libp2p/go-tcp-transport"
@@ -99,15 +98,5 @@ func newDHT(ctx context.Context, h host.Host, ds datastore.Batching) (*dualdht.D
 	if ds != nil {
 		dhtOpts = append(dhtOpts, dualdht.DHTOption(dht.Datastore(ds)))
 	}
-
 	return dualdht.New(ctx, h, dhtOpts...)
-}
-
-// FileExists check if the file with the given path exits.
-func FileExists(filename string) bool {
-	fi, err := os.Lstat(filename)
-	if fi != nil || (err != nil && !os.IsNotExist(err)) {
-		return true
-	}
-	return false
 }

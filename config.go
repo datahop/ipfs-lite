@@ -2,7 +2,6 @@ package ipfslite
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
 	ci "github.com/libp2p/go-libp2p-core/crypto"
@@ -49,12 +48,6 @@ func NewConfig(swarmPort string) (*Config, error) {
 		SwarmPort: swarmPort,
 	}
 	return conf, nil
-}
-
-// Marshal configuration with JSON
-func Marshal(value interface{}) ([]byte, error) {
-	// need to prettyprint, hence MarshalIndent, instead of Encoder
-	return json.MarshalIndent(value, "", "  ")
 }
 
 func identityConfig(nbits int) (Identity, error) {
