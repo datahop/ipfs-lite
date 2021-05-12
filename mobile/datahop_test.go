@@ -41,25 +41,19 @@ func TestMultipleStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Close()
-	err = Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-time.After(time.Second * 1)
-	if IsNodeOnline() != true {
-		t.Fatal("Node should be running")
-	}
-	Stop()
-	<-time.After(time.Second * 1)
-	if IsNodeOnline() != false {
-		t.Fatal("Node should not be running ")
-	}
-	err = Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-time.After(time.Second * 1)
-	if IsNodeOnline() != true {
-		t.Fatal("Node should be running")
+	for i := 0; i < 10; i++ {
+		err = Start()
+		if err != nil {
+			t.Fatal(err)
+		}
+		<-time.After(time.Second * 1)
+		if IsNodeOnline() != true {
+			t.Fatal("Node should be running")
+		}
+		Stop()
+		<-time.After(time.Second * 1)
+		if IsNodeOnline() != false {
+			t.Fatal("Node should not be running ")
+		}
 	}
 }

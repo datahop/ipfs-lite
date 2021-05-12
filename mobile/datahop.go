@@ -116,57 +116,15 @@ func Init(root string, connManager ConnectionManager, bleManager BleManager) err
 	return nil
 }
 
-func DiskUsage() (uint64, error) {
+func DiskUsage() (int64, error) {
 	if hop == nil {
 		return 0, errors.New("datahop not initialised")
 	}
-	return datastore.DiskUsage(hop.repo.Datastore())
-}
-
-// StartDiscovery initialises ble services
-//
-// It starts three services in three different go routines. Advertising scanning and gatt server
-// Advertising happens every one minute interval for 30 seconds. Same for scanning. Although
-// scanning starts 30 seconds after initials start, i.e. After advertising stops.
-func StartDiscovery() error {
-	if hop == nil {
-		return errors.New("start failed. datahop not initialised")
+	du, err := datastore.DiskUsage(hop.repo.Datastore())
+	if err != nil {
+		return 0, err
 	}
-	go func() {
-		advertiseTicker := time.NewTicker(time.Minute * 1)
-		defer advertiseTicker.Stop()
-		for {
-			hop.ble.StartAdvertising()
-			<-time.After(time.Second * 30)
-			hop.ble.StopAdvertising()
-			select {
-			case <-hop.ctx.Done():
-				return
-			case <-advertiseTicker.C:
-			}
-		}
-	}()
-	go func() {
-		hop.ble.StartGATTServer()
-		<-hop.ctx.Done()
-		hop.ble.StopGATTServer()
-	}()
-	go func() {
-		<-time.After(time.Second * 30)
-		scannerTicker := time.NewTicker(time.Minute * 1)
-		defer scannerTicker.Stop()
-		for {
-			hop.ble.StartScanning()
-			<-time.After(time.Second * 30)
-			hop.ble.StopScanning()
-			select {
-			case <-hop.ctx.Done():
-				return
-			case <-scannerTicker.C:
-			}
-		}
-	}()
-	return nil
+	return int64(du), nil
 }
 
 // Start an ipfslite node in a go routine
@@ -232,8 +190,8 @@ func Bootstrap(peerInfoByteString string) error {
 	return nil
 }
 
-// GetPeerInfo Returns string of the peer.AddrInfo []byte of the node
-func GetPeerInfo() string {
+// PeerInfo Returns string of the peer.AddrInfo []byte of the node
+func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {
 			pr := peer.AddrInfo{
@@ -251,18 +209,42 @@ func GetPeerInfo() string {
 	return "Could not get peerInfo"
 }
 
-// GetID Returns peerId of the node
-func GetID() string {
+// ID Returns peerId of the node
+func ID() string {
 	return hop.identity.PeerID
 }
 
-// GetAddress Returns a comma(,) separated string of all the possible addresses of a node
-func GetAddress() string {
+// Addrs Returns a comma(,) separated string of all the possible addresses of a node
+func Addrs() string {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
 			for _, v := range hop.peer.Host.Addrs() {
-				addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+				if !strings.HasPrefix(v.String(), "127") {
+					addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+				}
+			}
+			return strings.Join(addrs, ",")
+		}
+		<-time.After(time.Millisecond * 200)
+	}
+	return "Could not get peer address"
+}
+
+// InterfaceAddrs returns a list of addresses at which this network
+// listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
+// use the known local interfaces.
+func InterfaceAddrs() string {
+	for i := 0; i < 5; i++ {
+		addrs := []string{}
+		if hop.peer != nil {
+			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+			if err == nil {
+				for _, v := range interfaceAddrs {
+					if !strings.HasPrefix(v.String(), "127") {
+						addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+					}
+				}
 			}
 			return strings.Join(addrs, ",")
 		}
