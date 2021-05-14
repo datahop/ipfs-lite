@@ -1,11 +1,15 @@
 package datahop
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
+	types "github.com/datahop/ipfs-lite/pb"
+	"github.com/golang/protobuf/proto"
 )
 
 type MockConnManager struct{}
@@ -55,5 +59,47 @@ func TestMultipleStart(t *testing.T) {
 		if IsNodeOnline() != false {
 			t.Fatal("Node should not be running ")
 		}
+	}
+}
+
+func TestReplication(t *testing.T) {
+	<-time.After(time.Second * 1)
+	root := filepath.Join("../test", "root1")
+	cm := MockConnManager{}
+	err := Init(root, cm, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Close()
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 1)
+	for i := 0; i < 10; i++ {
+		r := types.Replica{
+			Key:   fmt.Sprintf("/key/%d", i),
+			Value: []byte(fmt.Sprintf("/value/%d", i)),
+		}
+		b, err := proto.Marshal(&r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = Replicate(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	content := types.Content{}
+	contentB, err := GetReplicatedContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = proto.Unmarshal(contentB, &content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(content.Replicas) != 10 {
+		t.Fatal("content length mismatch")
 	}
 }

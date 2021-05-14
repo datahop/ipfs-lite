@@ -286,6 +286,7 @@ func Replicate(replica []byte) error {
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 	return errors.New("datahop ipfs-lite node is not running")
 }
