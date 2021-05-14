@@ -64,7 +64,7 @@ func TestMultipleStart(t *testing.T) {
 
 func TestReplication(t *testing.T) {
 	<-time.After(time.Second * 1)
-	root := filepath.Join("../test", "root1")
+	root := filepath.Join("../test", "datahop")
 	cm := MockConnManager{}
 	err := Init(root, cm, nil)
 	if err != nil {
