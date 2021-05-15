@@ -1,4 +1,4 @@
-package ipfslite
+package repo
 
 import (
 	"encoding/json"
@@ -8,9 +8,12 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/facebookgo/atomicfile"
+	"github.com/ipfs/go-datastore"
 	ds "github.com/ipfs/go-datastore"
 	syncds "github.com/ipfs/go-datastore/sync"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	lockfile "github.com/ipfs/go-fs-lock"
 	"github.com/mitchellh/go-homedir"
 )
@@ -29,7 +32,7 @@ var (
 
 type Repo interface {
 	Path() string
-	Config() (*Config, error)
+	Config() (*config.Config, error)
 	Datastore() Datastore
 	Close() error
 }
@@ -48,12 +51,12 @@ type FSRepo struct {
 	// lockfile is the file system lock to prevent others from opening
 	// the same fsrepo path concurrently
 	lockfile io.Closer
-	config   *Config
+	config   *config.Config
 	ds       Datastore
 	io.Closer
 }
 
-func (r *FSRepo) Config() (*Config, error) {
+func (r *FSRepo) Config() (*config.Config, error) {
 	// It is not necessary to hold the package lock since the repo is in an
 	// opened state. The package lock is _not_ meant to ensure that the repo is
 	// thread-safe. The package lock is only meant to guard against removal and
@@ -96,7 +99,7 @@ func Init(repoPath, swarmPort string) error {
 	if isInitializedUnsynced(repoPath) {
 		return nil
 	}
-	conf, err := NewConfig(swarmPort)
+	conf, err := config.NewConfig(swarmPort)
 	if err != nil {
 		return err
 	}
@@ -143,12 +146,18 @@ func open(repoPath string) (Repo, error) {
 }
 
 func (r *FSRepo) openDatastore() error {
-	d, err := LevelDatastore(filepath.Join(r.Path(), DefaultDatastoreFolderName))
+	d, err := levelDatastore(filepath.Join(r.Path(), DefaultDatastoreFolderName))
 	if err != nil {
 		return err
 	}
 	r.ds = syncds.MutexWrap(d)
 	return nil
+}
+
+// levelDatastore returns a new instance of LevelDB persisting
+// to the given path with the default options.
+func levelDatastore(path string) (datastore.Batching, error) {
+	return leveldb.NewDatastore(path, &leveldb.Options{})
 }
 
 func newFSRepo(rpath string) (*FSRepo, error) {
@@ -160,7 +169,7 @@ func newFSRepo(rpath string) (*FSRepo, error) {
 	return &FSRepo{path: expPath}, nil
 }
 
-func initConfig(path string, cfg *Config) error {
+func initConfig(path string, cfg *config.Config) error {
 	configFilename, err := ConfigFilename(path)
 	if err != nil {
 		return err
@@ -206,9 +215,9 @@ func (r *FSRepo) openConfig() error {
 	return nil
 }
 
-func openConfig(path string) (conf *Config, err error) {
+func openConfig(path string) (conf *config.Config, err error) {
 	configFilename, err := ConfigFilename(path)
-	conf = &Config{}
+	conf = &config.Config{}
 	if err != nil {
 		return
 	}

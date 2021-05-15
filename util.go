@@ -4,10 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/libp2p/go-tcp-transport"
-
 	"github.com/ipfs/go-datastore"
-	leveldb "github.com/ipfs/go-ds-leveldb"
 	ipfsconfig "github.com/ipfs/go-ipfs-config"
 	ipns "github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
@@ -20,6 +17,7 @@ import (
 	dualdht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	record "github.com/libp2p/go-libp2p-record"
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -28,12 +26,6 @@ import (
 func DefaultBootstrapPeers() []peer.AddrInfo {
 	defaults, _ := ipfsconfig.DefaultBootstrapPeers()
 	return defaults
-}
-
-// LevelDatastore returns a new instance of LevelDB persisting
-// to the given path with the default options.
-func LevelDatastore(path string) (datastore.Batching, error) {
-	return leveldb.NewDatastore(path, &leveldb.Options{})
 }
 
 // Libp2pOptionsExtra provides some useful libp2p options

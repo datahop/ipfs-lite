@@ -1,4 +1,4 @@
-package ipfslite
+package repo
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	root := filepath.Join("./test", "root")
+	root := filepath.Join("../../test", "root1")
 	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +24,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
-	root := filepath.Join("./test", "root")
+	root := filepath.Join("../../test", "root1")
 	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)

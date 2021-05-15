@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
@@ -67,7 +68,7 @@ type Peer struct {
 	Host            host.Host
 	Store           datastore.Batching
 	DHT             routing.Routing
-	Repo            Repo
+	Repo            repo.Repo
 	Provider        provider.System
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
@@ -136,7 +137,7 @@ func defaultOptions() *Options {
 func New(
 	ctx context.Context,
 	cancelFunc context.CancelFunc,
-	r Repo,
+	r repo.Repo,
 	opts ...Option,
 ) (*Peer, error) {
 	options := defaultOptions()

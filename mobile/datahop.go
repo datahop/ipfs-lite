@@ -10,6 +10,8 @@ import (
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/config"
+	repo2 "github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
@@ -72,11 +74,11 @@ type datahop struct {
 	cancel          context.CancelFunc
 	root            string
 	peer            *ipfslite.Peer
-	identity        ipfslite.Identity
+	identity        config.Identity
 	hook            ConnectionManager
 	networkNotifier network.Notifiee
 	ble             BleManager
-	repo            ipfslite.Repo
+	repo            repo2.Repo
 }
 
 func init() {
@@ -87,12 +89,12 @@ func init() {
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
 func Init(root string, connManager ConnectionManager, bleManager BleManager) error {
-	err := ipfslite.Init(root, "0")
+	err := repo2.Init(root, "0")
 	if err != nil {
 		return err
 	}
 	n := &Notifier{}
-	r, err := ipfslite.Open(root)
+	r, err := repo2.Open(root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
 		return err

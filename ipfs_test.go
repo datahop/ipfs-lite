@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
@@ -22,20 +23,20 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	root1 := filepath.Join("./test", "root1")
 	root2 := filepath.Join("./test", "root2")
 
-	err := Init(root1, "0")
+	err := repo.Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	r1, err := Open(root1)
+	r1, err := repo.Open(root1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = Init(root2, "4502")
+	err = repo.Init(root2, "4502")
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2, err := Open(root2)
+	r2, err := repo.Open(root2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,11 +78,11 @@ func TestHost(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	root1 := filepath.Join("./test", "root1")
-	err := Init(root1, "0")
+	err := repo.Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	r1, err := Open(root1)
+	r1, err := repo.Open(root1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +220,6 @@ func TestOperations(t *testing.T) {
 
 	p1peers := p1.Peers()
 	p2peers := p2.Peers()
-
 	t.Logf("P1 peers %v", p1peers)
 	t.Logf("P2 peers %v", p2peers)
 	if len(p1peers) != len(p2peers) {

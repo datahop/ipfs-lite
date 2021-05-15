@@ -10,23 +10,23 @@ import (
 	"os"
 	"time"
 
-	"github.com/ipfs/go-datastore"
-
 	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
-	err := ipfslite.Init(root, "0")
+	root := "/tmp" + string(os.PathSeparator) + repo.Root
+	err := repo.Init(root, "0")
 	if err != nil {
 		return
 	}
 
-	r, err := ipfslite.Open(root)
+	r, err := repo.Open(root)
 	if err != nil {
 		return
 	}

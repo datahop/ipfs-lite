@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	datahop "github.com/datahop/ipfs-lite/mobile"
 	logger "github.com/ipfs/go-log/v2"
 )
@@ -23,7 +23,7 @@ var log = logger.Logger("lite")
 
 func main() {
 	logger.SetLogLevel("lite", "Debug")
-	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
+	root := "/tmp" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
 	err := datahop.Init(root, cm, nil)
 	if err != nil {

@@ -1,4 +1,4 @@
-package ipfslite
+package config
 
 import (
 	"strings"

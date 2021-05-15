@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/golang/protobuf/proto"
 )
@@ -23,7 +23,7 @@ func (m MockConnManager) PeerDisconnected(s string) {
 }
 
 func TestContentLength(t *testing.T) {
-	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
+	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
 	err := Init(root, cm, nil)
 	if err != nil {
@@ -38,7 +38,7 @@ func TestContentLength(t *testing.T) {
 
 func TestMultipleStart(t *testing.T) {
 	<-time.After(time.Second * 1)
-	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
+	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
 	err := Init(root, cm, nil)
 	if err != nil {
@@ -75,6 +75,7 @@ func TestReplication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer Stop()
 	<-time.After(time.Second * 1)
 	for i := 0; i < 10; i++ {
 		r := types.Replica{
