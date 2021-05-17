@@ -1,4 +1,3 @@
-// Package datahop is a mobile client for running a minimalistic ipfs node.
 package datahop
 
 //go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
@@ -34,6 +33,8 @@ type ConnectionManager interface {
 	PeerDisconnected(string)
 }
 
+/*
+Out of scope
 // BleManager is used by clients to interact with Bluetooth Low Energy
 type BleManager interface {
 	StartAdvertising()
@@ -55,6 +56,7 @@ type WifiManager interface {
 	Connect(string, string) // takes in ssid and password
 	Disconnect()
 }
+*/
 
 type Notifier struct{}
 
@@ -77,7 +79,6 @@ type datahop struct {
 	identity        config.Identity
 	hook            ConnectionManager
 	networkNotifier network.Notifiee
-	ble             BleManager
 	repo            repo2.Repo
 }
 
@@ -88,7 +89,7 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, connManager ConnectionManager, bleManager BleManager) error {
+func Init(root string, connManager ConnectionManager) error {
 	err := repo2.Init(root, "0")
 	if err != nil {
 		return err
@@ -110,7 +111,6 @@ func Init(root string, connManager ConnectionManager, bleManager BleManager) err
 		identity:        cfg.Identity,
 		hook:            connManager,
 		networkNotifier: n,
-		ble:             bleManager,
 		ctx:             ctx,
 		cancel:          cancel,
 		repo:            r,
@@ -118,6 +118,7 @@ func Init(root string, connManager ConnectionManager, bleManager BleManager) err
 	return nil
 }
 
+// DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
 	if hop == nil {
 		return 0, errors.New("datahop not initialised")
@@ -192,7 +193,7 @@ func Bootstrap(peerInfoByteString string) error {
 	return nil
 }
 
-// PeerInfo Returns string of the peer.AddrInfo []byte of the node
+// PeerInfo Returns a string of the peer.AddrInfo []byte of the node
 func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {

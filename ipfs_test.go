@@ -45,12 +45,12 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 		cancel()
 	}
 
-	p1, err = New(ctx, cancel, r1, WithRebroadcastInterval(time.Second))
+	p1, err = New(ctx, cancel, r1, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
 	}
-	p2, err = New(ctx, cancel, r2, WithRebroadcastInterval(time.Second))
+	p2, err = New(ctx, cancel, r2, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
 	if err != nil {
 		closer(t)
 		t.Fatal(err)

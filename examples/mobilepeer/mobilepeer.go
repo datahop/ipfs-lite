@@ -25,7 +25,7 @@ func main() {
 	logger.SetLogLevel("lite", "Debug")
 	root := "/tmp" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
-	err := datahop.Init(root, cm, nil)
+	err := datahop.Init(root, cm)
 	if err != nil {
 		panic(err)
 	}

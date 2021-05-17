@@ -28,10 +28,10 @@ func DefaultBootstrapPeers() []peer.AddrInfo {
 	return defaults
 }
 
-// Libp2pOptionsExtra provides some useful libp2p options
+// libp2pOptionsExtra provides some useful libp2p options
 // to create a fully featured libp2p host. It can be used with
 // SetupLibp2p.
-var Libp2pOptionsExtra = []libp2p.Option{
+var libp2pOptionsExtra = []libp2p.Option{
 	libp2p.Transport(tcp.NewTCPTransport),
 	libp2p.DisableRelay(),
 	libp2p.NATPortMap(),

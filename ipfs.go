@@ -49,8 +49,10 @@ func init() {
 }
 
 const (
-	ServiceTag                     = "_datahop-discovery._tcp"
-	DefaultCrdtNamespace           = "/crdt"
+	// ServiceTag is used for mDNS
+	ServiceTag = "_datahop-discovery._tcp"
+
+	defaultCrdtNamespace           = "/crdt"
 	defaultCrdtRebroadcastInterval = time.Second * 20
 	defaultMDNSInterval            = time.Minute
 	defaultTopic                   = "datahop-crdt"
@@ -114,9 +116,16 @@ func WithCrdtTopic(topic string) Option {
 	}
 }
 
+func WithCrdtNamespace(ns string) Option {
+	return func(h *Options) {
+		h.crdtPrefix = ns
+	}
+}
+
 type Options struct {
 	mDNSInterval            time.Duration
 	crdtRebroadcastInterval time.Duration
+	crdtPrefix              string
 	withmDNS                bool
 	withCRDT                bool
 	crdtTopic               string
@@ -129,6 +138,7 @@ func defaultOptions() *Options {
 		withmDNS:                true,
 		withCRDT:                true,
 		crdtTopic:               defaultTopic,
+		crdtPrefix:              defaultCrdtNamespace,
 	}
 }
 
@@ -163,7 +173,7 @@ func New(
 		privKey,
 		listenAddrs,
 		r.Datastore(),
-		Libp2pOptionsExtra...,
+		libp2pOptionsExtra...,
 	)
 	if err != nil {
 		return nil, err
@@ -260,7 +270,7 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 		log.Debugf("Removed: [%s]\n", k)
 	}
 
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey(DefaultCrdtNamespace), p, pubsubBC, crdtOpts)
+	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtPrefix), p, pubsubBC, crdtOpts)
 	if err != nil {
 		return err
 	}
