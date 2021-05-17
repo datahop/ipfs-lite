@@ -1,5 +1,5 @@
 /*
-Package datahop is a mobile client for running a minimalistic ipfs node.
+Package datahop is a mobile client for running a minimalistic datahop ipfslite node.
 
 A datahop ipfslite node uses a persistent repo and a config file same as go-ipfs
 to have necessary config options cashed. It uses a global "datahop" object to run

@@ -34,12 +34,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	<-time.After(time.Second * 1)
-
-	for {
-		select {
-		case <-time.After(time.Second * 5):
-			log.Debugf("Addresses : %v", datahop.Addrs())
-		}
-	}
+	<-time.After(time.Second * 10)
 }

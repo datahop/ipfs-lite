@@ -63,10 +63,14 @@ type Notifier struct{}
 func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *Notifier) Connected(net network.Network, c network.Conn) {
-	hop.hook.PeerConnected(c.RemotePeer().String())
+	if hop.hook != nil {
+		hop.hook.PeerConnected(c.RemotePeer().String())
+	}
 }
 func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
-	hop.hook.PeerDisconnected(c.RemotePeer().String())
+	if hop.hook != nil {
+		hop.hook.PeerDisconnected(c.RemotePeer().String())
+	}
 }
 func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
 func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
@@ -136,20 +140,14 @@ func Start() error {
 		return errors.New("start failed. datahop not initialised")
 	}
 
-	go func() {
-		ctx, cancel := context.WithCancel(hop.ctx)
-		p, err := ipfslite.New(ctx, cancel, hop.repo)
-		if err != nil {
-			log.Error("Node setup failed : ", err.Error())
-			return
-		}
-		hop.peer = p
-		hop.peer.Host.Network().Notify(hop.networkNotifier)
-		select {
-		case <-hop.ctx.Done():
-			log.Debug("Context Closed")
-		}
-	}()
+	ctx, cancel := context.WithCancel(hop.ctx)
+	p, err := ipfslite.New(ctx, cancel, hop.repo)
+	if err != nil {
+		log.Error("Node setup failed : ", err.Error())
+		return err
+	}
+	hop.peer = p
+	hop.peer.Host.Network().Notify(hop.networkNotifier)
 	log.Debug("Node Started")
 	return nil
 }
@@ -258,7 +256,7 @@ func InterfaceAddrs() string {
 
 // IsNodeOnline Checks if the node is running
 func IsNodeOnline() bool {
-	if hop.peer != nil {
+	if hop != nil && hop.peer != nil {
 		return hop.peer.IsOnline()
 	}
 	return false
