@@ -78,6 +78,7 @@ type Peer struct {
 	online          bool
 	mtx             sync.Mutex
 	CrdtStore       *crdt.Datastore
+	Stopped         chan bool
 }
 
 type Option func(*Options)
@@ -179,12 +180,13 @@ func New(
 		return nil, err
 	}
 	p := &Peer{
-		Ctx:    ctx,
-		Cancel: cancelFunc,
-		Host:   h,
-		DHT:    dht,
-		Store:  r.Datastore(),
-		Repo:   r,
+		Ctx:     ctx,
+		Cancel:  cancelFunc,
+		Host:    h,
+		DHT:     dht,
+		Store:   r.Datastore(),
+		Repo:    r,
+		Stopped: make(chan bool, 1),
 	}
 	err = p.setupBlockstore()
 	if err != nil {
@@ -287,6 +289,7 @@ func (p *Peer) autoclose() {
 	p.Repo.Close()
 	p.Host.Close()
 	p.bserv.Close()
+	p.Stopped <- true
 }
 
 // Bootstrap is an optional helper to connect to the given peers and bootstrap

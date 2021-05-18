@@ -217,7 +217,6 @@ func TestOperations(t *testing.T) {
 
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
-
 	p1peers := p1.Peers()
 	p2peers := p2.Peers()
 	t.Logf("P1 peers %v", p1peers)

@@ -153,8 +153,8 @@ func Start() error {
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
 		wg.Done()
 		select {
-		case <-hop.ctx.Done():
-			log.Debug("Context Closed")
+		case <-hop.peer.Ctx.Done():
+			log.Debug("Context Closed ")
 		}
 	}()
 	wg.Wait()
@@ -375,6 +375,10 @@ func Version() string {
 // Stop the node
 func Stop() {
 	hop.peer.Cancel()
+	select {
+	case <-hop.peer.Stopped:
+	case <-time.After(time.Second * 5):
+	}
 }
 
 // Close the repo and all
