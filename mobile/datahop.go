@@ -6,11 +6,12 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
-	repo2 "github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
@@ -83,7 +84,7 @@ type datahop struct {
 	identity        config.Identity
 	hook            ConnectionManager
 	networkNotifier network.Notifiee
-	repo            repo2.Repo
+	repo            repo.Repo
 }
 
 func init() {
@@ -94,12 +95,12 @@ func init() {
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
 func Init(root string, connManager ConnectionManager) error {
-	err := repo2.Init(root, "0")
+	err := repo.Init(root, "0")
 	if err != nil {
 		return err
 	}
 	n := &Notifier{}
-	r, err := repo2.Open(root)
+	r, err := repo.Open(root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
 		return err
@@ -139,15 +140,24 @@ func Start() error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
-
 	ctx, cancel := context.WithCancel(hop.ctx)
-	p, err := ipfslite.New(ctx, cancel, hop.repo)
-	if err != nil {
-		log.Error("Node setup failed : ", err.Error())
-		return err
-	}
-	hop.peer = p
-	hop.peer.Host.Network().Notify(hop.networkNotifier)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		p, err := ipfslite.New(ctx, cancel, hop.repo)
+		if err != nil {
+			log.Error("Node setup failed : ", err.Error())
+			return
+		}
+		hop.peer = p
+		hop.peer.Host.Network().Notify(hop.networkNotifier)
+		wg.Done()
+		select {
+		case <-hop.ctx.Done():
+			log.Debug("Context Closed")
+		}
+	}()
+	wg.Wait()
 	log.Debug("Node Started")
 	return nil
 }

@@ -35,4 +35,6 @@ func main() {
 		panic(err)
 	}
 	<-time.After(time.Second * 10)
+	datahop.Stop()
+	datahop.Close()
 }
