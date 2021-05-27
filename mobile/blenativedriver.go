@@ -25,5 +25,5 @@ type BleDiscNotifier interface {
 
 type BleAdvNotifier interface {
 	SameStatusDiscovered()
-	DifferentStatusDiscovered(value []byte)
+	DifferentStatusDiscovered(topic string, value []byte)
 }
