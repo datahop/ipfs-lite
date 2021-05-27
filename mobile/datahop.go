@@ -34,31 +34,6 @@ type ConnectionManager interface {
 	PeerDisconnected(string)
 }
 
-/*
-Out of scope
-// BleManager is used by clients to interact with Bluetooth Low Energy
-type BleManager interface {
-	StartAdvertising()
-	StopAdvertising()
-	StartScanning()
-	StopScanning()
-	StartGATTServer()
-	StopGATTServer()
-}
-
-// WifiP2PManager is used by clients to mange wifi direct
-type WifiP2PManager interface {
-	StartHotspot() (string, error) // Returns "ssid:password"
-	StopHotspot()
-}
-
-// WifiManager is used by clients to mange wifi connection
-type WifiManager interface {
-	Connect(string, string) // takes in ssid and password
-	Disconnect()
-}
-*/
-
 type Notifier struct{}
 
 func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
@@ -76,6 +51,11 @@ func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
 func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
 func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
 
+type discNotifee struct{}
+func (n *discNotifee) HandlePeerFound(info peer.AddrInfo) {
+	hop.peer.HandlePeerFound(info)
+}
+
 type datahop struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
@@ -83,8 +63,17 @@ type datahop struct {
 	peer            *ipfslite.Peer
 	identity        config.Identity
 	hook            ConnectionManager
+	wifiHS			WifiHotspot
+	wifiCon         WifiConnection
+	discDriver      BleDiscoveryDriver
+	advDriver       BleAdvertisingDriver
 	networkNotifier network.Notifiee
+<<<<<<< HEAD
 	repo            repo.Repo
+=======
+	notifier        Notifee
+	discService     *bleDiscoveryService
+>>>>>>> 5ef9dfa (ble service discovery merge)
 }
 
 func init() {
@@ -94,12 +83,19 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
+<<<<<<< HEAD
 func Init(root string, connManager ConnectionManager) error {
 	err := repo.Init(root, "0")
+=======
+func Init(root string, h ConnectionManager, discDriver BleDiscoveryDriver, advDriver BleAdvertisingDriver, hs WifiHotspot, con WifiConnection) error {
+
+	identity, err := ipfslite.Init(root, "0")
+>>>>>>> 5ef9dfa (ble service discovery merge)
 	if err != nil {
 		return err
 	}
 	n := &Notifier{}
+<<<<<<< HEAD
 	r, err := repo.Open(root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
@@ -111,29 +107,90 @@ func Init(root string, connManager ConnectionManager) error {
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+=======
+	dn := &discNotifee{}
+
+>>>>>>> 5ef9dfa (ble service discovery merge)
 	hop = &datahop{
 		root:            root,
 		identity:        cfg.Identity,
 		hook:            connManager,
 		networkNotifier: n,
+<<<<<<< HEAD
 		ctx:             ctx,
 		cancel:          cancel,
 		repo:            r,
+=======
+		notifier: dn,
+		wifiHS:  hs,
+		wifiCon: con,
+		discDriver: discDriver,
+		advDriver: advDriver,
+>>>>>>> 5ef9dfa (ble service discovery merge)
 	}
+
 	return nil
 }
 
+<<<<<<< HEAD
 // DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
+=======
+// StartDiscovery initialises ble services
+//
+// It starts three services in three different go routines. Advertising scanning and gatt server
+// Advertising happens every one minute interval for 30 seconds. Same for scanning. Although
+// scanning starts 30 seconds after initials start, i.e. After advertising stops.
+/*func StartDiscovery() error {
+>>>>>>> 5ef9dfa (ble service discovery merge)
 	if hop == nil {
 		return 0, errors.New("datahop not initialised")
 	}
+<<<<<<< HEAD
 	du, err := datastore.DiskUsage(hop.repo.Datastore())
 	if err != nil {
 		return 0, err
 	}
 	return int64(du), nil
 }
+=======
+	go func() {
+		advertiseTicker := time.NewTicker(time.Minute * 1)
+		defer advertiseTicker.Stop()
+		for {
+			hop.ble.StartAdvertising()
+			<-time.After(time.Second * 30)
+			hop.ble.StopAdvertising()
+			select {
+			case <-hop.ctx.Done():
+				return
+			case <-advertiseTicker.C:
+			}
+		}
+	}()
+	go func() {
+		hop.ble.StartGATTServer()
+		<-hop.ctx.Done()
+		hop.ble.StopGATTServer()
+	}()
+	go func() {
+		<-time.After(time.Second * 30)
+		scannerTicker := time.NewTicker(time.Minute * 1)
+		defer scannerTicker.Stop()
+		for {
+			hop.ble.StartScanning()
+			<-time.After(time.Second * 30)
+			hop.ble.StopScanning()
+			select {
+			case <-hop.ctx.Done():
+				return
+			case <-scannerTicker.C:
+			}
+		}
+	}()
+	return nil
+}*/
+>>>>>>> 5ef9dfa (ble service discovery merge)
 
 // Start an ipfslite node in a go routine
 func Start() error {
@@ -151,7 +208,25 @@ func Start() error {
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
+<<<<<<< HEAD
 		wg.Done()
+=======
+
+		ctx, _ := context.WithCancel(context.Background())
+
+		service, err :=NewBleDiscoveryService(ctx, hop.peer.Host,hop.discDriver, hop.advDriver,1000,20000,hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+
+		if err != nil {
+			log.Error("ble discovery setup failed : ", err.Error())
+			return
+		}
+
+		if res, ok := service.(*bleDiscoveryService); ok {
+			hop.discService = res
+		}
+		hop.discService.RegisterNotifee(hop.notifier)
+
+>>>>>>> 5ef9dfa (ble service discovery merge)
 		select {
 		case <-hop.peer.Ctx.Done():
 			log.Debug("Context Closed ")
@@ -385,4 +460,22 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
+	hop.discService.Close()
 }
+
+func GetBleDiscNotifier() BleDiscNotifier {
+	return hop.discService
+}
+
+func GetBleAdvNotifier() BleAdvNotifier {
+	return hop.discService
+}
+
+func GetWifiHotspotNotifier() WifiHotspotNotifier {
+	return hop.discService
+}
+
+func GetWifiConnectionNotifier() WifiConnectionNotifier {
+	return hop.discService
+}
+
