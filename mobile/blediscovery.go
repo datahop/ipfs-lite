@@ -2,17 +2,15 @@ package datahop
 
 import (
 	"context"
-	"github.com/whyrusleeping/mdns"
 	"io"
-	"net"
+
+	//	"net"
 	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
-
-	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr/net"
+	//	ma "github.com/multiformats/go-multiaddr"
+	//	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 const ServiceTag = "_ipfs-discovery._udp"
@@ -24,47 +22,22 @@ type Service interface {
 }
 
 type Notifee interface {
-	HandlePeerFound(peer.AddrInfo)
+	HandlePeerFound(string)
 }
-
 
 type bleDiscoveryService struct {
-	discovery BleDiscoveryDriver
-	advertiser BleAdvertisingDriver
-	host    host.Host
-	tag     string
-	lk       sync.Mutex
-	notifees []Notifee
-	wifiHS	 WifiHotspot
-	wifiCon  WifiConnection
-	scan     int
-	interval int
-	advertisingInfo	map[string][]byte
-
+	discovery       BleDiscoveryDriver
+	advertiser      BleAdvertisingDriver
+	host            host.Host
+	tag             string
+	lk              sync.Mutex
+	notifees        []Notifee
+	wifiHS          WifiHotspot
+	wifiCon         WifiConnection
+	scan            int
+	interval        int
+	advertisingInfo map[string][]byte
 }
-
-
-/*func getDialableListenAddrs(ph host.Host) ([]*net.TCPAddr, error) {
-	var out []*net.TCPAddr
-	addrs, err := ph.Network().InterfaceListenAddresses()
-	if err != nil {
-		return nil, err
-	}
-	for _, addr := range addrs {
-		na, err := manet.ToNetAddr(addr)
-		if err != nil {
-			continue
-		}
-		tcp, ok := na.(*net.TCPAddr)
-		if ok {
-			out = append(out, tcp)
-		}
-	}
-	if len(out) == 0 {
-		return nil, errors.New("failed to find good external addr from peerhost")
-	}
-	return out, nil
-}*/
 
 func NewBleDiscoveryService(ctx context.Context, peerhost host.Host, discDriver BleDiscoveryDriver, advDriver BleAdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
 
@@ -92,127 +65,41 @@ func NewBleDiscoveryService(ctx context.Context, peerhost host.Host, discDriver 
 	}
 
 	bleDiscovery := &bleDiscoveryService{
-		discovery:   discDriver,
-		advertiser:  advDriver,
-		host:     peerhost,
-		tag:      serviceTag,
-		wifiHS: hs,
-		wifiCon: con,
-		scan: scanTime,
-		interval: interval,
+		discovery:       discDriver,
+		advertiser:      advDriver,
+		host:            peerhost,
+		tag:             serviceTag,
+		wifiHS:          hs,
+		wifiCon:         con,
+		scan:            scanTime,
+		interval:        interval,
 		advertisingInfo: adv,
 	}
-
-	/*bleDiscovery.advertisingInfo["topic1"] = []byte("hola")
-
-	for topic, info := range bleDiscovery.advertisingInfo {
-		//fmt.Println(dish, price)
-		bleDiscovery.discovery.AddAdvertisingInfo(topic,info)
-		bleDiscovery.advertiser.AddAdvertisingInfo(topic,info)
-
-	}*/
-
-	//go s.pollForEntries(ctx)
 
 	return bleDiscovery, nil
 }
 
 func (b *bleDiscoveryService) Start() {
-	b.discovery.Start(b.tag,b.scan,b.interval)
+	b.discovery.Start(b.tag, b.scan, b.interval)
 	b.advertiser.Start(b.tag)
 }
 
-func (b *bleDiscoveryService) AddAdvertisingInfo (topic string, info []byte) {
-	b.discovery.AddAdvertisingInfo(topic,info)
-	b.advertiser.AddAdvertisingInfo(topic,info)
+func (b *bleDiscoveryService) AddAdvertisingInfo(topic string, info []byte) {
+	b.discovery.AddAdvertisingInfo(topic, info)
+	b.advertiser.AddAdvertisingInfo(topic, info)
 	b.advertiser.Stop()
 	b.advertiser.Start(b.tag)
 }
 
-
-/*func (b *bleDiscoveryService) pollForEntries(ctx context.Context) {
-	ticker := time.NewTicker(m.interval)
-	defer ticker.Stop()
-
-	for {
-		//execute mdns query right away at method call and then with every tick
-		entriesCh := make(chan *mdns.ServiceEntry, 16)
-		go func() {
-			for entry := range entriesCh {
-				m.handleEntry(entry)
-			}
-		}()
-
-		log.Debug("starting mdns query")
-		qp := &mdns.QueryParam{
-			Domain:  "local",
-			Entries: entriesCh,
-			Service: m.tag,
-			Timeout: time.Second * 5,
-		}
-
-		err := mdns.Query(qp)
-		if err != nil {
-			log.Warnw("mdns lookup error", "error", err)
-		}
-		close(entriesCh)
-		log.Debug("mdns query complete")
-
-		select {
-		case <-ticker.C:
-			continue
-		case <-ctx.Done():
-			log.Debug("mdns service halting")
-			return
-		}
-	}
-}*/
-
-func (b *bleDiscoveryService) handleEntry(e *mdns.ServiceEntry) {
-	log.Debugf("Handling MDNS entry: [IPv4 %s][IPv6 %s]:%d %s", e.AddrV4, e.AddrV6, e.Port, e.Info)
-	mpeer, err := peer.Decode(e.Info)
-	if err != nil {
-		log.Warn("Error parsing peer ID from mdns entry: ", err)
-		return
-	}
-
-	if mpeer == b.host.ID() {
-		log.Debug("got our own mdns entry, skipping")
-		return
-	}
-
-	var addr net.IP
-	if e.AddrV4 != nil {
-		addr = e.AddrV4
-	} else if e.AddrV6 != nil {
-		addr = e.AddrV6
-	} else {
-		log.Warn("Error parsing multiaddr from mdns entry: no IP address found")
-		return
-	}
-
-	maddr, err := manet.FromNetAddr(&net.TCPAddr{
-		IP:   addr,
-		Port: e.Port,
-	})
-	if err != nil {
-		log.Warn("Error parsing multiaddr from mdns entry: ", err)
-		return
-	}
-
-	pi := peer.AddrInfo{
-		ID:    mpeer,
-		Addrs: []ma.Multiaddr{maddr},
-	}
-
+func (b *bleDiscoveryService) handleEntry(peerInfoByteString string) {
 	b.lk.Lock()
 	for _, n := range b.notifees {
-		go n.HandlePeerFound(pi)
+		go n.HandlePeerFound(peerInfoByteString)
 	}
 	b.lk.Unlock()
 }
 
-func (b *bleDiscoveryService) Close()  error {
+func (b *bleDiscoveryService) Close() error {
 	b.discovery.Stop()
 	b.advertiser.Stop()
 	return nil
@@ -238,22 +125,20 @@ func (b *bleDiscoveryService) UnregisterNotifee(n Notifee) {
 	b.lk.Unlock()
 }
 
-
 func (b *bleDiscoveryService) PeerDiscovered(device string) {
-	log.Debug("BLE discovery new peer device ",device)
+	log.Debug("BLE discovery new peer device ", device)
 }
 
 func (b *bleDiscoveryService) PeerSameStatusDiscovered(device string, topic string) {
-	log.Debug("BLE discovery new peer device same status",device,topic)
+	log.Debug("BLE discovery new peer device same status", device, topic)
 	//	hop.discoveryDriver.Stop()
 }
 
-func (b *bleDiscoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, info string) {
-	log.Debug("BLE discovery new peer device different status",device,topic,network,pass,info)
+func (b *bleDiscoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, peerinfo string) {
+	log.Debug("BLE discovery new peer device different status", device, topic, network, pass, peerinfo)
 	b.Close()
-	hop.wifiCon.Connect(network,pass,"192.168.49.2")
+	hop.wifiCon.Connect(network, pass, "192.168.49.2")
 }
-
 
 func (b *bleDiscoveryService) SameStatusDiscovered() {
 	log.Debug("BLE advertising new peer device same status")
@@ -269,50 +154,44 @@ func (b *bleDiscoveryService) DifferentStatusDiscovered(topic string, value []by
 	//hop.wifiHS.Start()
 }
 
-
-func (b *bleDiscoveryService) OnConnectionSuccess(){
+func (b *bleDiscoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
-	time.Sleep(10 * time.Second)                                     // pauses execution for 2 seconds
+	time.Sleep(10 * time.Second) // pauses execution for 2 seconds
+	hop.wifiCon.Disconnect()
+	//handleEntry()
+}
+
+func (b *bleDiscoveryService) OnConnectionFailure(code int) {
+	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 
 }
 
-func (b *bleDiscoveryService) OnConnectionFailure(code int){
-	log.Debug("Connection failure ",code)
-	hop.wifiCon.Disconnect()
-
-}
-
-func (b *bleDiscoveryService) OnDisconnect(){
+func (b *bleDiscoveryService) OnDisconnect() {
 	log.Debug("OnDisconnect")
-
 }
 
-func (b *bleDiscoveryService) OnSuccess(){
+func (b *bleDiscoveryService) OnSuccess() {
 	log.Debug("Network up")
 }
 
-func (b *bleDiscoveryService) OnFailure(code int){
-	log.Debug("hotspot failure ",code)
+func (b *bleDiscoveryService) OnFailure(code int) {
+	log.Debug("hotspot failure ", code)
 }
 
-func (b *bleDiscoveryService) StopOnSuccess(){
+func (b *bleDiscoveryService) StopOnSuccess() {
 	log.Debug("StopOnSuccess")
 }
 
-func (b *bleDiscoveryService) StopOnFailure(code int){
-	log.Debug("StopOnFailure ",code)
+func (b *bleDiscoveryService) StopOnFailure(code int) {
+	log.Debug("StopOnFailure ", code)
 }
 
-func (b *bleDiscoveryService) NetworkInfo(topic string, network string, password string){
-	log.Debug("hotspot info ",network,password)
-	b.advertiser.NotifyNetworkInformation(topic,network,password,GetPeerInfo())
+func (b *bleDiscoveryService) NetworkInfo(topic string, network string, password string) {
+	log.Debug("hotspot info ", network, password)
+	b.advertiser.NotifyNetworkInformation(topic, network, password, PeerInfo())
 }
 
-func (b *bleDiscoveryService) ClientsConnected(num int){
-	log.Debug("hotspot clients connected ",num)
+func (b *bleDiscoveryService) ClientsConnected(num int) {
+	log.Debug("hotspot clients connected ", num)
 }
-
-
-
-
