@@ -1,19 +1,14 @@
 package datahop
 
 import (
-	"context"
 	"io"
-
-	//	"net"
 	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	//	ma "github.com/multiformats/go-multiaddr"
-	//	manet "github.com/multiformats/go-multiaddr/net"
 )
 
-const ServiceTag = "_ipfs-discovery._udp"
+const ServiceTag = "_datahop-discovery._ble"
 
 type Service interface {
 	io.Closer
@@ -39,23 +34,7 @@ type bleDiscoveryService struct {
 	advertisingInfo map[string][]byte
 }
 
-func NewBleDiscoveryService(ctx context.Context, peerhost host.Host, discDriver BleDiscoveryDriver, advDriver BleAdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
-
-	/*var ipaddrs []net.IP
-	port := 4001
-
-	addrs, err := getDialableListenAddrs(peerhost)
-	if err != nil {
-		log.Warn(err)
-	} else {
-		port = addrs[0].Port
-		for _, a := range addrs {
-			ipaddrs = append(ipaddrs, a.IP)
-		}
-	}*/
-
-	//myid := peerhost.ID().Pretty()
-
+func NewBleDiscoveryService(peerhost host.Host, discDriver BleDiscoveryDriver, advDriver BleAdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
 	adv := make(map[string][]byte)
 
 	if serviceTag == "" {

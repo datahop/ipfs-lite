@@ -118,7 +118,7 @@ func Init(root string, connManager ConnectionManager, discDriver BleDiscoveryDri
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
-	service, err := NewBleDiscoveryService(ctx, hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	service, err := NewBleDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
 		return nil
@@ -158,21 +158,16 @@ func Start() error {
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
 		wg.Done()
-		ctx, _ := context.WithCancel(context.Background())
-
-		service, err := NewBleDiscoveryService(ctx, hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
-
+		service, err := NewBleDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
 		if err != nil {
 			log.Error("ble discovery setup failed : ", err.Error())
 			return
 		}
-
 		if res, ok := service.(*bleDiscoveryService); ok {
 			hop.discService = res
 		}
 		hop.discService.RegisterNotifee(hop.notifier)
-
-		hop.discService.AddAdvertisingInfo(CRDTOPIC,CRDTVALUE)
+		//hop.discService.AddAdvertisingInfo(CRDTOPIC, CRDTVALUE)
 		hop.discService.Start()
 		select {
 		case <-hop.peer.Ctx.Done():
