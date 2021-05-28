@@ -1,6 +1,7 @@
 package datahop
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -40,7 +41,7 @@ func NewBleDiscoveryService(peerhost host.Host, discDriver BleDiscoveryDriver, a
 	if serviceTag == "" {
 		serviceTag = ServiceTag
 	}
-
+	fmt.Println("NewBleDiscoveryService")
 	bleDiscovery := &bleDiscoveryService{
 		discovery:       discDriver,
 		advertiser:      advDriver,
@@ -77,6 +78,7 @@ func (b *bleDiscoveryService) handleEntry(peerInfoByteString string) {
 }
 
 func (b *bleDiscoveryService) Close() error {
+	fmt.Println(b.discovery)
 	b.discovery.Stop()
 	b.advertiser.Stop()
 	return nil

@@ -118,17 +118,6 @@ func Init(root string, connManager ConnectionManager, discDriver BleDiscoveryDri
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
-	service, err := NewBleDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
-	if err != nil {
-		log.Error("ble discovery setup failed : ", err.Error())
-		return nil
-	}
-
-	if res, ok := service.(*bleDiscoveryService); ok {
-		hop.discService = res
-	}
-	hop.discService.RegisterNotifee(hop.notifier)
-
 	return nil
 }
 
@@ -402,7 +391,9 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
-	hop.discService.Close()
+
+	// TODO look for a place to start and stop discService
+	//hop.discService.Close()
 }
 
 func GetBleDiscNotifier() BleDiscNotifier {
