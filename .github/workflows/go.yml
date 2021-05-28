@@ -2,9 +2,9 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, alpha.0 ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, alpha.0 ]
 
 jobs:
 
