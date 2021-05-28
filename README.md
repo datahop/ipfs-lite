@@ -1,5 +1,8 @@
 # IPFS-Lite
 
+[![Actions Status](https://github.com/datahop/ipfs-lite/workflows/Go/badge.svg)](https://github.com/datahop/ipfs-lite/actions)
+[![codecov](https://codecov.io/gh/datahop/ipfs-lite/branch/android.1/graph/badge.svg)](https://codecov.io/gh/datahop/ipfs-lite)
+
 IPFS-Lite is an embeddable, lightweight IPFS peer. This fork started from [ipfs-lite](https://github.com/hsanjuan/ipfs-lite).
 
 It offers all the features of main [ipfs-lite](https://github.com/hsanjuan/ipfs-lite). For certain requirements of datahop 
