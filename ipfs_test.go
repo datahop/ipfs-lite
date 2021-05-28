@@ -211,45 +211,6 @@ func TestFiles(t *testing.T) {
 	}
 }
 
-func TestOperations(t *testing.T) {
-	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
-
-	p1, p2, closer := setupPeers(t)
-	defer closer(t)
-	p1peers := p1.Peers()
-	p2peers := p2.Peers()
-	t.Logf("P1 peers %v", p1peers)
-	t.Logf("P2 peers %v", p2peers)
-	if len(p1peers) != len(p2peers) {
-		t.Fatal("Peer count should be same")
-	}
-	if p1peers[0] != p2.Host.ID().Pretty() || p2peers[0] != p1.Host.ID().Pretty() {
-		t.Fatal("Peer connection did not happen")
-	}
-	p2aInfo := peer.AddrInfo{
-		ID:    p2.Host.ID(),
-		Addrs: p2.Host.Addrs(),
-	}
-
-	err := p1.Disconnect(p2aInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p1peers = p1.Peers()
-	if len(p1peers) != 0 {
-		t.Fatal("Peer count should be zero")
-	}
-	err = p1.Connect(context.Background(), p2aInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p1peers = p1.Peers()
-	if len(p1peers) != 1 {
-		t.Fatal("Peer count should be one")
-	}
-}
-
 func TestCRDT(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
 	<-time.After(time.Second * 1)
