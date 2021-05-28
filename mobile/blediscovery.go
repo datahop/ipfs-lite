@@ -58,8 +58,6 @@ func NewBleDiscoveryService(ctx context.Context, peerhost host.Host, discDriver 
 
 	adv := make(map[string][]byte)
 
-	//info := []string{myid}
-
 	if serviceTag == "" {
 		serviceTag = ServiceTag
 	}
@@ -142,7 +140,7 @@ func (b *bleDiscoveryService) PeerDifferentStatusDiscovered(device string, topic
 
 func (b *bleDiscoveryService) SameStatusDiscovered() {
 	log.Debug("BLE advertising new peer device same status")
-	b.advertiser.NotifyEmptyValue("topic1")
+	b.advertiser.NotifyEmptyValue()
 }
 
 func (b *bleDiscoveryService) DifferentStatusDiscovered(topic string, value []byte) {
@@ -158,7 +156,7 @@ func (b *bleDiscoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
 	time.Sleep(10 * time.Second) // pauses execution for 2 seconds
 	hop.wifiCon.Disconnect()
-	//handleEntry()
+	//b.handleEntry()
 }
 
 func (b *bleDiscoveryService) OnConnectionFailure(code int) {
@@ -189,7 +187,7 @@ func (b *bleDiscoveryService) StopOnFailure(code int) {
 
 func (b *bleDiscoveryService) NetworkInfo(topic string, network string, password string) {
 	log.Debug("hotspot info ", network, password)
-	b.advertiser.NotifyNetworkInformation(topic, network, password, PeerInfo())
+	b.advertiser.NotifyNetworkInformation(network, password, PeerInfo())
 }
 
 func (b *bleDiscoveryService) ClientsConnected(num int) {

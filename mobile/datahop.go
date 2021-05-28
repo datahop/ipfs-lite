@@ -172,7 +172,7 @@ func Start() error {
 		}
 		hop.discService.RegisterNotifee(hop.notifier)
 
-		//hop.discService.AddAdvertisingInfo(CRDTOPIC,CRDTVALUE)
+		hop.discService.AddAdvertisingInfo(CRDTOPIC,CRDTVALUE)
 		hop.discService.Start()
 		select {
 		case <-hop.peer.Ctx.Done():

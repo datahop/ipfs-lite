@@ -6,8 +6,8 @@ type BleAdvertisingDriver interface {
 	AddAdvertisingInfo(topic string, info []byte)
 	// Stop the native driver
 	Stop()
-	NotifyNetworkInformation(topic string, network string, pass string, info string)
-	NotifyEmptyValue(topic string)
+	NotifyNetworkInformation(network string, pass string, info string)
+	NotifyEmptyValue()
 }
 type BleDiscoveryDriver interface {
 	// Start the native driver
