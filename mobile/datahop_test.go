@@ -91,11 +91,18 @@ func TestContentLength(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Close()
+	defer func() {
+		err := os.RemoveAll(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		Close()
+	}()
 	_, err = DiskUsage()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 }
 
 func TestMultipleStart(t *testing.T) {
@@ -110,7 +117,13 @@ func TestMultipleStart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Close()
+	defer func() {
+		err := os.RemoveAll(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		Close()
+	}()
 	for i := 0; i < 10; i++ {
 		err = Start()
 		if err != nil {
@@ -138,6 +151,12 @@ func TestReplication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		err := os.RemoveAll(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = Start()
 	if err != nil {
 		t.Fatal(err)

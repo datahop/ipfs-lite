@@ -3,7 +3,6 @@ package ipfslite
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -69,8 +68,6 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	}
 	p1.Bootstrap([]peer.AddrInfo{pinfo2})
 	p2.Bootstrap([]peer.AddrInfo{pinfo1})
-	fmt.Println(p1.Host.ID())
-	fmt.Println(p2.Host.ID())
 	return
 }
 
@@ -90,8 +87,14 @@ func TestHost(t *testing.T) {
 	<-time.After(time.Second * 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	root1 := filepath.Join("./test", "root1")
+	defer func() {
+		err := os.RemoveAll(root1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+	}()
 	err := repo.Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
