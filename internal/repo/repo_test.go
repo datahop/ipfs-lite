@@ -4,10 +4,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestInit(t *testing.T) {
 	root := filepath.Join("../../test", "root1")
+	defer func() {
+		err := os.RemoveAll(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +31,14 @@ func TestInit(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
+	<-time.After(time.Second)
 	root := filepath.Join("../../test", "root1")
+	defer func() {
+		err := os.RemoveAll(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err := Init(root, "0")
 	if err != nil {
 		t.Fatal(err)
