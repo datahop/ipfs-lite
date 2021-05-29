@@ -142,14 +142,15 @@ func Start() error {
 		p, err := ipfslite.New(ctx, cancel, hop.repo)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
+			wg.Done()
 			return
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
-		wg.Done()
 		service, err := NewBleDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
 		if err != nil {
 			log.Error("ble discovery setup failed : ", err.Error())
+			wg.Done()
 			return
 		}
 		if res, ok := service.(*bleDiscoveryService); ok {
@@ -158,6 +159,7 @@ func Start() error {
 		hop.discService.RegisterNotifee(hop.notifier)
 		//hop.discService.AddAdvertisingInfo(CRDTOPIC, CRDTVALUE)
 		hop.discService.Start()
+		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():
 			log.Debug("Context Closed ")

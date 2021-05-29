@@ -3,7 +3,9 @@ package ipfslite
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -67,8 +69,20 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	}
 	p1.Bootstrap([]peer.AddrInfo{pinfo2})
 	p2.Bootstrap([]peer.AddrInfo{pinfo1})
-
+	fmt.Println(p1.Host.ID())
+	fmt.Println(p2.Host.ID())
 	return
+}
+
+func cleanup(t *testing.T) {
+	root1 := filepath.Join("./test", "root1")
+	root2 := filepath.Join("./test", "root2")
+	for _, v := range []string{root1, root2} {
+		err := os.RemoveAll(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestHost(t *testing.T) {
@@ -106,7 +120,10 @@ func TestDAG(t *testing.T) {
 
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	m := map[string]string{
 		"akey": "avalue",
@@ -154,7 +171,10 @@ func TestSession(t *testing.T) {
 
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	m := map[string]string{
 		"akey": "avalue",
@@ -184,7 +204,10 @@ func TestFiles(t *testing.T) {
 	<-time.After(time.Second * 1)
 
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	content := []byte("hola")
 	buf := bytes.NewReader(content)
@@ -211,12 +234,56 @@ func TestFiles(t *testing.T) {
 	}
 }
 
-func TestCRDT(t *testing.T) {
+func TestOperations(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
 	<-time.After(time.Second * 1)
 
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
+	p1peers := p1.Peers()
+	p2peers := p2.Peers()
+	t.Logf("P1 peers %v", p1peers)
+	t.Logf("P2 peers %v", p2peers)
+	if len(p1peers) != len(p2peers) {
+		t.Fatal("Peer count should be same")
+	}
+	if p1peers[0] != p2.Host.ID().Pretty() || p2peers[0] != p1.Host.ID().Pretty() {
+		t.Fatal("Peer connection did not happen")
+	}
+	p2aInfo := peer.AddrInfo{
+		ID:    p2.Host.ID(),
+		Addrs: p2.Host.Addrs(),
+	}
+
+	err := p1.Disconnect(p2aInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1peers = p1.Peers()
+	if len(p1peers) != 0 {
+		t.Fatal("Peer count should be zero")
+	}
+	<-time.After(time.Second)
+	err = p1.Connect(context.Background(), p2aInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1peers = p1.Peers()
+	if len(p1peers) != 1 {
+		t.Fatal("Peer count should be one")
+	}
+}
+
+func TestCRDT(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second * 1)
+
+	p1, p2, closer := setupPeers(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
+
 	myvalue := "myValue"
 	key := datastore.NewKey("mykey")
 	err := p1.CrdtStore.Put(key, []byte(myvalue))
@@ -227,10 +294,16 @@ func TestCRDT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 3)
-	ok, err := p2.CrdtStore.Has(key)
-	if err != nil {
-		t.Fatal(err)
+	ok := false
+	for i := 0; i < 5; i++ {
+		ok, err = p2.CrdtStore.Has(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			break
+		}
+		<-time.After(time.Second * 2)
 	}
 	if !ok {
 		t.Fatal("Data not replicated")
@@ -242,7 +315,10 @@ func TestFilesWithCRDT(t *testing.T) {
 	<-time.After(time.Second * 1)
 
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	content := []byte("hola")
 	buf := bytes.NewReader(content)

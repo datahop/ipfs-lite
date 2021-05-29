@@ -38,7 +38,7 @@ jobs:
         run: go get golang.org/x/net/ipv6
 
       - name: Test
-        run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
+        run: go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v1.0.2
