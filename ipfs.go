@@ -46,6 +46,7 @@ func init() {
 	ipld.Register(cid.DagProtobuf, merkledag.DecodeProtobufBlock)
 	ipld.Register(cid.Raw, merkledag.DecodeRawBlock)
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
+	logging.SetLogLevel("config", "Debug")
 }
 
 const (
