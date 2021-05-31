@@ -166,7 +166,7 @@ func (b *bleDiscoveryService) StopOnFailure(code int) {
 	log.Debug("StopOnFailure ", code)
 }
 
-func (b *bleDiscoveryService) NetworkInfo(topic string, network string, password string) {
+func (b *bleDiscoveryService) NetworkInfo(network string, password string) {
 	log.Debug("hotspot info ", network, password)
 	b.advertiser.NotifyNetworkInformation(network, password, PeerInfo())
 }

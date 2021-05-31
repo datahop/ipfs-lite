@@ -10,6 +10,6 @@ type WifiHotspotNotifier interface {
 	OnFailure(code int)
 	StopOnSuccess()
 	StopOnFailure(code int)
-	NetworkInfo(topic string, network string, password string)
+	NetworkInfo(network string, password string)
 	ClientsConnected(num int)
 }

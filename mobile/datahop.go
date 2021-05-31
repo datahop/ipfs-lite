@@ -398,6 +398,10 @@ func Close() {
 	//hop.discService.Close()
 }
 
+func UpdateTopicStatus(topic string, value []byte){
+	hop.discService.AddAdvertisingInfo(topic,value)
+}
+
 func GetBleDiscNotifier() BleDiscNotifier {
 	return hop.discService
 }
