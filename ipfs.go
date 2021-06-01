@@ -46,6 +46,8 @@ func init() {
 	ipld.Register(cid.DagProtobuf, merkledag.DecodeProtobufBlock)
 	ipld.Register(cid.Raw, merkledag.DecodeRawBlock)
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
+	logging.SetLogLevel("config", "Debug")
+	logging.SetLogLevel("repo", "Debug")
 }
 
 const (
@@ -286,7 +288,6 @@ func (p *Peer) autoclose() {
 	defer p.mtx.Unlock()
 	p.online = false
 	p.CrdtStore.Close()
-	p.Repo.Close()
 	p.Host.Close()
 	p.bserv.Close()
 	p.Stopped <- true

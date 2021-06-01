@@ -34,31 +34,6 @@ type ConnectionManager interface {
 	PeerDisconnected(string)
 }
 
-/*
-Out of scope
-// BleManager is used by clients to interact with Bluetooth Low Energy
-type BleManager interface {
-	StartAdvertising()
-	StopAdvertising()
-	StartScanning()
-	StopScanning()
-	StartGATTServer()
-	StopGATTServer()
-}
-
-// WifiP2PManager is used by clients to mange wifi direct
-type WifiP2PManager interface {
-	StartHotspot() (string, error) // Returns "ssid:password"
-	StopHotspot()
-}
-
-// WifiManager is used by clients to mange wifi connection
-type WifiManager interface {
-	Connect(string, string) // takes in ssid and password
-	Disconnect()
-}
-*/
-
 type Notifier struct{}
 
 func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
@@ -76,6 +51,17 @@ func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
 func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
 func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
 
+type discNotifee struct{}
+
+func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
+	var peerInfo peer.AddrInfo
+	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
+	if err != nil {
+		return
+	}
+	hop.peer.HandlePeerFound(peerInfo)
+}
+
 type datahop struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
@@ -83,8 +69,14 @@ type datahop struct {
 	peer            *ipfslite.Peer
 	identity        config.Identity
 	hook            ConnectionManager
+	wifiHS          WifiHotspot
+	wifiCon         WifiConnection
+	discDriver      DiscoveryDriver
+	advDriver       AdvertisingDriver
 	networkNotifier network.Notifiee
 	repo            repo.Repo
+	notifier        Notifee
+	discService     *discoveryService
 }
 
 func init() {
@@ -94,7 +86,14 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, connManager ConnectionManager) error {
+func Init(
+	root string,
+	connManager ConnectionManager,
+	discDriver DiscoveryDriver,
+	advDriver AdvertisingDriver,
+	hs WifiHotspot,
+	con WifiConnection,
+) error {
 	err := repo.Init(root, "0")
 	if err != nil {
 		return err
@@ -111,6 +110,7 @@ func Init(root string, connManager ConnectionManager) error {
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	dn := &discNotifee{}
 	hop = &datahop{
 		root:            root,
 		identity:        cfg.Identity,
@@ -119,15 +119,17 @@ func Init(root string, connManager ConnectionManager) error {
 		ctx:             ctx,
 		cancel:          cancel,
 		repo:            r,
+		notifier:        dn,
+		wifiHS:          hs,
+		wifiCon:         con,
+		discDriver:      discDriver,
+		advDriver:       advDriver,
 	}
 	return nil
 }
 
 // DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
-	if hop == nil {
-		return 0, errors.New("datahop not initialised")
-	}
 	du, err := datastore.DiskUsage(hop.repo.Datastore())
 	if err != nil {
 		return 0, err
@@ -147,10 +149,23 @@ func Start() error {
 		p, err := ipfslite.New(ctx, cancel, hop.repo)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
+			wg.Done()
 			return
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
+		service, err := NewDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+		if err != nil {
+			log.Error("ble discovery setup failed : ", err.Error())
+			wg.Done()
+			return
+		}
+		if res, ok := service.(*discoveryService); ok {
+			hop.discService = res
+		}
+		hop.discService.RegisterNotifee(hop.notifier)
+		//hop.discService.AddAdvertisingInfo(CRDTOPIC, CRDTVALUE)
+		hop.discService.Start()
 		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():
@@ -385,4 +400,27 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
+
+	// TODO look for a place to start and stop discService
+	//hop.discService.Close()
+}
+
+func UpdateTopicStatus(topic string, value []byte) {
+	hop.discService.AddAdvertisingInfo(topic, value)
+}
+
+func GetBleDiscNotifier() DiscoveryNotifier {
+	return hop.discService
+}
+
+func GetBleAdvNotifier() AdvertisementNotifier {
+	return hop.discService
+}
+
+func GetWifiHotspotNotifier() WifiHotspotNotifier {
+	return hop.discService
+}
+
+func GetWifiConnectionNotifier() WifiConnectionNotifier {
+	return hop.discService
 }

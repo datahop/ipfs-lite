@@ -2,9 +2,9 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, alpha.0 ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, alpha.0 ]
 
 jobs:
 
@@ -22,11 +22,31 @@ jobs:
         with:
           go-version: 1.16
 
+      - name: Install deps
+        run: go mod tidy
+
       - name: Install gomobile
         run: go get golang.org/x/mobile/cmd/gomobile
 
+      - name: Install charset
+        run: go get golang.org/x/net/html/charset
+
+      - name: Install ipv4
+        run: go get golang.org/x/net/ipv4
+
+      - name: Install ipv6
+        run: go get golang.org/x/net/ipv6
+
       - name: Test
-        run: go test -v ./...
+        run: go test -p 1 -v ./... -race -coverprofile=coverage.txt -covermode=atomic
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.txt
+          flags: unittests
+          name: codecov-umbrella
 
       - name: Build
         run: cd mobile && gomobile init && go generate

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -42,6 +43,8 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	}
 
 	closer = func(t *testing.T) {
+		r1.Close()
+		r2.Close()
 		cancel()
 	}
 
@@ -67,25 +70,42 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	}
 	p1.Bootstrap([]peer.AddrInfo{pinfo2})
 	p2.Bootstrap([]peer.AddrInfo{pinfo1})
-
 	return
+}
+
+func cleanup(t *testing.T) {
+	root1 := filepath.Join("./test", "root1")
+	root2 := filepath.Join("./test", "root2")
+	for _, v := range []string{root1, root2} {
+		err := os.RemoveAll(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestHost(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	root1 := filepath.Join("./test", "root1")
 	err := repo.Init(root1, "0")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		err := os.RemoveAll(root1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+	}()
 	r1, err := repo.Open(root1)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r1.Close()
 	p1, err := New(ctx, cancel, r1)
 	if err != nil {
 		t.Fatal(err)
@@ -100,18 +120,48 @@ func TestHost(t *testing.T) {
 	}
 }
 
+func TestRepoClosed(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	root1 := filepath.Join("./test", "root1")
+	defer func() {
+		err := os.RemoveAll(root1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+	}()
+	err := repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1.Close()
+	_, err = New(ctx, cancel, r1)
+	if err != repo.ErrorRepoClosed {
+		t.Fatal(err)
+	}
+}
+
 func TestDAG(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	m := map[string]string{
 		"akey": "avalue",
 	}
-
 	codec := uint64(multihash.SHA2_256)
 	node, err := cbor.WrapObject(m, codec, multihash.DefaultLengths[codec])
 	if err != nil {
@@ -150,11 +200,14 @@ func TestDAG(t *testing.T) {
 
 func TestSession(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	m := map[string]string{
 		"akey": "avalue",
@@ -181,10 +234,13 @@ func TestSession(t *testing.T) {
 
 func TestFiles(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	content := []byte("hola")
 	buf := bytes.NewReader(content)
@@ -213,7 +269,7 @@ func TestFiles(t *testing.T) {
 
 func TestOperations(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
@@ -240,6 +296,7 @@ func TestOperations(t *testing.T) {
 	if len(p1peers) != 0 {
 		t.Fatal("Peer count should be zero")
 	}
+	<-time.After(time.Second)
 	err = p1.Connect(context.Background(), p2aInfo)
 	if err != nil {
 		t.Fatal(err)
@@ -252,10 +309,14 @@ func TestOperations(t *testing.T) {
 
 func TestCRDT(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
+
 	myvalue := "myValue"
 	key := datastore.NewKey("mykey")
 	err := p1.CrdtStore.Put(key, []byte(myvalue))
@@ -266,10 +327,16 @@ func TestCRDT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 3)
-	ok, err := p2.CrdtStore.Has(key)
-	if err != nil {
-		t.Fatal(err)
+	ok := false
+	for i := 0; i < 5; i++ {
+		ok, err = p2.CrdtStore.Has(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			break
+		}
+		<-time.After(time.Second)
 	}
 	if !ok {
 		t.Fatal("Data not replicated")
@@ -278,10 +345,13 @@ func TestCRDT(t *testing.T) {
 
 func TestFilesWithCRDT(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		cleanup(t)
+		closer(t)
+	}()
 
 	content := []byte("hola")
 	buf := bytes.NewReader(content)

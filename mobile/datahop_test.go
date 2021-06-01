@@ -23,29 +23,101 @@ func (m MockConnManager) PeerConnected(s string) {
 func (m MockConnManager) PeerDisconnected(s string) {
 	// do nothing
 }
+
+type MockDisDriver struct{}
+
+func (m MockDisDriver) Start(localPID string, scanTime int, interval int) {
+	// do nothing
+}
+
+func (m MockDisDriver) AddAdvertisingInfo(topic string, info []byte) {
+	// do nothing
+}
+
+func (m MockDisDriver) Stop() {
+	// do nothing
+}
+
+type MockAdvDriver struct{}
+
+func (m MockAdvDriver) Start(localPID string) {
+	// do nothing
+}
+
+func (m MockAdvDriver) AddAdvertisingInfo(topic string, info []byte) {
+	// do nothing
+}
+
+func (m MockAdvDriver) Stop() {
+	// do nothing
+}
+
+func (m MockAdvDriver) NotifyNetworkInformation(network string, pass string, info string) {
+	// do nothing
+}
+
+func (m MockAdvDriver) NotifyEmptyValue() {
+	// do nothing
+}
+
+type MockWifiConn struct{}
+
+func (m MockWifiConn) Connect(network string, pass string, ip string) {
+	// do nothing
+}
+
+func (m MockWifiConn) Disconnect() {
+	// do nothing
+}
+
+type MockWifiHotspot struct{}
+
+func (m MockWifiHotspot) Start() {
+	// do nothing
+}
+
+func (m MockWifiHotspot) Stop() {
+	// do nothing
+}
+
 func TestContentLength(t *testing.T) {
 	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
-	err := Init(root, cm)
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Close()
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
 	_, err = DiskUsage()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 }
 
 func TestMultipleStart(t *testing.T) {
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
-	err := Init(root, cm)
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Close()
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
 	for i := 0; i < 10; i++ {
 		err = Start()
 		if err != nil {
@@ -62,18 +134,23 @@ func TestMultipleStart(t *testing.T) {
 }
 
 func TestReplication(t *testing.T) {
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 	root := filepath.Join("../test", repo.Root)
 	cm := MockConnManager{}
-	err := Init(root, cm)
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer removeRepo(root, t)
 	err = Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 	numberOfNewKeys := 10
 	keyPrefix := "/key"
 	for i := 0; i < numberOfNewKeys; i++ {
@@ -110,4 +187,11 @@ func TestReplication(t *testing.T) {
 	}
 	Stop()
 	Close()
+}
+
+func removeRepo(repopath string, t *testing.T) {
+	err := os.RemoveAll(repopath)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

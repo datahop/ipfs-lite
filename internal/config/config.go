@@ -4,9 +4,12 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	logging "github.com/ipfs/go-log/v2"
 	ci "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
+
+var log = logging.Logger("config")
 
 const (
 	SwarmPort = "4501"
@@ -38,6 +41,7 @@ func NewConfig(swarmPort string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Debug("Generated new id ", identity.PeerID)
 	if swarmPort == "0" {
 		swarmPort = SwarmPort
 	}
