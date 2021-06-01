@@ -1,6 +1,6 @@
 package datahop
 
-type BleAdvertisingDriver interface {
+type AdvertisingDriver interface {
 	// Start the native driver
 	Start(localPID string)
 	AddAdvertisingInfo(topic string, info []byte)
@@ -9,7 +9,7 @@ type BleAdvertisingDriver interface {
 	NotifyNetworkInformation(network string, pass string, info string)
 	NotifyEmptyValue()
 }
-type BleDiscoveryDriver interface {
+type DiscoveryDriver interface {
 	// Start the native driver
 	Start(localPID string, scanTime int, interval int)
 	AddAdvertisingInfo(topic string, info []byte)
@@ -17,13 +17,13 @@ type BleDiscoveryDriver interface {
 	Stop()
 }
 
-type BleDiscNotifier interface {
+type DiscoveryNotifier interface {
 	PeerDiscovered(device string)
 	PeerSameStatusDiscovered(device string, topic string)
 	PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, info string)
 }
 
-type BleAdvNotifier interface {
+type AdvertisementNotifier interface {
 	SameStatusDiscovered()
 	DifferentStatusDiscovered(topic string, value []byte)
 }

@@ -71,12 +71,12 @@ type datahop struct {
 	hook            ConnectionManager
 	wifiHS          WifiHotspot
 	wifiCon         WifiConnection
-	discDriver      BleDiscoveryDriver
-	advDriver       BleAdvertisingDriver
+	discDriver      DiscoveryDriver
+	advDriver       AdvertisingDriver
 	networkNotifier network.Notifiee
 	repo            repo.Repo
 	notifier        Notifee
-	discService     *bleDiscoveryService
+	discService     *discoveryService
 }
 
 func init() {
@@ -86,7 +86,7 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, connManager ConnectionManager, discDriver BleDiscoveryDriver, advDriver BleAdvertisingDriver, hs WifiHotspot, con WifiConnection) error {
+func Init(root string, connManager ConnectionManager, discDriver DiscoveryDriver, advDriver AdvertisingDriver, hs WifiHotspot, con WifiConnection) error {
 	err := repo.Init(root, "0")
 	if err != nil {
 		return err
@@ -147,13 +147,13 @@ func Start() error {
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
-		service, err := NewBleDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+		service, err := NewDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
 		if err != nil {
 			log.Error("ble discovery setup failed : ", err.Error())
 			wg.Done()
 			return
 		}
-		if res, ok := service.(*bleDiscoveryService); ok {
+		if res, ok := service.(*discoveryService); ok {
 			hop.discService = res
 		}
 		hop.discService.RegisterNotifee(hop.notifier)
@@ -398,15 +398,15 @@ func Close() {
 	//hop.discService.Close()
 }
 
-func UpdateTopicStatus(topic string, value []byte){
-	hop.discService.AddAdvertisingInfo(topic,value)
+func UpdateTopicStatus(topic string, value []byte) {
+	hop.discService.AddAdvertisingInfo(topic, value)
 }
 
-func GetBleDiscNotifier() BleDiscNotifier {
+func GetBleDiscNotifier() DiscoveryNotifier {
 	return hop.discService
 }
 
-func GetBleAdvNotifier() BleAdvNotifier {
+func GetBleAdvNotifier() AdvertisementNotifier {
 	return hop.discService
 }
 

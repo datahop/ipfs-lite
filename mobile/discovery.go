@@ -1,7 +1,6 @@
 package datahop
 
 import (
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -21,9 +20,9 @@ type Notifee interface {
 	HandlePeerFound(string)
 }
 
-type bleDiscoveryService struct {
-	discovery       BleDiscoveryDriver
-	advertiser      BleAdvertisingDriver
+type discoveryService struct {
+	discovery       DiscoveryDriver
+	advertiser      AdvertisingDriver
 	host            host.Host
 	tag             string
 	lk              sync.Mutex
@@ -35,14 +34,13 @@ type bleDiscoveryService struct {
 	advertisingInfo map[string][]byte
 }
 
-func NewBleDiscoveryService(peerhost host.Host, discDriver BleDiscoveryDriver, advDriver BleAdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
+func NewDiscoveryService(peerhost host.Host, discDriver DiscoveryDriver, advDriver AdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
 	adv := make(map[string][]byte)
 
 	if serviceTag == "" {
 		serviceTag = ServiceTag
 	}
-	fmt.Println("NewBleDiscoveryService")
-	bleDiscovery := &bleDiscoveryService{
+	discovery := &discoveryService{
 		discovery:       discDriver,
 		advertiser:      advDriver,
 		host:            peerhost,
@@ -54,22 +52,22 @@ func NewBleDiscoveryService(peerhost host.Host, discDriver BleDiscoveryDriver, a
 		advertisingInfo: adv,
 	}
 
-	return bleDiscovery, nil
+	return discovery, nil
 }
 
-func (b *bleDiscoveryService) Start() {
+func (b *discoveryService) Start() {
 	b.discovery.Start(b.tag, b.scan, b.interval)
 	b.advertiser.Start(b.tag)
 }
 
-func (b *bleDiscoveryService) AddAdvertisingInfo(topic string, info []byte) {
+func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
 	b.discovery.AddAdvertisingInfo(topic, info)
 	b.advertiser.AddAdvertisingInfo(topic, info)
 	b.advertiser.Stop()
 	b.advertiser.Start(b.tag)
 }
 
-func (b *bleDiscoveryService) handleEntry(peerInfoByteString string) {
+func (b *discoveryService) handleEntry(peerInfoByteString string) {
 	b.lk.Lock()
 	for _, n := range b.notifees {
 		go n.HandlePeerFound(peerInfoByteString)
@@ -77,19 +75,18 @@ func (b *bleDiscoveryService) handleEntry(peerInfoByteString string) {
 	b.lk.Unlock()
 }
 
-func (b *bleDiscoveryService) Close() error {
-	fmt.Println(b.discovery)
+func (b *discoveryService) Close() error {
 	b.discovery.Stop()
 	b.advertiser.Stop()
 	return nil
 }
-func (b *bleDiscoveryService) RegisterNotifee(n Notifee) {
+func (b *discoveryService) RegisterNotifee(n Notifee) {
 	b.lk.Lock()
 	b.notifees = append(b.notifees, n)
 	b.lk.Unlock()
 }
 
-func (b *bleDiscoveryService) UnregisterNotifee(n Notifee) {
+func (b *discoveryService) UnregisterNotifee(n Notifee) {
 	b.lk.Lock()
 	found := -1
 	for i, notif := range b.notifees {
@@ -104,28 +101,28 @@ func (b *bleDiscoveryService) UnregisterNotifee(n Notifee) {
 	b.lk.Unlock()
 }
 
-func (b *bleDiscoveryService) PeerDiscovered(device string) {
-	log.Debug("BLE discovery new peer device ", device)
+func (b *discoveryService) PeerDiscovered(device string) {
+	log.Debug("discovery new peer device ", device)
 }
 
-func (b *bleDiscoveryService) PeerSameStatusDiscovered(device string, topic string) {
-	log.Debug("BLE discovery new peer device same status", device, topic)
+func (b *discoveryService) PeerSameStatusDiscovered(device string, topic string) {
+	log.Debug("discovery new peer device same status", device, topic)
 	//	hop.discoveryDriver.Stop()
 }
 
-func (b *bleDiscoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, peerinfo string) {
-	log.Debug("BLE discovery new peer device different status", device, topic, network, pass, peerinfo)
+func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, peerinfo string) {
+	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
 	b.Close()
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
 }
 
-func (b *bleDiscoveryService) SameStatusDiscovered() {
-	log.Debug("BLE advertising new peer device same status")
+func (b *discoveryService) SameStatusDiscovered() {
+	log.Debug("advertising new peer device same status")
 	b.advertiser.NotifyEmptyValue()
 }
 
-func (b *bleDiscoveryService) DifferentStatusDiscovered(topic string, value []byte) {
-	log.Debug("BLE advertising new peer device different status")
+func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte) {
+	log.Debug("advertising new peer device different status")
 	//hop.advertisingDriver.NotifyNetworkInformation("topic1",GetPeerInfo())
 	b.advertisingInfo[topic] = value
 	b.discovery.Stop()
@@ -133,44 +130,44 @@ func (b *bleDiscoveryService) DifferentStatusDiscovered(topic string, value []by
 	//hop.wifiHS.Start()
 }
 
-func (b *bleDiscoveryService) OnConnectionSuccess() {
+func (b *discoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
 	time.Sleep(10 * time.Second) // pauses execution for 2 seconds
 	hop.wifiCon.Disconnect()
 	//b.handleEntry()
 }
 
-func (b *bleDiscoveryService) OnConnectionFailure(code int) {
+func (b *discoveryService) OnConnectionFailure(code int) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 
 }
 
-func (b *bleDiscoveryService) OnDisconnect() {
+func (b *discoveryService) OnDisconnect() {
 	log.Debug("OnDisconnect")
 }
 
-func (b *bleDiscoveryService) OnSuccess() {
+func (b *discoveryService) OnSuccess() {
 	log.Debug("Network up")
 }
 
-func (b *bleDiscoveryService) OnFailure(code int) {
+func (b *discoveryService) OnFailure(code int) {
 	log.Debug("hotspot failure ", code)
 }
 
-func (b *bleDiscoveryService) StopOnSuccess() {
+func (b *discoveryService) StopOnSuccess() {
 	log.Debug("StopOnSuccess")
 }
 
-func (b *bleDiscoveryService) StopOnFailure(code int) {
+func (b *discoveryService) StopOnFailure(code int) {
 	log.Debug("StopOnFailure ", code)
 }
 
-func (b *bleDiscoveryService) NetworkInfo(network string, password string) {
+func (b *discoveryService) NetworkInfo(network string, password string) {
 	log.Debug("hotspot info ", network, password)
 	b.advertiser.NotifyNetworkInformation(network, password, PeerInfo())
 }
 
-func (b *bleDiscoveryService) ClientsConnected(num int) {
+func (b *discoveryService) ClientsConnected(num int) {
 	log.Debug("hotspot clients connected ", num)
 }
