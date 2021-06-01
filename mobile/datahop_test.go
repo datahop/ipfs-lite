@@ -92,10 +92,7 @@ func TestContentLength(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		err := os.RemoveAll(root)
-		if err != nil {
-			t.Fatal(err)
-		}
+		removeRepo(root, t)
 		Close()
 	}()
 	_, err = DiskUsage()
@@ -106,7 +103,7 @@ func TestContentLength(t *testing.T) {
 }
 
 func TestMultipleStart(t *testing.T) {
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
 	dd := MockDisDriver{}
@@ -118,10 +115,7 @@ func TestMultipleStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		err := os.RemoveAll(root)
-		if err != nil {
-			t.Fatal(err)
-		}
+		removeRepo(root, t)
 		Close()
 	}()
 	for i := 0; i < 10; i++ {
@@ -140,7 +134,7 @@ func TestMultipleStart(t *testing.T) {
 }
 
 func TestReplication(t *testing.T) {
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 	root := filepath.Join("../test", repo.Root)
 	cm := MockConnManager{}
 	dd := MockDisDriver{}
@@ -151,17 +145,12 @@ func TestReplication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		err := os.RemoveAll(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer removeRepo(root, t)
 	err = Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 	numberOfNewKeys := 10
 	keyPrefix := "/key"
 	for i := 0; i < numberOfNewKeys; i++ {
@@ -198,4 +187,11 @@ func TestReplication(t *testing.T) {
 	}
 	Stop()
 	Close()
+}
+
+func removeRepo(repopath string, t *testing.T) {
+	err := os.RemoveAll(repopath)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

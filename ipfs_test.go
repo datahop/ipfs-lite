@@ -43,6 +43,8 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 	}
 
 	closer = func(t *testing.T) {
+		r1.Close()
+		r2.Close()
 		cancel()
 	}
 
@@ -84,7 +86,43 @@ func cleanup(t *testing.T) {
 
 func TestHost(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	root1 := filepath.Join("./test", "root1")
+	err := repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err := os.RemoveAll(root1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+	}()
+	r1, err := repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r1.Close()
+	p1, err := New(ctx, cancel, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnf, err := r1.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Config id %s, Host Id %s", cnf.Identity.PeerID, p1.Host.ID().Pretty())
+	if cnf.Identity.PeerID != p1.Host.ID().Pretty() {
+		t.Fatal("Peer id does not match config")
+	}
+}
+
+func TestRepoClosed(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	root1 := filepath.Join("./test", "root1")
@@ -103,23 +141,16 @@ func TestHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p1, err := New(ctx, cancel, r1)
-	if err != nil {
+	r1.Close()
+	_, err = New(ctx, cancel, r1)
+	if err != repo.ErrorRepoClosed {
 		t.Fatal(err)
-	}
-	cnf, err := r1.Config()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Config id %s, Host Id %s", cnf.Identity.PeerID, p1.Host.ID().Pretty())
-	if cnf.Identity.PeerID != p1.Host.ID().Pretty() {
-		t.Fatal("Peer id does not match config")
 	}
 }
 
 func TestDAG(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
@@ -131,7 +162,6 @@ func TestDAG(t *testing.T) {
 	m := map[string]string{
 		"akey": "avalue",
 	}
-
 	codec := uint64(multihash.SHA2_256)
 	node, err := cbor.WrapObject(m, codec, multihash.DefaultLengths[codec])
 	if err != nil {
@@ -170,7 +200,7 @@ func TestDAG(t *testing.T) {
 
 func TestSession(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
@@ -204,7 +234,7 @@ func TestSession(t *testing.T) {
 
 func TestFiles(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
 	defer func() {
@@ -239,7 +269,7 @@ func TestFiles(t *testing.T) {
 
 func TestOperations(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
 	defer closer(t)
@@ -279,7 +309,7 @@ func TestOperations(t *testing.T) {
 
 func TestCRDT(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
 	defer func() {
@@ -306,7 +336,7 @@ func TestCRDT(t *testing.T) {
 		if ok {
 			break
 		}
-		<-time.After(time.Second * 2)
+		<-time.After(time.Second)
 	}
 	if !ok {
 		t.Fatal("Data not replicated")
@@ -315,7 +345,7 @@ func TestCRDT(t *testing.T) {
 
 func TestFilesWithCRDT(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second * 1)
+	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
 	defer func() {

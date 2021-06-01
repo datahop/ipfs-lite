@@ -15,6 +15,7 @@ import (
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	lockfile "github.com/ipfs/go-fs-lock"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/mitchellh/go-homedir"
 )
 
@@ -27,7 +28,9 @@ const (
 )
 
 var (
-	packageLock sync.Mutex
+	packageLock     sync.Mutex
+	log             = logging.Logger("repo")
+	ErrorRepoClosed = errors.New("cannot access config, repo not open")
 )
 
 type Repo interface {
@@ -66,7 +69,7 @@ func (r *FSRepo) Config() (*config.Config, error) {
 	defer packageLock.Unlock()
 
 	if r.closed {
-		return nil, errors.New("cannot access config, repo not open")
+		return nil, ErrorRepoClosed
 	}
 	return r.config, nil
 }
@@ -85,6 +88,8 @@ func (r *FSRepo) Datastore() Datastore {
 func (r *FSRepo) Close() error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
+
+	r.closed = true
 	return r.ds.Close()
 }
 
@@ -142,6 +147,7 @@ func open(repoPath string) (Repo, error) {
 	if err := r.openDatastore(); err != nil {
 		return nil, err
 	}
+	r.closed = false
 	return r, nil
 }
 
