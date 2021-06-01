@@ -1,6 +1,7 @@
 package datahop
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/golang/protobuf/proto"
-
-	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 type MockConnManager struct{}
@@ -189,9 +191,159 @@ func TestReplication(t *testing.T) {
 	Close()
 }
 
+func TestBootstrap(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	pr := peer.AddrInfo{
+		ID:    p.Host.ID(),
+		Addrs: p.Host.Addrs(),
+	}
+	prb, err := pr.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := string(prb)
+	err = Bootstrap(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if Peers() == NoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+}
+
+func TestConnectWithAddress(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	for _, v := range p.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if Peers() == NoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+}
+
+func TestConnectWithPeerInfo(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	pr := peer.AddrInfo{
+		ID:    p.Host.ID(),
+		Addrs: p.Host.Addrs(),
+	}
+	prb, err := pr.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := string(prb)
+	err = ConnectWithPeerInfo(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if Peers() == NoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+}
+
 func removeRepo(repopath string, t *testing.T) {
 	err := os.RemoveAll(repopath)
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func startAnotherNode(repopath string, t *testing.T) *ipfslite.Peer {
+	ctx, cancel := context.WithCancel(context.Background())
+	err := repo.Init(repopath, "5000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := repo.Open(repopath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ipfslite.New(ctx, cancel, r1, ipfslite.WithmDNS(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
 }

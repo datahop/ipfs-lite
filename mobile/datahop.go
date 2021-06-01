@@ -19,13 +19,17 @@ import (
 	"github.com/ipfs/go-datastore/query"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 var (
 	log = logger.Logger("datahop")
 	hop *datahop
+)
+
+const (
+	NoPeersConnected = "No Peers connected"
 )
 
 // ConnectionManager is used by clients to get notified client connection
@@ -292,7 +296,7 @@ func Peers() string {
 	if hop != nil && hop.peer != nil {
 		return strings.Join(hop.peer.Peers(), ",")
 	}
-	return "No Peers connected"
+	return NoPeersConnected
 }
 
 // Replicate adds a record in the crdt store

@@ -1,7 +1,7 @@
 package datahop
 
 type WifiConnection interface {
-	Connect(network string, pass string,ip string)
+	Connect(network string, pass string, ip string)
 	Disconnect()
 }
 
@@ -10,5 +10,3 @@ type WifiConnectionNotifier interface {
 	OnConnectionFailure(code int)
 	OnDisconnect()
 }
-
-

@@ -15,7 +15,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
-	multihash "github.com/multiformats/go-multihash"
+	"github.com/multiformats/go-multihash"
 )
 
 func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
