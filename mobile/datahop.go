@@ -86,7 +86,14 @@ func init() {
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, connManager ConnectionManager, discDriver DiscoveryDriver, advDriver AdvertisingDriver, hs WifiHotspot, con WifiConnection) error {
+func Init(
+	root string,
+	connManager ConnectionManager,
+	discDriver DiscoveryDriver,
+	advDriver AdvertisingDriver,
+	hs WifiHotspot,
+	con WifiConnection,
+) error {
 	err := repo.Init(root, "0")
 	if err != nil {
 		return err
