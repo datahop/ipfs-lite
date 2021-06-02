@@ -34,9 +34,16 @@ type discoveryService struct {
 	advertisingInfo map[string][]byte
 }
 
-func NewDiscoveryService(peerhost host.Host, discDriver DiscoveryDriver, advDriver AdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
-	adv := make(map[string][]byte)
-
+func NewDiscoveryService(
+	peerhost host.Host,
+	discDriver DiscoveryDriver,
+	advDriver AdvertisingDriver,
+	scanTime int,
+	interval int,
+	hs WifiHotspot,
+	con WifiConnection,
+	serviceTag string,
+) (Service, error) {
 	if serviceTag == "" {
 		serviceTag = ServiceTag
 	}
@@ -49,18 +56,19 @@ func NewDiscoveryService(peerhost host.Host, discDriver DiscoveryDriver, advDriv
 		wifiCon:         con,
 		scan:            scanTime,
 		interval:        interval,
-		advertisingInfo: adv,
+		advertisingInfo: make(map[string][]byte),
 	}
-
 	return discovery, nil
 }
 
 func (b *discoveryService) Start() {
+	log.Debug("discoveryService Start")
 	b.discovery.Start(b.tag, b.scan, b.interval)
 	b.advertiser.Start(b.tag)
 }
 
 func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
+	log.Debug("discoveryService AddAdvertisingInfo :", topic, string(info))
 	b.discovery.AddAdvertisingInfo(topic, info)
 	b.advertiser.AddAdvertisingInfo(topic, info)
 	b.advertiser.Stop()
@@ -68,6 +76,7 @@ func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
 }
 
 func (b *discoveryService) handleEntry(peerInfoByteString string) {
+	log.Debug("discoveryService handleEntry")
 	b.lk.Lock()
 	for _, n := range b.notifees {
 		go n.HandlePeerFound(peerInfoByteString)
@@ -76,17 +85,20 @@ func (b *discoveryService) handleEntry(peerInfoByteString string) {
 }
 
 func (b *discoveryService) Close() error {
+	log.Debug("discoveryService Close")
 	b.discovery.Stop()
 	b.advertiser.Stop()
 	return nil
 }
 func (b *discoveryService) RegisterNotifee(n Notifee) {
+	log.Debug("discoveryService RegisterNotifee")
 	b.lk.Lock()
 	b.notifees = append(b.notifees, n)
 	b.lk.Unlock()
 }
 
 func (b *discoveryService) UnregisterNotifee(n Notifee) {
+	log.Debug("discoveryService UnregisterNotifee")
 	b.lk.Lock()
 	found := -1
 	for i, notif := range b.notifees {
@@ -122,7 +134,8 @@ func (b *discoveryService) SameStatusDiscovered() {
 }
 
 func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte) {
-	log.Debug("advertising new peer device different status")
+	log.Debugf("advertising new peer device different status %+v", b)
+	log.Debug("advertising new peer device different status", string(value))
 	//hop.advertisingDriver.NotifyNetworkInformation("topic1",GetPeerInfo())
 	b.advertisingInfo[topic] = value
 	b.discovery.Stop()

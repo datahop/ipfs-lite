@@ -81,6 +81,7 @@ type Peer struct {
 	mtx             sync.Mutex
 	CrdtStore       *crdt.Datastore
 	Stopped         chan bool
+	CrdtTopic       string
 }
 
 type Option func(*Options)
@@ -279,6 +280,7 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 		return err
 	}
 	p.CrdtStore = crdtStore
+	p.CrdtTopic = opts.crdtTopic
 	return nil
 }
 

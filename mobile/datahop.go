@@ -5,6 +5,7 @@ package datahop
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -168,8 +169,15 @@ func Start() error {
 			hop.discService = res
 		}
 		hop.discService.RegisterNotifee(hop.notifier)
-		//hop.discService.AddAdvertisingInfo(CRDTOPIC, CRDTVALUE)
+		du, err := DiskUsage()
+		if err != nil {
+			log.Error("Node setup failed : ", err.Error())
+			wg.Done()
+			return
+		}
+		log.Debug(fmt.Sprintf("%d", du))
 		hop.discService.Start()
+		hop.discService.AddAdvertisingInfo(hop.peer.CrdtTopic, []byte(string(fmt.Sprintf("%d", du))))
 		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():
@@ -413,11 +421,11 @@ func UpdateTopicStatus(topic string, value []byte) {
 	hop.discService.AddAdvertisingInfo(topic, value)
 }
 
-func GetBleDiscNotifier() DiscoveryNotifier {
+func GetDiscoveryNotifier() DiscoveryNotifier {
 	return hop.discService
 }
 
-func GetBleAdvNotifier() AdvertisementNotifier {
+func GetAdvertisementNotifier() AdvertisementNotifier {
 	return hop.discService
 }
 
