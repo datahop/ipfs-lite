@@ -31,6 +31,7 @@ var (
 
 const (
 	NoPeersConnected = "No Peers connected"
+	CRDTStatus       = "datahop-crdt-status"
 )
 
 // ConnectionManager is used by clients to get notified client connection
@@ -130,6 +131,15 @@ func Init(
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
+	service, err := NewDiscoveryService(hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	if err != nil {
+		log.Error("ble discovery setup failed : ", err.Error())
+		return err
+	}
+	if res, ok := service.(*discoveryService); ok {
+		hop.discService = res
+		hop.discService.RegisterNotifee(hop.notifier)
+	}
 	return nil
 }
 
@@ -159,25 +169,7 @@ func Start() error {
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
-		service, err := NewDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
-		if err != nil {
-			log.Error("ble discovery setup failed : ", err.Error())
-			wg.Done()
-			return
-		}
-		if res, ok := service.(*discoveryService); ok {
-			hop.discService = res
-		}
-		hop.discService.RegisterNotifee(hop.notifier)
-		du, err := DiskUsage()
-		if err != nil {
-			log.Error("Node setup failed : ", err.Error())
-			wg.Done()
-			return
-		}
-		log.Debug(fmt.Sprintf("%d", du))
-		hop.discService.Start()
-		hop.discService.AddAdvertisingInfo(hop.peer.CrdtTopic, []byte(string(fmt.Sprintf("%d", du))))
+
 		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():
@@ -187,6 +179,21 @@ func Start() error {
 	wg.Wait()
 	log.Debug("Node Started")
 	return nil
+}
+
+func StartDiscovery() error {
+	if hop.discService != nil {
+		du, err := DiskUsage()
+		if err != nil {
+			log.Error("DiskUsage : ", err.Error())
+			return err
+		}
+		hop.discService.Start()
+		hop.discService.AddAdvertisingInfo(CRDTStatus, []byte(string(fmt.Sprintf("%d", du))))
+		return nil
+	} else {
+		return errors.New("discService is null")
+	}
 }
 
 // ConnectWithAddress Connects to a given peer address

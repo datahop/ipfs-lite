@@ -4,8 +4,6 @@ import (
 	"io"
 	"sync"
 	"time"
-
-	"github.com/libp2p/go-libp2p-core/host"
 )
 
 const ServiceTag = "_datahop-discovery._ble"
@@ -23,7 +21,6 @@ type Notifee interface {
 type discoveryService struct {
 	discovery       DiscoveryDriver
 	advertiser      AdvertisingDriver
-	host            host.Host
 	tag             string
 	lk              sync.Mutex
 	notifees        []Notifee
@@ -35,7 +32,6 @@ type discoveryService struct {
 }
 
 func NewDiscoveryService(
-	peerhost host.Host,
 	discDriver DiscoveryDriver,
 	advDriver AdvertisingDriver,
 	scanTime int,
@@ -50,7 +46,6 @@ func NewDiscoveryService(
 	discovery := &discoveryService{
 		discovery:       discDriver,
 		advertiser:      advDriver,
-		host:            peerhost,
 		tag:             serviceTag,
 		wifiHS:          hs,
 		wifiCon:         con,
@@ -134,7 +129,6 @@ func (b *discoveryService) SameStatusDiscovered() {
 }
 
 func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte) {
-	log.Debugf("advertising new peer device different status %+v", b)
 	log.Debug("advertising new peer device different status", string(value))
 	//hop.advertisingDriver.NotifyNetworkInformation("topic1",GetPeerInfo())
 	b.advertisingInfo[topic] = value
@@ -153,7 +147,6 @@ func (b *discoveryService) OnConnectionSuccess() {
 func (b *discoveryService) OnConnectionFailure(code int) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
-
 }
 
 func (b *discoveryService) OnDisconnect() {
