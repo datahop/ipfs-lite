@@ -3,7 +3,6 @@ package datahop
 import (
 	"io"
 	"sync"
-	"time"
 )
 
 const ServiceTag = "_datahop-discovery._ble"
@@ -139,8 +138,8 @@ func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte)
 
 func (b *discoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
-	time.Sleep(10 * time.Second) // pauses execution for 2 seconds
-	hop.wifiCon.Disconnect()
+	//time.Sleep(10 * time.Second) // pauses execution for 2 seconds
+	//hop.wifiCon.Disconnect()
 	//b.handleEntry()
 }
 
