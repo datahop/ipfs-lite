@@ -28,6 +28,13 @@ type discoveryService struct {
 	scan            int
 	interval        int
 	advertisingInfo map[string][]byte
+
+	// handleConnectionRequest will take care of the incoming connection request.
+	// but it is not safe to use this approach, as in case of multiple back to
+	// back connection requests we might loose some connection request as
+	// handleConnectionRequest gets overwritten every time. we can actually rely
+	// on mdns at this point of time as peers are already connected to the group owner
+	handleConnectionRequest func()
 }
 
 func NewDiscoveryService(
@@ -120,6 +127,14 @@ func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic st
 	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
 	b.Close()
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
+	b.handleConnectionRequest = func() {
+		b.handleEntry(peerinfo)
+		//log.Debug("Connect called on ", peerinfo)
+		//err := ConnectWithPeerInfo(peerinfo)
+		//if err != nil {
+		//	log.Error("ConnectWithPeerInfo failed : ", err.Error())
+		//}
+	}
 }
 
 func (b *discoveryService) SameStatusDiscovered() {
@@ -133,14 +148,11 @@ func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte)
 	b.advertisingInfo[topic] = value
 	b.discovery.Stop()
 	b.wifiHS.Start()
-	//hop.wifiHS.Start()
 }
 
 func (b *discoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
-	//time.Sleep(10 * time.Second) // pauses execution for 2 seconds
-	//hop.wifiCon.Disconnect()
-	//b.handleEntry()
+	b.handleConnectionRequest()
 }
 
 func (b *discoveryService) OnConnectionFailure(code int) {

@@ -56,7 +56,7 @@ const (
 
 	defaultCrdtNamespace           = "/crdt"
 	defaultCrdtRebroadcastInterval = time.Second * 20
-	defaultMDNSInterval            = time.Minute
+	defaultMDNSInterval            = time.Second * 20
 	defaultTopic                   = "datahop-crdt"
 )
 

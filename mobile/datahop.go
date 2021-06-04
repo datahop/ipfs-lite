@@ -239,9 +239,14 @@ func Bootstrap(peerInfoByteString string) error {
 func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {
+			addrs := hop.peer.Host.Addrs()
+			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+			if err == nil {
+				addrs = append(addrs, interfaceAddrs...)
+			}
 			pr := peer.AddrInfo{
 				ID:    hop.peer.Host.ID(),
-				Addrs: hop.peer.Host.Addrs(),
+				Addrs: interfaceAddrs,
 			}
 			prb, err := pr.MarshalJSON()
 			if err != nil {
@@ -419,9 +424,8 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
-
-	// TODO look for a place to start and stop discService
-	//hop.discService.Close()
+	hop.wifiCon.Disconnect()
+	hop.wifiHS.Stop()
 }
 
 func UpdateTopicStatus(topic string, value []byte) {

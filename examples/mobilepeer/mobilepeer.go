@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -94,7 +95,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	<-time.After(time.Second * 10)
+	fmt.Println(datahop.PeerInfo())
+	<-time.After(time.Second * 30)
 	datahop.Stop()
 	datahop.Close()
 }
