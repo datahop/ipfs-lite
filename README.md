@@ -20,8 +20,6 @@ it adds some more features of full ipfs, such as config, repo, leveldb etc.
 
 ## License
 
-# License
-
 Copyright 2021 Datahop
 
 Licensed under the Apache License, Version 2.0 (the "License");
