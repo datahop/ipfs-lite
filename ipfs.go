@@ -486,10 +486,22 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 	return nil
 }
 
+// HandlePeerFound tries to connect to a given peerinfo
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
-	log.Debug("mDNS Found Peer : ", pi.ID)
-	if err := p.Host.Connect(context.Background(), pi); err != nil {
-		log.Error("Failed to connect to peer : ", pi.ID.String())
+	log.Debug("Discovered Peer : ", pi)
+	var err error
+	for i := 0; i < 20; i++ {
+		err = p.Host.Connect(context.Background(), pi)
+		if err == nil {
+			log.Error("HandlePeerFound connected to peer : ", pi.ID.String())
+			break
+		} else {
+			log.Errorf("Failed to connect to peer %s on #%d attmpt\n", pi.ID.String(), i+1)
+		}
+		<-time.After(time.Millisecond * 500)
+	}
+	if err != nil {
+		log.Errorf("Failed to connect to peer %s. Returning\n", pi.ID.String())
 	}
 }
 

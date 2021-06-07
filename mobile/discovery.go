@@ -129,11 +129,6 @@ func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic st
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)
-		//log.Debug("Connect called on ", peerinfo)
-		//err := ConnectWithPeerInfo(peerinfo)
-		//if err != nil {
-		//	log.Error("ConnectWithPeerInfo failed : ", err.Error())
-		//}
 	}
 }
 
