@@ -56,7 +56,7 @@ const (
 
 	defaultCrdtNamespace           = "/crdt"
 	defaultCrdtRebroadcastInterval = time.Second * 20
-	defaultMDNSInterval            = time.Second * 20
+	defaultMDNSInterval            = time.Second * 5
 	defaultTopic                   = "datahop-crdt"
 )
 
@@ -496,19 +496,9 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 // HandlePeerFound tries to connect to a given peerinfo
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	log.Debug("Discovered Peer : ", pi)
-	var err error
-	for i := 0; i < 20; i++ {
-		err = p.Host.Connect(context.Background(), pi)
-		if err == nil {
-			log.Error("HandlePeerFound connected to peer : ", pi.ID.String())
-			break
-		} else {
-			log.Errorf("Failed to connect to peer %s on #%d attmpt\n", pi.ID.String(), i+1)
-		}
-		<-time.After(time.Millisecond * 500)
-	}
+	err := p.Host.Connect(context.Background(), pi)
 	if err != nil {
-		log.Errorf("Failed to connect to peer %s. Returning\n", pi.ID.String())
+		log.Errorf("Failed to connect to peer %s\n", pi.ID.String())
 	}
 }
 
