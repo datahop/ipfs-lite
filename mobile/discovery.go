@@ -1,7 +1,6 @@
 package datahop
 
 import (
-	"github.com/libp2p/go-libp2p-core/host"
 	"io"
 	"sync"
 )
@@ -21,7 +20,6 @@ type Notifee interface {
 type discoveryService struct {
 	discovery       DiscoveryDriver
 	advertiser      AdvertisingDriver
-	host            host.Host
 	tag             string
 	lk              sync.Mutex
 	notifees        []Notifee
@@ -30,35 +28,48 @@ type discoveryService struct {
 	scan            int
 	interval        int
 	advertisingInfo map[string][]byte
+
+	// handleConnectionRequest will take care of the incoming connection request.
+	// but it is not safe to use this approach, as in case of multiple back to
+	// back connection requests we might loose some connection request as
+	// handleConnectionRequest gets overwritten every time. we can actually rely
+	// on mdns at this point of time as peers are already connected to the group owner
+	handleConnectionRequest func()
 }
 
-func NewDiscoveryService(peerhost host.Host, discDriver DiscoveryDriver, advDriver AdvertisingDriver, scanTime int, interval int, hs WifiHotspot, con WifiConnection, serviceTag string) (Service, error) {
-	adv := make(map[string][]byte)
-
+func NewDiscoveryService(
+	discDriver DiscoveryDriver,
+	advDriver AdvertisingDriver,
+	scanTime int,
+	interval int,
+	hs WifiHotspot,
+	con WifiConnection,
+	serviceTag string,
+) (Service, error) {
 	if serviceTag == "" {
 		serviceTag = ServiceTag
 	}
 	discovery := &discoveryService{
 		discovery:       discDriver,
 		advertiser:      advDriver,
-		host:            peerhost,
 		tag:             serviceTag,
 		wifiHS:          hs,
 		wifiCon:         con,
 		scan:            scanTime,
 		interval:        interval,
-		advertisingInfo: adv,
+		advertisingInfo: make(map[string][]byte),
 	}
-
 	return discovery, nil
 }
 
 func (b *discoveryService) Start() {
+	log.Debug("discoveryService Start")
 	b.discovery.Start(b.tag, b.scan, b.interval)
 	b.advertiser.Start(b.tag)
 }
 
 func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
+	log.Debug("discoveryService AddAdvertisingInfo :", topic, string(info))
 	b.discovery.AddAdvertisingInfo(topic, info)
 	b.advertiser.AddAdvertisingInfo(topic, info)
 	b.advertiser.Stop()
@@ -66,6 +77,7 @@ func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
 }
 
 func (b *discoveryService) handleEntry(peerInfoByteString string) {
+	log.Debug("discoveryService handleEntry")
 	b.lk.Lock()
 	for _, n := range b.notifees {
 		go n.HandlePeerFound(peerInfoByteString)
@@ -74,17 +86,20 @@ func (b *discoveryService) handleEntry(peerInfoByteString string) {
 }
 
 func (b *discoveryService) Close() error {
+	log.Debug("discoveryService Close")
 	b.discovery.Stop()
 	b.advertiser.Stop()
 	return nil
 }
 func (b *discoveryService) RegisterNotifee(n Notifee) {
+	log.Debug("discoveryService RegisterNotifee")
 	b.lk.Lock()
 	b.notifees = append(b.notifees, n)
 	b.lk.Unlock()
 }
 
 func (b *discoveryService) UnregisterNotifee(n Notifee) {
+	log.Debug("discoveryService UnregisterNotifee")
 	b.lk.Lock()
 	found := -1
 	for i, notif := range b.notifees {
@@ -112,6 +127,9 @@ func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic st
 	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
 	b.Close()
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
+	b.handleConnectionRequest = func() {
+		b.handleEntry(peerinfo)
+	}
 }
 
 func (b *discoveryService) SameStatusDiscovered() {
@@ -120,25 +138,21 @@ func (b *discoveryService) SameStatusDiscovered() {
 }
 
 func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte) {
-	log.Debug("advertising new peer device different status")
+	log.Debug("advertising new peer device different status", string(value))
 	//hop.advertisingDriver.NotifyNetworkInformation("topic1",GetPeerInfo())
 	b.advertisingInfo[topic] = value
 	b.discovery.Stop()
 	b.wifiHS.Start()
-	//hop.wifiHS.Start()
 }
 
 func (b *discoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
-	//time.Sleep(10 * time.Second) // pauses execution for 2 seconds
-	//hop.wifiCon.Disconnect()
-	//b.handleEntry()
+	b.handleConnectionRequest()
 }
 
 func (b *discoveryService) OnConnectionFailure(code int) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
-
 }
 
 func (b *discoveryService) OnDisconnect() {

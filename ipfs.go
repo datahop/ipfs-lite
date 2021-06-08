@@ -56,7 +56,7 @@ const (
 
 	defaultCrdtNamespace           = "/crdt"
 	defaultCrdtRebroadcastInterval = time.Second * 20
-	defaultMDNSInterval            = time.Minute
+	defaultMDNSInterval            = time.Second * 5
 	defaultTopic                   = "datahop-crdt"
 )
 
@@ -81,6 +81,7 @@ type Peer struct {
 	mtx             sync.Mutex
 	CrdtStore       *crdt.Datastore
 	Stopped         chan bool
+	CrdtTopic       string
 }
 
 type Option func(*Options)
@@ -269,6 +270,13 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("Added: [%s] -> %s\n", k, string(v))
+		state := p.Repo.State()
+		state++
+		log.Debugf("New State: %d\n", state)
+		err := p.Repo.SetState(state)
+		if err != nil {
+			log.Errorf("SetState failed %s\n", err.Error())
+		}
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("Removed: [%s]\n", k)
@@ -279,6 +287,7 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 		return err
 	}
 	p.CrdtStore = crdtStore
+	p.CrdtTopic = opts.crdtTopic
 	return nil
 }
 
@@ -484,10 +493,12 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 	return nil
 }
 
+// HandlePeerFound tries to connect to a given peerinfo
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
-	log.Debug("mDNS Found Peer : ", pi.ID)
-	if err := p.Host.Connect(context.Background(), pi); err != nil {
-		log.Error("Failed to connect to peer : ", pi.ID.String())
+	log.Debug("Discovered Peer : ", pi)
+	err := p.Host.Connect(context.Background(), pi)
+	if err != nil {
+		log.Errorf("Failed to connect to peer %s\n", pi.ID.String())
 	}
 }
 

@@ -3,9 +3,12 @@ package repo
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/datahop/ipfs-lite/internal/config"
@@ -25,6 +28,7 @@ const (
 	DefaultDatastoreFolderName = "datastore"
 	// DefaultConfigFile is the filename of the configuration file
 	DefaultConfigFile = "config"
+	DefaultStateFile  = "state"
 )
 
 var (
@@ -38,6 +42,8 @@ type Repo interface {
 	Config() (*config.Config, error)
 	Datastore() Datastore
 	Close() error
+	State() int
+	SetState(int) error
 }
 
 // Datastore is the interface required from a datastore to be
@@ -56,6 +62,7 @@ type FSRepo struct {
 	lockfile io.Closer
 	config   *config.Config
 	ds       Datastore
+	state    int
 	io.Closer
 }
 
@@ -85,6 +92,21 @@ func (r *FSRepo) Datastore() Datastore {
 	return r.ds
 }
 
+func (r *FSRepo) State() int {
+	packageLock.Lock()
+	defer packageLock.Unlock()
+
+	return r.state
+}
+
+func (r *FSRepo) SetState(s int) error {
+	packageLock.Lock()
+	defer packageLock.Unlock()
+
+	r.state = s
+	return initState(r.path, fmt.Sprintf("%d", s))
+}
+
 func (r *FSRepo) Close() error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
@@ -104,11 +126,15 @@ func Init(repoPath, swarmPort string) error {
 	if isInitializedUnsynced(repoPath) {
 		return nil
 	}
+
 	conf, err := config.NewConfig(swarmPort)
 	if err != nil {
 		return err
 	}
 	if err := initConfig(repoPath, conf); err != nil {
+		return err
+	}
+	if err := initState(repoPath, "0"); err != nil {
 		return err
 	}
 	return nil
@@ -145,6 +171,9 @@ func open(repoPath string) (Repo, error) {
 		return nil, err
 	}
 	if err := r.openDatastore(); err != nil {
+		return nil, err
+	}
+	if err := r.openState(); err != nil {
 		return nil, err
 	}
 	r.closed = false
@@ -194,6 +223,17 @@ func initConfig(path string, cfg *config.Config) error {
 	return encode(f, cfg)
 }
 
+func initState(path, count string) error {
+	f, err := os.Create(filepath.Join(path, DefaultStateFile))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(count)
+	return err
+}
+
 // ConfigFilename returns the configuration file path given a configuration root
 // directory. If the configuration root directory is empty, use the default one
 func ConfigFilename(configroot string) (string, error) {
@@ -218,6 +258,39 @@ func (r *FSRepo) openConfig() error {
 		return err
 	}
 	r.config = conf
+	return nil
+}
+
+// openState returns an error if the state file is not present.
+func (r *FSRepo) openState() error {
+	f, err := os.Open(filepath.Join(r.path, DefaultStateFile))
+	if err == os.ErrNotExist {
+		err = initState(r.path, "0")
+		if err != nil {
+			return err
+		}
+		f, err = os.Open(filepath.Join(r.path, DefaultStateFile))
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	defer f.Close()
+	buf, err := ioutil.ReadAll(io.LimitReader(f, 2048))
+	if err != nil {
+		return err
+	}
+	if len(buf) == 2048 {
+		return errors.New("state file must be <2048 bytes long")
+	}
+
+	s := string(buf)
+	state, err := strconv.Atoi(s)
+	if err != nil {
+		return err
+	}
+	r.state = state
 	return nil
 }
 

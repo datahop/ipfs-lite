@@ -5,6 +5,7 @@ package datahop
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,7 @@ var (
 
 const (
 	NoPeersConnected = "No Peers connected"
+	CRDTStatus       = "datahop-crdt-status"
 )
 
 // ConnectionManager is used by clients to get notified client connection
@@ -129,7 +131,21 @@ func Init(
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
+	service, err := NewDiscoveryService(hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	if err != nil {
+		log.Error("ble discovery setup failed : ", err.Error())
+		return err
+	}
+	if res, ok := service.(*discoveryService); ok {
+		hop.discService = res
+		hop.discService.RegisterNotifee(hop.notifier)
+	}
 	return nil
+}
+
+// State returns number of keys in crdt store
+func State() int {
+	return hop.repo.State()
 }
 
 // DiskUsage returns number of bytes stored in the datastore
@@ -158,18 +174,7 @@ func Start() error {
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
-		service, err := NewDiscoveryService(hop.peer.Host, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
-		if err != nil {
-			log.Error("ble discovery setup failed : ", err.Error())
-			wg.Done()
-			return
-		}
-		if res, ok := service.(*discoveryService); ok {
-			hop.discService = res
-		}
-		hop.discService.RegisterNotifee(hop.notifier)
-		//hop.discService.AddAdvertisingInfo(CRDTOPIC, CRDTVALUE)
-		hop.discService.Start()
+
 		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():
@@ -179,6 +184,16 @@ func Start() error {
 	wg.Wait()
 	log.Debug("Node Started")
 	return nil
+}
+
+func StartDiscovery() error {
+	if hop.discService != nil {
+		hop.discService.Start()
+		hop.discService.AddAdvertisingInfo(CRDTStatus, []byte(string(fmt.Sprintf("%d", State()))))
+		return nil
+	} else {
+		return errors.New("discService is null")
+	}
 }
 
 // ConnectWithAddress Connects to a given peer address
@@ -224,9 +239,14 @@ func Bootstrap(peerInfoByteString string) error {
 func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {
+			addrs := hop.peer.Host.Addrs()
+			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+			if err == nil {
+				addrs = append(addrs, interfaceAddrs...)
+			}
 			pr := peer.AddrInfo{
 				ID:    hop.peer.Host.ID(),
-				Addrs: hop.peer.Host.Addrs(),
+				Addrs: interfaceAddrs,
 			}
 			prb, err := pr.MarshalJSON()
 			if err != nil {
@@ -404,20 +424,19 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
-
-	// TODO look for a place to start and stop discService
-	//hop.discService.Close()
+	hop.wifiCon.Disconnect()
+	hop.wifiHS.Stop()
 }
 
 func UpdateTopicStatus(topic string, value []byte) {
 	hop.discService.AddAdvertisingInfo(topic, value)
 }
 
-func GetBleDiscNotifier() DiscoveryNotifier {
+func GetDiscoveryNotifier() DiscoveryNotifier {
 	return hop.discService
 }
 
-func GetBleAdvNotifier() AdvertisementNotifier {
+func GetAdvertisementNotifier() AdvertisementNotifier {
 	return hop.discService
 }
 

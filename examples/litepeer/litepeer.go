@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(lite.Host.ID())
+	fmt.Println(lite.Host.ID(), lite.Repo.State())
 	lite.Bootstrap(ipfslite.DefaultBootstrapPeers())
 	c, _ := cid.Decode("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u")
 	rsc, err := lite.GetFile(ctx, c)
@@ -49,12 +49,12 @@ func main() {
 	}
 
 	fmt.Println(string(content))
-	myvalue := "myValue"
-	key := datastore.NewKey("mykey2")
+	myvalue := "myValue51299858"
+	key := datastore.NewKey("myke15a12351y2")
 	err = lite.CrdtStore.Put(key, []byte(myvalue))
 	if err != nil {
 		panic(err)
 	}
 
-	<-time.After(time.Minute * 1)
+	<-time.After(time.Minute * 5)
 }
