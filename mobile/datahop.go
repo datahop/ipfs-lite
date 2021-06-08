@@ -143,6 +143,11 @@ func Init(
 	return nil
 }
 
+// State returns number of keys in crdt store
+func State() int {
+	return hop.repo.State()
+}
+
 // DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
 	du, err := datastore.DiskUsage(hop.repo.Datastore())
@@ -183,13 +188,8 @@ func Start() error {
 
 func StartDiscovery() error {
 	if hop.discService != nil {
-		du, err := DiskUsage()
-		if err != nil {
-			log.Error("DiskUsage : ", err.Error())
-			return err
-		}
 		hop.discService.Start()
-		hop.discService.AddAdvertisingInfo(CRDTStatus, []byte(string(fmt.Sprintf("%d", du))))
+		hop.discService.AddAdvertisingInfo(CRDTStatus, []byte(string(fmt.Sprintf("%d", State()))))
 		return nil
 	} else {
 		return errors.New("discService is null")

@@ -3,6 +3,7 @@ package ipfslite
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -117,6 +118,71 @@ func TestHost(t *testing.T) {
 	t.Logf("Config id %s, Host Id %s", cnf.Identity.PeerID, p1.Host.ID().Pretty())
 	if cnf.Identity.PeerID != p1.Host.ID().Pretty() {
 		t.Fatal("Peer id does not match config")
+	}
+}
+
+func TestState(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	root1 := filepath.Join("./test", "root1")
+	err := repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err := os.RemoveAll(root1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+	}()
+	r1, err := repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r1.Close()
+	p1, err := New(ctx, cancel, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p1.CrdtStore.Put(datastore.NewKey("checkState"), []byte("state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1.Repo.State() != 1 {
+		t.Fatal("State should be 1")
+	}
+	for i := 0; i < 10; i++ {
+		err = p1.CrdtStore.Put(datastore.NewKey(fmt.Sprintf("checkState%d", i)), []byte("state"))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if p1.Repo.State() != 11 {
+		t.Fatal("State should be 11")
+	}
+
+	cancel()
+	p1.Repo.Close()
+	<-time.After(time.Second * 3)
+	ctx, cancel = context.WithCancel(context.Background())
+	root1 = filepath.Join("./test", "root1")
+	err = repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err = repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1, err = New(ctx, cancel, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1.Repo.State() != 11 {
+		t.Fatal("State should be 11")
 	}
 }
 

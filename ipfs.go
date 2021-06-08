@@ -270,6 +270,13 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("Added: [%s] -> %s\n", k, string(v))
+		state := p.Repo.State()
+		state++
+		log.Debugf("New State: %d\n", state)
+		err := p.Repo.SetState(state)
+		if err != nil {
+			log.Errorf("SetState failed %s\n", err.Error())
+		}
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("Removed: [%s]\n", k)
