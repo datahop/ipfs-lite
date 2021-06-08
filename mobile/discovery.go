@@ -1,6 +1,7 @@
 package datahop
 
 import (
+	"github.com/libp2p/go-libp2p-core/host"
 	"io"
 	"sync"
 )
