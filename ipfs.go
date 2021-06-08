@@ -12,13 +12,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/replication"
+
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	crdt "github.com/ipfs/go-ds-crdt"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
 	provider "github.com/ipfs/go-ipfs-provider"
@@ -35,7 +36,6 @@ import (
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
@@ -48,6 +48,7 @@ func init() {
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 	logging.SetLogLevel("config", "Debug")
 	logging.SetLogLevel("repo", "Debug")
+	logging.SetLogLevel("replication", "Debug")
 }
 
 const (
@@ -79,7 +80,7 @@ type Peer struct {
 	bserv           blockservice.BlockService
 	online          bool
 	mtx             sync.Mutex
-	CrdtStore       *crdt.Datastore
+	Manager         *replication.Manager
 	Stopped         chan bool
 	CrdtTopic       string
 }
@@ -210,6 +211,7 @@ func New(
 			p.bserv.Close()
 			return nil, err
 		}
+		p.Manager.StartContentWatcher()
 	}
 
 	p.mtx.Lock()
@@ -255,38 +257,11 @@ func (p *Peer) setupDAGService() error {
 }
 
 func (p *Peer) setupCrdtStore(opts *Options) error {
-	psub, err := pubsub.NewGossipSub(p.Ctx, p.Host)
+	manager, err := replication.New(p.Ctx, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval)
 	if err != nil {
 		return err
 	}
-	// TODO Add RegisterTopicValidator
-	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, opts.crdtTopic)
-	if err != nil {
-		return err
-	}
-
-	crdtOpts := crdt.DefaultOptions()
-	crdtOpts.Logger = log
-	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
-	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
-		log.Debugf("Added: [%s] -> %s\n", k, string(v))
-		state := p.Repo.State()
-		state++
-		log.Debugf("New State: %d\n", state)
-		err := p.Repo.SetState(state)
-		if err != nil {
-			log.Errorf("SetState failed %s\n", err.Error())
-		}
-	}
-	crdtOpts.DeleteHook = func(k datastore.Key) {
-		log.Debugf("Removed: [%s]\n", k)
-	}
-
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtPrefix), p, pubsubBC, crdtOpts)
-	if err != nil {
-		return err
-	}
-	p.CrdtStore = crdtStore
+	p.Manager = manager
 	p.CrdtTopic = opts.crdtTopic
 	return nil
 }
@@ -296,7 +271,7 @@ func (p *Peer) autoclose() {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.online = false
-	p.CrdtStore.Close()
+	p.Manager.Close()
 	p.Host.Close()
 	p.bserv.Close()
 	p.Stopped <- true
@@ -415,6 +390,13 @@ func (p *Peer) AddFile(ctx context.Context, r io.Reader, params *AddParams) (ipl
 		n, err = balanced.Layout(dbh)
 	default:
 		return nil, errors.New("invalid Layout")
+	}
+	if err != nil {
+		return n, err
+	}
+	err = p.Manager.Put(datastore.NewKey(n.Cid().String()), n.Cid().Bytes())
+	if err != nil {
+		log.Error("Putting cid into crdt failed")
 	}
 	return n, err
 }

@@ -121,71 +121,6 @@ func TestHost(t *testing.T) {
 	}
 }
 
-func TestState(t *testing.T) {
-	// Wait one second for the datastore closer by the previous test
-	<-time.After(time.Second)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	root1 := filepath.Join("./test", "root1")
-	err := repo.Init(root1, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err := os.RemoveAll(root1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		cancel()
-	}()
-	r1, err := repo.Open(root1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r1.Close()
-	p1, err := New(ctx, cancel, r1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = p1.CrdtStore.Put(datastore.NewKey("checkState"), []byte("state"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p1.Repo.State() != 1 {
-		t.Fatal("State should be 1")
-	}
-	for i := 0; i < 10; i++ {
-		err = p1.CrdtStore.Put(datastore.NewKey(fmt.Sprintf("checkState%d", i)), []byte("state"))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	if p1.Repo.State() != 11 {
-		t.Fatal("State should be 11")
-	}
-
-	cancel()
-	p1.Repo.Close()
-	<-time.After(time.Second * 3)
-	ctx, cancel = context.WithCancel(context.Background())
-	root1 = filepath.Join("./test", "root1")
-	err = repo.Init(root1, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r1, err = repo.Open(root1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p1, err = New(ctx, cancel, r1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p1.Repo.State() != 11 {
-		t.Fatal("State should be 11")
-	}
-}
-
 func TestRepoClosed(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
 	<-time.After(time.Second)
@@ -333,6 +268,76 @@ func TestFiles(t *testing.T) {
 	}
 }
 
+func TestState(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	root1 := filepath.Join("./test", "root1")
+	err := repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err := os.RemoveAll(root1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+	}()
+	r1, err := repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r1.Close()
+	p1, err := New(ctx, cancel, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("hola")
+	buf := bytes.NewReader(content)
+	_, err = p1.AddFile(context.Background(), buf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if p1.Repo.State() != 1 {
+		t.Fatal("State should be 1")
+	}
+	for i := 0; i < 10; i++ {
+		content := []byte(fmt.Sprintf("checkState%d", i))
+		buf := bytes.NewReader(content)
+		_, err := p1.AddFile(context.Background(), buf, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if p1.Repo.State() != 11 {
+		t.Fatal("State should be 11")
+	}
+
+	cancel()
+	p1.Repo.Close()
+	<-time.After(time.Second * 3)
+	ctx, cancel = context.WithCancel(context.Background())
+	root1 = filepath.Join("./test", "root1")
+	err = repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err = repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1, err = New(ctx, cancel, r1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1.Repo.State() != 11 {
+		t.Fatal("State should be 11")
+	}
+}
+
 func TestOperations(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
 	<-time.After(time.Second)
@@ -385,17 +390,14 @@ func TestCRDT(t *testing.T) {
 
 	myvalue := "myValue"
 	key := datastore.NewKey("mykey")
-	err := p1.CrdtStore.Put(key, []byte(myvalue))
+	err := p1.Manager.Put(key, []byte(myvalue))
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = p1.CrdtStore.Sync(datastore.NewKey("crdt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	ok := false
 	for i := 0; i < 5; i++ {
-		ok, err = p2.CrdtStore.Has(key)
+		ok, err = p2.Manager.Has(key)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -428,13 +430,13 @@ func TestFilesWithCRDT(t *testing.T) {
 	}
 	key := datastore.NewKey("myfile")
 
-	err = p1.CrdtStore.Put(key, b.Bytes())
+	err = p1.Manager.Put(key, b.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	<-time.After(time.Second * 3)
-	ok, err := p2.CrdtStore.Has(key)
+	ok, err := p2.Manager.Has(key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,7 +444,7 @@ func TestFilesWithCRDT(t *testing.T) {
 		t.Fatal("Data not replicated")
 	}
 
-	c2, err := p2.CrdtStore.Get(key)
+	c2, err := p2.Manager.Get(key)
 	if err != nil {
 		t.Fatal(err)
 	}
