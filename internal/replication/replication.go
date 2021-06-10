@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	crdt "github.com/ipfs/go-ds-crdt"
 	logging "github.com/ipfs/go-log/v2"
+	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p-core/host"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
@@ -21,6 +22,11 @@ type Manager struct {
 	ctx         context.Context
 	crdt        *crdt.Datastore
 	contentChan chan cid.Cid
+	syncer      Syncer
+}
+
+type Syncer interface {
+	GetFile(context.Context, cid.Cid) (ufsio.ReadSeekCloser, error)
 }
 
 func New(
@@ -32,8 +38,8 @@ func New(
 	prefix string,
 	topic string,
 	broadcastInterval time.Duration,
+	syncer Syncer,
 ) (*Manager, error) {
-	log.Debug("NEW MANAGER")
 	psub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		return nil, err
@@ -76,12 +82,31 @@ func New(
 		ctx:         ctx,
 		crdt:        crdtStore,
 		contentChan: contentChan,
+		syncer:      syncer,
 	}, nil
 }
 
 func (m *Manager) Close() error {
 	close(m.contentChan)
 	return m.crdt.Close()
+}
+
+func (m *Manager) Tag(tag string, id cid.Cid) error {
+	err := m.Put(datastore.NewKey(tag), id.Bytes())
+	if err != nil {
+		log.Error("Putting cid into crdt failed")
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) FindTag(tag string) (cid.Cid, error) {
+	b, err := m.Get(datastore.NewKey(tag))
+	if err != nil {
+		log.Error("Putting cid into crdt failed")
+		return cid.Cid{}, err
+	}
+	return cid.Cast(b)
 }
 
 func (m *Manager) Put(key datastore.Key, v []byte) error {
@@ -104,7 +129,10 @@ func (m *Manager) StartContentWatcher() {
 				return
 			case id := <-m.contentChan:
 				log.Debugf("got %s\n", id.String())
-				// do something
+				_, err := m.syncer.GetFile(m.ctx, id)
+				if err != nil {
+					log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
+				}
 			}
 		}
 	}()

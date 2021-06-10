@@ -3,9 +3,11 @@ package datahop
 //go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -13,11 +15,8 @@ import (
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/repo"
-	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
-	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/query"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -319,20 +318,15 @@ func Peers() string {
 	return NoPeersConnected
 }
 
-// Replicate adds a record in the crdt store
-func Replicate(replica []byte) error {
+// Add adds a record in the store
+func Add(tag string, content []byte) error {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return errors.New("replication module not running")
-		}
-		r := types.Replica{}
-		err := proto.Unmarshal(replica, &r)
+		buf := bytes.NewReader(content)
+		n, err := hop.peer.AddFile(context.Background(), buf, nil)
 		if err != nil {
 			return err
 		}
-
-		dsKey := datastore.NewKey(r.GetKey())
-		err = hop.peer.CrdtStore.Put(dsKey, r.GetValue())
+		err = hop.peer.Manager.Tag(tag, n.Cid())
 		if err != nil {
 			return err
 		}
@@ -341,69 +335,24 @@ func Replicate(replica []byte) error {
 	return errors.New("datahop ipfs-lite node is not running")
 }
 
-// GetReplicatedValue retrieves a record from the crdt store
-func GetReplicatedValue(key string) ([]byte, error) {
+// Get gets a record from the store by given tag
+func Get(tag string) ([]byte, error) {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return []byte{}, errors.New("replication module not running")
-		}
-		dsKey := datastore.NewKey(key)
-		value, err := hop.peer.CrdtStore.Get(dsKey)
+		id, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		r := types.Replica{
-			Key:   key,
-			Value: value,
-		}
-		data, err := proto.Marshal(&r)
+		r, err := hop.peer.GetFile(context.Background(), id)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		return data, nil
-	}
-	return []byte{}, errors.New("datahop ipfs-lite node is not running")
-}
-
-// GetReplicatedContent retrieves all records from the crdt store
-func GetReplicatedContent() ([]byte, error) {
-	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return []byte{}, errors.New("replication module not running")
-		}
-		records := types.Content{}
-		results, err := hop.peer.CrdtStore.Query(query.Query{})
+		content, err := ioutil.ReadAll(r)
 		if err != nil {
-			return []byte{}, err
-		}
-		for v := range results.Next() {
-			records.Replicas = append(records.Replicas, &types.Replica{
-				Key:   v.Key,
-				Value: v.Value,
-			})
-		}
-		content, err := proto.Marshal(&records)
-		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
 		return content, nil
 	}
-	return []byte{}, errors.New("datahop ipfs-lite node is not running")
-}
-
-// RemoveReplication deletes record from the crdt store
-func RemoveReplication(key string) error {
-	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return errors.New("replication module not running")
-		}
-		dsKey := datastore.NewKey(key)
-		err := hop.peer.CrdtStore.Delete(dsKey)
-		if err != nil {
-			return err
-		}
-	}
-	return errors.New("datahop ipfs-lite node is not running")
+	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
 // Version of ipfs-lite

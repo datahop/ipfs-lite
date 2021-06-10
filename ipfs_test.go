@@ -13,6 +13,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/golang/protobuf/proto"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -156,8 +157,8 @@ func TestDAG(t *testing.T) {
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
 	defer func() {
-		cleanup(t)
 		closer(t)
+		cleanup(t)
 	}()
 
 	m := map[string]string{
@@ -206,8 +207,8 @@ func TestSession(t *testing.T) {
 	ctx := context.Background()
 	p1, p2, closer := setupPeers(t)
 	defer func() {
-		cleanup(t)
 		closer(t)
+		cleanup(t)
 	}()
 
 	m := map[string]string{
@@ -239,8 +240,8 @@ func TestFiles(t *testing.T) {
 
 	p1, p2, closer := setupPeers(t)
 	defer func() {
-		cleanup(t)
 		closer(t)
+		cleanup(t)
 	}()
 
 	content := []byte("hola")
@@ -296,18 +297,25 @@ func TestState(t *testing.T) {
 	}
 	content := []byte("hola")
 	buf := bytes.NewReader(content)
-	_, err = p1.AddFile(context.Background(), buf, nil)
+	n, err := p1.AddFile(context.Background(), buf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	err = p1.Manager.Tag("tag", n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if p1.Repo.State() != 1 {
 		t.Fatal("State should be 1")
 	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		buf := bytes.NewReader(content)
-		_, err := p1.AddFile(context.Background(), buf, nil)
+		n, err := p1.AddFile(context.Background(), buf, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -338,12 +346,67 @@ func TestState(t *testing.T) {
 	}
 }
 
+func TestStateDualPeer(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second)
+
+	p1, p2, closer := setupPeers(t)
+	defer func() {
+		closer(t)
+		cleanup(t)
+	}()
+	cids := []cid.Cid{}
+	content := []byte("hola")
+	buf := bytes.NewReader(content)
+	n, err := p1.AddFile(context.Background(), buf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p1.Manager.Tag("tag", n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cids = append(cids, n.Cid())
+	if p1.Repo.State() != 1 {
+		t.Fatal("State should be 1")
+	}
+	for i := 0; i < 10; i++ {
+		content := []byte(fmt.Sprintf("checkState%d", i))
+		buf := bytes.NewReader(content)
+		n, err := p1.AddFile(context.Background(), buf, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		cids = append(cids, n.Cid())
+	}
+	if p1.Repo.State() != 11 {
+		t.Fatal("State should be 11")
+	}
+	<-time.After(time.Second * 5)
+	if p2.Repo.State() != 11 {
+		t.Fatal("State should be 11")
+	}
+	for _, v := range cids {
+		inStore, _ := p2.bstore.Has(v)
+		if !inStore {
+			t.Fatalf("%s is not in State", v.String())
+		}
+	}
+}
+
 func TestOperations(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
 	<-time.After(time.Second)
 
 	p1, p2, closer := setupPeers(t)
-	defer closer(t)
+	defer func() {
+		closer(t)
+		cleanup(t)
+	}()
 	p1peers := p1.Peers()
 	p2peers := p2.Peers()
 	t.Logf("P1 peers %v", p1peers)
@@ -384,8 +447,8 @@ func TestCRDT(t *testing.T) {
 
 	p1, p2, closer := setupPeers(t)
 	defer func() {
-		cleanup(t)
 		closer(t)
+		cleanup(t)
 	}()
 
 	myvalue := "myValue"
@@ -417,8 +480,8 @@ func TestFilesWithCRDT(t *testing.T) {
 
 	p1, p2, closer := setupPeers(t)
 	defer func() {
-		cleanup(t)
 		closer(t)
+		cleanup(t)
 	}()
 
 	content := []byte("hola")

@@ -56,7 +56,7 @@ const (
 	ServiceTag = "_datahop-discovery._tcp"
 
 	defaultCrdtNamespace           = "/crdt"
-	defaultCrdtRebroadcastInterval = time.Second * 20
+	defaultCrdtRebroadcastInterval = time.Second * 3
 	defaultMDNSInterval            = time.Second * 5
 	defaultTopic                   = "datahop-crdt"
 )
@@ -108,13 +108,6 @@ func WithmDNS(withmDNS bool) Option {
 	}
 }
 
-// WithCrdt decides if the ipfs node will start with crdt datastore or not
-func WithCrdt(withCrdt bool) Option {
-	return func(h *Options) {
-		h.withCRDT = withCrdt
-	}
-}
-
 func WithCrdtTopic(topic string) Option {
 	return func(h *Options) {
 		h.crdtTopic = topic
@@ -132,7 +125,6 @@ type Options struct {
 	crdtRebroadcastInterval time.Duration
 	crdtPrefix              string
 	withmDNS                bool
-	withCRDT                bool
 	crdtTopic               string
 }
 
@@ -141,7 +133,6 @@ func defaultOptions() *Options {
 		mDNSInterval:            defaultMDNSInterval,
 		crdtRebroadcastInterval: defaultCrdtRebroadcastInterval,
 		withmDNS:                true,
-		withCRDT:                true,
 		crdtTopic:               defaultTopic,
 		crdtPrefix:              defaultCrdtNamespace,
 	}
@@ -205,14 +196,12 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
-	if options.withCRDT {
-		err = p.setupCrdtStore(options)
-		if err != nil {
-			p.bserv.Close()
-			return nil, err
-		}
-		p.Manager.StartContentWatcher()
+	err = p.setupCrdtStore(options)
+	if err != nil {
+		p.bserv.Close()
+		return nil, err
 	}
+	p.Manager.StartContentWatcher()
 
 	p.mtx.Lock()
 	p.online = true
@@ -257,7 +246,7 @@ func (p *Peer) setupDAGService() error {
 }
 
 func (p *Peer) setupCrdtStore(opts *Options) error {
-	manager, err := replication.New(p.Ctx, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval)
+	manager, err := replication.New(p.Ctx, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p)
 	if err != nil {
 		return err
 	}
@@ -390,13 +379,6 @@ func (p *Peer) AddFile(ctx context.Context, r io.Reader, params *AddParams) (ipl
 		n, err = balanced.Layout(dbh)
 	default:
 		return nil, errors.New("invalid Layout")
-	}
-	if err != nil {
-		return n, err
-	}
-	err = p.Manager.Put(datastore.NewKey(n.Cid().String()), n.Cid().Bytes())
-	if err != nil {
-		log.Error("Putting cid into crdt failed")
 	}
 	return n, err
 }
