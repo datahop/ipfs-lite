@@ -111,6 +111,10 @@ func (r *FSRepo) Close() error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
 
+	return r.close()
+}
+
+func (r *FSRepo) close() error {
 	r.closed = true
 	return r.ds.Close()
 }
@@ -174,8 +178,10 @@ func open(repoPath string) (Repo, error) {
 		return nil, err
 	}
 	if err := r.openState(); err != nil {
+		r.close()
 		return nil, err
 	}
+	keepLocked = true
 	r.closed = false
 	return r, nil
 }
@@ -264,7 +270,7 @@ func (r *FSRepo) openConfig() error {
 // openState returns an error if the state file is not present.
 func (r *FSRepo) openState() error {
 	f, err := os.Open(filepath.Join(r.path, DefaultStateFile))
-	if err == os.ErrNotExist {
+	if os.IsNotExist(err) {
 		err = initState(r.path, "0")
 		if err != nil {
 			return err
@@ -277,16 +283,12 @@ func (r *FSRepo) openState() error {
 		return err
 	}
 	defer f.Close()
-	buf, err := ioutil.ReadAll(io.LimitReader(f, 2048))
+	buf, err := ioutil.ReadAll(f)
 	if err != nil {
 		return err
 	}
-	if len(buf) == 2048 {
-		return errors.New("state file must be <2048 bytes long")
-	}
 
-	s := string(buf)
-	state, err := strconv.Atoi(s)
+	state, err := strconv.Atoi(string(buf))
 	if err != nil {
 		return err
 	}
