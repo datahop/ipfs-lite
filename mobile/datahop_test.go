@@ -81,6 +81,120 @@ func (m MockWifiHotspot) Stop() {
 	// do nothing
 }
 
+func TestInit(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	if ID() != hop.identity.PeerID {
+		t.Fatal("ID() returns different id than config identity")
+	}
+	pInfo := PeerInfo()
+	var peerInfo peer.AddrInfo
+	err = peerInfo.UnmarshalJSON([]byte(pInfo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if peerInfo.ID.String() != hop.identity.PeerID {
+		t.Fatal("peerInfo.ID.String() & hop.identity.PeerID do not match")
+	}
+}
+
+func TestAddresses(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	if Addrs() != "Could not get peer address" {
+		t.Fatal(err)
+	}
+	if InterfaceAddrs() != "Could not get peer address" {
+		t.Fatal(err)
+	}
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	if Addrs() == "Could not get peer address" {
+		t.Fatal(err)
+	}
+	if InterfaceAddrs() == "Could not get peer address" {
+		t.Fatal(err)
+	}
+}
+
+func TestNoPeerConnected(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	if Peers() != NoPeersConnected {
+		t.Fatal("There should not be any peers connected")
+	}
+}
+
+func TestStartDiscovery(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	err = StartDiscovery()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestContentLength(t *testing.T) {
 	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
@@ -100,7 +214,6 @@ func TestContentLength(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestMultipleStart(t *testing.T) {
@@ -273,6 +386,66 @@ func TestReplicationOut(t *testing.T) {
 	<-time.After(time.Second * 5)
 	if p.Repo.State() != 10 {
 		t.Fatal("State should be 10")
+	}
+}
+
+func TestReplicationGet(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	for _, v := range p.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if Peers() == NoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	content := []byte(fmt.Sprintf("checkState"))
+	buf := bytes.NewReader(content)
+	n, err := p.AddFile(context.Background(), buf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag := "tag"
+	err = p.Manager.Tag(tag, n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 6)
+	c, err := Get(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(c, content) {
+		t.Fatal("contect mismatch")
 	}
 }
 

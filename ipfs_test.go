@@ -337,6 +337,7 @@ func TestState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r1.Close()
 	p1, err = New(ctx, cancel, r1)
 	if err != nil {
 		t.Fatal(err)

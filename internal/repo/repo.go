@@ -115,8 +115,12 @@ func (r *FSRepo) Close() error {
 }
 
 func (r *FSRepo) close() error {
+	err := r.ds.Close()
+	if err != nil {
+		return err
+	}
 	r.closed = true
-	return r.ds.Close()
+	return r.lockfile.Close()
 }
 
 // Init initialises ipfs persistent repository to a given location

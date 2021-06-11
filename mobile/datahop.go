@@ -312,7 +312,7 @@ func IsNodeOnline() bool {
 
 // Peers Returns a comma(,) separated string of all the connected peers of a node
 func Peers() string {
-	if hop != nil && hop.peer != nil {
+	if hop != nil && hop.peer != nil && len(hop.peer.Peers()) > 0 {
 		return strings.Join(hop.peer.Peers(), ",")
 	}
 	return NoPeersConnected
