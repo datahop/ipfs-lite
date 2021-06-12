@@ -132,46 +132,6 @@ func TestNewManager(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer m.Close()
-}
-
-func TestTag(t *testing.T) {
-	<-time.After(time.Second)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	root := filepath.Join("../../test", "root1")
-	d, err := leveldb.NewDatastore(root, &leveldb.Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer d.Close()
-	r := &mockRepo{
-		path:  root,
-		state: 0,
-		ds:    syncds.MutexWrap(d),
-	}
-	defer r.Close()
-	defer removeRepo(root, t)
-	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	opts := []libp2p.Option{
-		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/4832"),
-		libp2p.Identity(priv),
-		libp2p.DisableRelay(),
-	}
-	h, err := libp2p.New(ctx, opts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer h.Close()
-	ds := &mockDAGSyncer{}
-	sy := &mockSyncer{}
-	m, err := New(ctx, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer m.Close()
 	id, err := cid.Decode("bafybeiclg7ypvgnbumueqcfgarezgsz7af5kmg75nynaeqjxdme5jqmh3e")
 	if err != nil {
 		t.Fatal(err)
