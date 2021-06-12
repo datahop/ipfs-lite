@@ -124,7 +124,7 @@ func TestNewManager(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer h.Close()
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	m, err := New(ctx, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
@@ -164,6 +164,7 @@ func TestTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer h.Close()
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	m, err := New(ctx, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
