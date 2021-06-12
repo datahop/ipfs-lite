@@ -95,6 +95,7 @@ func (m *mockRepo) SetState(i int) error {
 }
 
 func TestNewManager(t *testing.T) {
+	<-time.After(time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	root := filepath.Join("../../test", "root1")
@@ -119,7 +120,7 @@ func TestNewManager(t *testing.T) {
 		libp2p.DisableRelay(),
 	}
 
-	h, err := libp2p.New(context.Background(), opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,6 +135,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestTag(t *testing.T) {
+	<-time.After(time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	root := filepath.Join("../../test", "root1")
@@ -158,7 +160,7 @@ func TestTag(t *testing.T) {
 		libp2p.DisableRelay(),
 	}
 
-	h, err := libp2p.New(context.Background(), opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
