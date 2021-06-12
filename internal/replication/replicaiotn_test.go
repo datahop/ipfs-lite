@@ -148,6 +148,7 @@ func TestNewManager(t *testing.T) {
 	if id.String() != nId.String() {
 		t.Fatal("cid mismatch")
 	}
+	cancel()
 }
 
 func removeRepo(repopath string, t *testing.T) {

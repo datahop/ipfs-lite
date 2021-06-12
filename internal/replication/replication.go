@@ -121,11 +121,15 @@ func (m *Manager) Has(key datastore.Key) (bool, error) {
 
 func (m *Manager) StartContentWatcher() {
 	go func() {
+	ForLoop:
 		for {
 			select {
 			case <-m.ctx.Done():
 				return
-			case id := <-m.contentChan:
+			case id, ok := <-m.contentChan:
+				if !ok {
+					break ForLoop
+				}
 				log.Debugf("got %s\n", id.String())
 				_, err := m.syncer.GetFile(m.ctx, id)
 				if err != nil {
