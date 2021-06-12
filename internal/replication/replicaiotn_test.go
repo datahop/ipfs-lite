@@ -103,23 +103,23 @@ func TestNewManager(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer d.Close()
 	r := &mockRepo{
 		path:  root,
 		state: 0,
 		ds:    syncds.MutexWrap(d),
 	}
+	defer r.Close()
 	defer removeRepo(root, t)
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	opts := []libp2p.Option{
 		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/4832"),
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
@@ -149,6 +149,7 @@ func TestTag(t *testing.T) {
 		state: 0,
 		ds:    syncds.MutexWrap(d),
 	}
+	defer r.Close()
 	defer removeRepo(root, t)
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
@@ -159,7 +160,6 @@ func TestTag(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
