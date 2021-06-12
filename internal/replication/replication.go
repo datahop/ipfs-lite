@@ -94,7 +94,6 @@ func (m *Manager) Close() error {
 func (m *Manager) Tag(tag string, id cid.Cid) error {
 	err := m.Put(datastore.NewKey(tag), id.Bytes())
 	if err != nil {
-		log.Error("Putting cid into crdt failed")
 		return err
 	}
 	return nil
@@ -103,7 +102,6 @@ func (m *Manager) Tag(tag string, id cid.Cid) error {
 func (m *Manager) FindTag(tag string) (cid.Cid, error) {
 	b, err := m.Get(datastore.NewKey(tag))
 	if err != nil {
-		log.Error("Putting cid into crdt failed")
 		return cid.Cid{}, err
 	}
 	return cid.Cast(b)
