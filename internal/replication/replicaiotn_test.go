@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	logger "github.com/ipfs/go-log/v2"
-
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 
@@ -97,7 +95,6 @@ func (m *mockRepo) SetState(i int) error {
 }
 
 func TestNewManager(t *testing.T) {
-	logger.SetLogLevel("replication", "Debug")
 	<-time.After(time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -130,7 +127,8 @@ func TestNewManager(t *testing.T) {
 	defer h.Close()
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
-	m, err := New(ctx, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	childCtx, childCancel := context.WithCancel(ctx)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,6 +148,82 @@ func TestNewManager(t *testing.T) {
 	}
 	if id.String() != nId.String() {
 		t.Fatal("cid mismatch")
+	}
+}
+
+func TestGetAllTags(t *testing.T) {
+	<-time.After(time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	root := filepath.Join("../../test", "root1")
+	d, err := leveldb.NewDatastore(root, &leveldb.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	r := &mockRepo{
+		path:  root,
+		state: 0,
+		ds:    syncds.MutexWrap(d),
+	}
+	defer r.Close()
+	defer removeRepo(root, t)
+	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := []libp2p.Option{
+		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/4832"),
+		libp2p.Identity(priv),
+		libp2p.DisableRelay(),
+	}
+	h, err := libp2p.New(ctx, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		h.Close()
+	}()
+	ds := &mockDAGSyncer{}
+	sy := &mockSyncer{}
+	childCtx, childCancel := context.WithCancel(ctx)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		m.Close()
+	}()
+	id, err := cid.Decode("bafybeiclg7ypvgnbumueqcfgarezgsz7af5kmg75nynaeqjxdme5jqmh3e")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id2, err := cid.Decode("bafybeiexhsqapwqpc7y2oegxwyqnt4b4ukdywuy7vvjs35jquepdtmsryu")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m.StartContentWatcher()
+	err = m.Tag("mtag1", id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = m.Tag("mtag2", id2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cids, err := m.GetAllTags()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cids) != 2 {
+		t.Fatal("there should be two cids")
+	}
+	if cids[0] != id && cids[1] != id {
+		t.Fatal(id, " is not in cids ", cids)
+	}
+	if cids[0] != id2 && cids[1] != id2 {
+		t.Fatal(id2, " is not in cids ", cids)
 	}
 }
 
