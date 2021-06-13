@@ -111,7 +111,20 @@ func (m *Manager) FindTag(tag string) (cid.Cid, error) {
 	return cid.Cast(b)
 }
 
-func (m *Manager) GetAllTags() ([]cid.Cid, error) {
+func (m *Manager) GetAllTags() ([]string, error) {
+	tags := []string{}
+	r, err := m.crdt.Query(query.Query{})
+	if err != nil {
+		return tags, err
+	}
+	defer r.Close()
+	for j := range r.Next() {
+		tags = append(tags, j.Key)
+	}
+	return tags, nil
+}
+
+func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	cids := []cid.Cid{}
 	r, err := m.crdt.Query(query.Query{})
 	if err != nil {

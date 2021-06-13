@@ -363,6 +363,19 @@ func Get(tag string) ([]byte, error) {
 	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
+// GetTags gets all the tags from the store
+func GetTags() (string, error) {
+	if hop != nil && hop.peer != nil {
+		tags, err := hop.peer.Manager.GetAllTags()
+		if err != nil {
+			return "", err
+		}
+		tagsString := strings.Join(tags, ",")
+		return tagsString, nil
+	}
+	return "", errors.New("datahop ipfs-lite node is not running")
+}
+
 // Version of ipfs-lite
 func Version() string {
 	return version.Version

@@ -151,7 +151,7 @@ func TestNewManager(t *testing.T) {
 	}
 }
 
-func TestGetAllTags(t *testing.T) {
+func TestGetAllCids(t *testing.T) {
 	<-time.After(time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -212,7 +212,7 @@ func TestGetAllTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cids, err := m.GetAllTags()
+	cids, err := m.GetAllCids()
 	if err != nil {
 		t.Fatal(err)
 	}
