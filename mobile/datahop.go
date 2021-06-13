@@ -195,6 +195,14 @@ func StartDiscovery() error {
 	}
 }
 
+func StopDiscovery() error {
+	if hop.discService != nil {
+		return hop.discService.Close()
+	} else {
+		return errors.New("discService is null")
+	}
+}
+
 // ConnectWithAddress Connects to a given peer address
 func ConnectWithAddress(address string) error {
 	addr, _ := ma.NewMultiaddr(address)

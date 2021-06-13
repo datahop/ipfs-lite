@@ -38,13 +38,13 @@ jobs:
         run: go get golang.org/x/net/ipv6
 
       - name: Test
-        run: go test -p 1 -v ./... -race -coverprofile=coverage.txt -covermode=atomic
+        run: go test -p 1 -v ./... -race -coverprofile=coverage.out -covermode=atomic
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.txt
+          file: ./coverage.out
           flags: unittests
           name: codecov-umbrella
 

@@ -174,7 +174,7 @@ func TestNoPeerConnected(t *testing.T) {
 	}
 }
 
-func TestStartDiscovery(t *testing.T) {
+func TestStartStopDiscovery(t *testing.T) {
 	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
 	dd := MockDisDriver{}
@@ -190,6 +190,10 @@ func TestStartDiscovery(t *testing.T) {
 		Close()
 	}()
 	err = StartDiscovery()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = StopDiscovery()
 	if err != nil {
 		t.Fatal(err)
 	}
