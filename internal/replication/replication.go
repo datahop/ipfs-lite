@@ -87,7 +87,6 @@ func New(
 }
 
 func (m *Manager) Close() error {
-	close(m.contentChan)
 	return m.crdt.Close()
 }
 
@@ -121,15 +120,11 @@ func (m *Manager) Has(key datastore.Key) (bool, error) {
 
 func (m *Manager) StartContentWatcher() {
 	go func() {
-	ForLoop:
 		for {
 			select {
 			case <-m.ctx.Done():
 				return
-			case id, ok := <-m.contentChan:
-				if !ok {
-					break ForLoop
-				}
+			case id := <-m.contentChan:
 				log.Debugf("got %s\n", id.String())
 				_, err := m.syncer.GetFile(m.ctx, id)
 				if err != nil {

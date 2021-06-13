@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	logger "github.com/ipfs/go-log/v2"
+
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 
@@ -95,6 +97,7 @@ func (m *mockRepo) SetState(i int) error {
 }
 
 func TestNewManager(t *testing.T) {
+	logger.SetLogLevel("replication", "Debug")
 	<-time.After(time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -148,7 +151,6 @@ func TestNewManager(t *testing.T) {
 	if id.String() != nId.String() {
 		t.Fatal("cid mismatch")
 	}
-	cancel()
 }
 
 func removeRepo(repopath string, t *testing.T) {
