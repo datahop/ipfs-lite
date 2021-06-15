@@ -18,6 +18,11 @@ it adds some more features of full ipfs, such as config, repo, leveldb etc.
 * [x] use leveldb as datastore to set up peer
 * [ ] generate gomobile binding for android
 
+
+## Documentation
+
+[Go pkg docs](https://pkg.go.dev/github.com/datahop/ipfs-lite)
+
 ## License
 
 Copyright 2021 Datahop
