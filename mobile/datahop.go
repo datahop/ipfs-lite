@@ -15,7 +15,9 @@ import (
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
+	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -24,8 +26,9 @@ import (
 )
 
 var (
-	log = logger.Logger("datahop")
-	hop *datahop
+	log                 = logger.Logger("datahop")
+	hop                 *datahop
+	ErrNoPeersConnected = errors.New("no Peers connected")
 )
 
 const (
@@ -272,7 +275,7 @@ func ID() string {
 }
 
 // Addrs Returns a comma(,) separated string of all the possible addresses of a node
-func Addrs() string {
+func Addrs() ([]byte, error) {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -281,17 +284,20 @@ func Addrs() string {
 					addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
 				}
 			}
-			return strings.Join(addrs, ",")
+			addrs := &types.StringSlice{
+				Output: addrs,
+			}
+			return proto.Marshal(addrs)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
-	return "Could not get peer address"
+	return nil, errors.New("could not get peer address")
 }
 
 // InterfaceAddrs returns a list of addresses at which this network
 // listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
 // use the known local interfaces.
-func InterfaceAddrs() string {
+func InterfaceAddrs() ([]byte, error) {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -303,11 +309,14 @@ func InterfaceAddrs() string {
 					}
 				}
 			}
-			return strings.Join(addrs, ",")
+			addrs := &types.StringSlice{
+				Output: addrs,
+			}
+			return proto.Marshal(addrs)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
-	return "Could not get peer address"
+	return nil, errors.New("could not get peer address")
 }
 
 // IsNodeOnline Checks if the node is running
@@ -319,11 +328,14 @@ func IsNodeOnline() bool {
 }
 
 // Peers Returns a comma(,) separated string of all the connected peers of a node
-func Peers() string {
+func Peers() ([]byte, error) {
 	if hop != nil && hop.peer != nil && len(hop.peer.Peers()) > 0 {
-		return strings.Join(hop.peer.Peers(), ",")
+		peers := &types.StringSlice{
+			Output: hop.peer.Peers(),
+		}
+		return proto.Marshal(peers)
 	}
-	return NoPeersConnected
+	return nil, ErrNoPeersConnected
 }
 
 // Add adds a record in the store
@@ -364,16 +376,18 @@ func Get(tag string) ([]byte, error) {
 }
 
 // GetTags gets all the tags from the store
-func GetTags() (string, error) {
+func GetTags() ([]byte, error) {
 	if hop != nil && hop.peer != nil {
 		tags, err := hop.peer.Manager.GetAllTags()
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		tagsString := strings.Join(tags, ",")
-		return tagsString, nil
+		allTags := &types.StringSlice{
+			Output: tags,
+		}
+		return proto.Marshal(allTags)
 	}
-	return "", errors.New("datahop ipfs-lite node is not running")
+	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
 // Version of ipfs-lite

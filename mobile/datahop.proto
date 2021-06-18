@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message StringSliceOutput {
+  repeated string value = 1;
+}
+
+message StringOutput {
+  repeated string value = 1;
+}
