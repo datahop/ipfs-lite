@@ -12,13 +12,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/replication"
+
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	crdt "github.com/ipfs/go-ds-crdt"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
 	provider "github.com/ipfs/go-ipfs-provider"
@@ -35,7 +36,6 @@ import (
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
@@ -48,6 +48,7 @@ func init() {
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 	logging.SetLogLevel("config", "Debug")
 	logging.SetLogLevel("repo", "Debug")
+	logging.SetLogLevel("replication", "Debug")
 }
 
 const (
@@ -55,7 +56,7 @@ const (
 	ServiceTag = "_datahop-discovery._tcp"
 
 	defaultCrdtNamespace           = "/crdt"
-	defaultCrdtRebroadcastInterval = time.Second * 20
+	defaultCrdtRebroadcastInterval = time.Second * 3
 	defaultMDNSInterval            = time.Second * 5
 	defaultTopic                   = "datahop-crdt"
 )
@@ -79,7 +80,7 @@ type Peer struct {
 	bserv           blockservice.BlockService
 	online          bool
 	mtx             sync.Mutex
-	CrdtStore       *crdt.Datastore
+	Manager         *replication.Manager
 	Stopped         chan bool
 	CrdtTopic       string
 }
@@ -107,13 +108,6 @@ func WithmDNS(withmDNS bool) Option {
 	}
 }
 
-// WithCrdt decides if the ipfs node will start with crdt datastore or not
-func WithCrdt(withCrdt bool) Option {
-	return func(h *Options) {
-		h.withCRDT = withCrdt
-	}
-}
-
 func WithCrdtTopic(topic string) Option {
 	return func(h *Options) {
 		h.crdtTopic = topic
@@ -131,7 +125,6 @@ type Options struct {
 	crdtRebroadcastInterval time.Duration
 	crdtPrefix              string
 	withmDNS                bool
-	withCRDT                bool
 	crdtTopic               string
 }
 
@@ -140,7 +133,6 @@ func defaultOptions() *Options {
 		mDNSInterval:            defaultMDNSInterval,
 		crdtRebroadcastInterval: defaultCrdtRebroadcastInterval,
 		withmDNS:                true,
-		withCRDT:                true,
 		crdtTopic:               defaultTopic,
 		crdtPrefix:              defaultCrdtNamespace,
 	}
@@ -204,13 +196,12 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
-	if options.withCRDT {
-		err = p.setupCrdtStore(options)
-		if err != nil {
-			p.bserv.Close()
-			return nil, err
-		}
+	err = p.setupCrdtStore(options)
+	if err != nil {
+		p.bserv.Close()
+		return nil, err
 	}
+	p.Manager.StartContentWatcher()
 
 	p.mtx.Lock()
 	p.online = true
@@ -255,38 +246,12 @@ func (p *Peer) setupDAGService() error {
 }
 
 func (p *Peer) setupCrdtStore(opts *Options) error {
-	psub, err := pubsub.NewGossipSub(p.Ctx, p.Host)
+	ctx, cancel := context.WithCancel(p.Ctx)
+	manager, err := replication.New(ctx, cancel, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p)
 	if err != nil {
 		return err
 	}
-	// TODO Add RegisterTopicValidator
-	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, opts.crdtTopic)
-	if err != nil {
-		return err
-	}
-
-	crdtOpts := crdt.DefaultOptions()
-	crdtOpts.Logger = log
-	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
-	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
-		log.Debugf("Added: [%s] -> %s\n", k, string(v))
-		state := p.Repo.State()
-		state++
-		log.Debugf("New State: %d\n", state)
-		err := p.Repo.SetState(state)
-		if err != nil {
-			log.Errorf("SetState failed %s\n", err.Error())
-		}
-	}
-	crdtOpts.DeleteHook = func(k datastore.Key) {
-		log.Debugf("Removed: [%s]\n", k)
-	}
-
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtPrefix), p, pubsubBC, crdtOpts)
-	if err != nil {
-		return err
-	}
-	p.CrdtStore = crdtStore
+	p.Manager = manager
 	p.CrdtTopic = opts.crdtTopic
 	return nil
 }
@@ -296,7 +261,7 @@ func (p *Peer) autoclose() {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.online = false
-	p.CrdtStore.Close()
+	p.Manager.Close()
 	p.Host.Close()
 	p.bserv.Close()
 	p.Stopped <- true

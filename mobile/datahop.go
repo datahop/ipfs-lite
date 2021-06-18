@@ -3,9 +3,11 @@ package datahop
 //go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +19,6 @@ import (
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/query"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -25,8 +26,10 @@ import (
 )
 
 var (
-	log = logger.Logger("datahop")
-	hop *datahop
+	log                 = logger.Logger("datahop")
+	hop                 *datahop
+	ErrNoPeersConnected = errors.New("no Peers connected")
+	ErrNoPeerAddress    = errors.New("could not get peer address")
 )
 
 const (
@@ -196,6 +199,14 @@ func StartDiscovery() error {
 	}
 }
 
+func StopDiscovery() error {
+	if hop.discService != nil {
+		return hop.discService.Close()
+	} else {
+		return errors.New("discService is null")
+	}
+}
+
 // ConnectWithAddress Connects to a given peer address
 func ConnectWithAddress(address string) error {
 	addr, _ := ma.NewMultiaddr(address)
@@ -265,7 +276,7 @@ func ID() string {
 }
 
 // Addrs Returns a comma(,) separated string of all the possible addresses of a node
-func Addrs() string {
+func Addrs() ([]byte, error) {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -274,17 +285,20 @@ func Addrs() string {
 					addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
 				}
 			}
-			return strings.Join(addrs, ",")
+			addrs := &types.StringSlice{
+				Output: addrs,
+			}
+			return proto.Marshal(addrs)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
-	return "Could not get peer address"
+	return nil, errors.New("could not get peer address")
 }
 
 // InterfaceAddrs returns a list of addresses at which this network
 // listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
 // use the known local interfaces.
-func InterfaceAddrs() string {
+func InterfaceAddrs() ([]byte, error) {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -296,11 +310,14 @@ func InterfaceAddrs() string {
 					}
 				}
 			}
-			return strings.Join(addrs, ",")
+			addrs := &types.StringSlice{
+				Output: addrs,
+			}
+			return proto.Marshal(addrs)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
-	return "Could not get peer address"
+	return nil, errors.New("could not get peer address")
 }
 
 // IsNodeOnline Checks if the node is running
@@ -312,27 +329,25 @@ func IsNodeOnline() bool {
 }
 
 // Peers Returns a comma(,) separated string of all the connected peers of a node
-func Peers() string {
-	if hop != nil && hop.peer != nil {
-		return strings.Join(hop.peer.Peers(), ",")
+func Peers() ([]byte, error) {
+	if hop != nil && hop.peer != nil && len(hop.peer.Peers()) > 0 {
+		peers := &types.StringSlice{
+			Output: hop.peer.Peers(),
+		}
+		return proto.Marshal(peers)
 	}
-	return NoPeersConnected
+	return nil, ErrNoPeersConnected
 }
 
-// Replicate adds a record in the crdt store
-func Replicate(replica []byte) error {
+// Add adds a record in the store
+func Add(tag string, content []byte) error {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return errors.New("replication module not running")
-		}
-		r := types.Replica{}
-		err := proto.Unmarshal(replica, &r)
+		buf := bytes.NewReader(content)
+		n, err := hop.peer.AddFile(context.Background(), buf, nil)
 		if err != nil {
 			return err
 		}
-
-		dsKey := datastore.NewKey(r.GetKey())
-		err = hop.peer.CrdtStore.Put(dsKey, r.GetValue())
+		err = hop.peer.Manager.Tag(tag, n.Cid())
 		if err != nil {
 			return err
 		}
@@ -341,69 +356,39 @@ func Replicate(replica []byte) error {
 	return errors.New("datahop ipfs-lite node is not running")
 }
 
-// GetReplicatedValue retrieves a record from the crdt store
-func GetReplicatedValue(key string) ([]byte, error) {
+// Get gets a record from the store by given tag
+func Get(tag string) ([]byte, error) {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return []byte{}, errors.New("replication module not running")
-		}
-		dsKey := datastore.NewKey(key)
-		value, err := hop.peer.CrdtStore.Get(dsKey)
+		id, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		r := types.Replica{
-			Key:   key,
-			Value: value,
-		}
-		data, err := proto.Marshal(&r)
+		r, err := hop.peer.GetFile(context.Background(), id)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		return data, nil
-	}
-	return []byte{}, errors.New("datahop ipfs-lite node is not running")
-}
-
-// GetReplicatedContent retrieves all records from the crdt store
-func GetReplicatedContent() ([]byte, error) {
-	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return []byte{}, errors.New("replication module not running")
-		}
-		records := types.Content{}
-		results, err := hop.peer.CrdtStore.Query(query.Query{})
+		content, err := ioutil.ReadAll(r)
 		if err != nil {
-			return []byte{}, err
-		}
-		for v := range results.Next() {
-			records.Replicas = append(records.Replicas, &types.Replica{
-				Key:   v.Key,
-				Value: v.Value,
-			})
-		}
-		content, err := proto.Marshal(&records)
-		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
 		return content, nil
 	}
-	return []byte{}, errors.New("datahop ipfs-lite node is not running")
+	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
-// RemoveReplication deletes record from the crdt store
-func RemoveReplication(key string) error {
+// GetTags gets all the tags from the store
+func GetTags() ([]byte, error) {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return errors.New("replication module not running")
-		}
-		dsKey := datastore.NewKey(key)
-		err := hop.peer.CrdtStore.Delete(dsKey)
+		tags, err := hop.peer.Manager.GetAllTags()
 		if err != nil {
-			return err
+			return nil, err
 		}
+		allTags := &types.StringSlice{
+			Output: tags,
+		}
+		return proto.Marshal(allTags)
 	}
-	return errors.New("datahop ipfs-lite node is not running")
+	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
 // Version of ipfs-lite

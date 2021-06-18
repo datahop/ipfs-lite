@@ -13,7 +13,6 @@ import (
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 )
 
 func main() {
@@ -49,12 +48,6 @@ func main() {
 	}
 
 	fmt.Println(string(content))
-	myvalue := "myValue51299858"
-	key := datastore.NewKey("myke15a12351y2")
-	err = lite.CrdtStore.Put(key, []byte(myvalue))
-	if err != nil {
-		panic(err)
-	}
 
-	<-time.After(time.Minute * 5)
+	<-time.After(time.Minute * 1)
 }

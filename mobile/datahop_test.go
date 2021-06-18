@@ -1,6 +1,7 @@
 package datahop
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -11,8 +12,6 @@ import (
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/repo"
-	types "github.com/datahop/ipfs-lite/pb"
-	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
@@ -82,6 +81,126 @@ func (m MockWifiHotspot) Stop() {
 	// do nothing
 }
 
+func TestInit(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	if ID() != hop.identity.PeerID {
+		t.Fatal("ID() returns different id than config identity")
+	}
+	pInfo := PeerInfo()
+	var peerInfo peer.AddrInfo
+	err = peerInfo.UnmarshalJSON([]byte(pInfo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if peerInfo.ID.String() != hop.identity.PeerID {
+		t.Fatal("peerInfo.ID.String() & hop.identity.PeerID do not match")
+	}
+}
+
+func TestAddresses(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+
+	if _, err := Addrs(); err == ErrNoPeerAddress {
+		t.Fatal(err)
+	}
+	if _, err := InterfaceAddrs(); err == ErrNoPeerAddress {
+		t.Fatal(err)
+	}
+
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	if _, err := Addrs(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InterfaceAddrs(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNoPeerConnected(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	if _, err := Peers(); err != ErrNoPeersConnected {
+		t.Fatal(err)
+	}
+}
+
+func TestStartStopDiscovery(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	err = StartDiscovery()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = StopDiscovery()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestContentLength(t *testing.T) {
 	root := "../test" + string(os.PathSeparator) + repo.Root
 	cm := MockConnManager{}
@@ -101,7 +220,6 @@ func TestContentLength(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestMultipleStart(t *testing.T) {
@@ -133,62 +251,6 @@ func TestMultipleStart(t *testing.T) {
 			t.Fatal("Node should not be running ")
 		}
 	}
-}
-
-func TestReplication(t *testing.T) {
-	<-time.After(time.Second)
-	root := filepath.Join("../test", repo.Root)
-	cm := MockConnManager{}
-	dd := MockDisDriver{}
-	ad := MockAdvDriver{}
-	whs := MockWifiHotspot{}
-	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer removeRepo(root, t)
-	err = Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-time.After(time.Second)
-	numberOfNewKeys := 10
-	keyPrefix := "/key"
-	for i := 0; i < numberOfNewKeys; i++ {
-		r := types.Replica{
-			Key:   fmt.Sprintf("/%s/%d", keyPrefix, i),
-			Value: []byte(fmt.Sprintf("/value/%d", i)),
-		}
-		b, err := proto.Marshal(&r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = Replicate(b)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	content := types.Content{}
-	contentB, err := GetReplicatedContent()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = proto.Unmarshal(contentB, &content)
-	if err != nil {
-		t.Fatal(err)
-	}
-	count := 0
-	for _, v := range content.Replicas {
-		if strings.HasPrefix(v.Key, keyPrefix) {
-			count++
-		}
-	}
-	if count != numberOfNewKeys {
-		t.Fatal("content length mismatch ", count, content.Replicas)
-	}
-	Stop()
-	Close()
 }
 
 func TestBootstrap(t *testing.T) {
@@ -227,7 +289,7 @@ func TestBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -268,7 +330,7 @@ func TestConnectWithAddress(t *testing.T) {
 			}
 		}
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -276,6 +338,178 @@ func TestConnectWithAddress(t *testing.T) {
 		p.Repo.Close()
 		removeRepo(secondNode, t)
 	}()
+}
+
+func TestReplicationOut(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	for _, v := range p.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := Peers(); err == ErrNoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	for i := 0; i < 10; i++ {
+		content := []byte(fmt.Sprintf("checkState%d", i))
+		err := Add(fmt.Sprintf("tag%d", i), content)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if State() != 10 {
+		t.Fatal("State should be 10")
+	}
+	<-time.After(time.Second * 5)
+	if p.Repo.State() != 10 {
+		t.Fatal("State should be 10")
+	}
+}
+
+func TestReplicationGet(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	for _, v := range p.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := Peers(); err == ErrNoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	content := []byte(fmt.Sprintf("checkState"))
+	buf := bytes.NewReader(content)
+	n, err := p.AddFile(context.Background(), buf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag := "tag"
+	err = p.Manager.Tag(tag, n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 6)
+	c, err := Get(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(c, content) {
+		t.Fatal("contect mismatch")
+	}
+}
+
+func TestReplicationIn(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	for _, v := range p.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := Peers(); err == ErrNoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	for i := 0; i < 10; i++ {
+		content := []byte(fmt.Sprintf("checkState%d", i))
+		buf := bytes.NewReader(content)
+		n, err := p.AddFile(context.Background(), buf, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
+	}
+	if p.Repo.State() != 10 {
+		t.Fatal("State should be 10")
+	}
+	<-time.After(time.Second * 5)
+	if State() != 10 {
+		t.Fatal("State should be 10")
+	}
 }
 
 func TestConnectWithPeerInfo(t *testing.T) {
@@ -314,7 +548,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
