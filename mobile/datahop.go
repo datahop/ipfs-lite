@@ -29,6 +29,7 @@ var (
 	log                 = logger.Logger("datahop")
 	hop                 *datahop
 	ErrNoPeersConnected = errors.New("no Peers connected")
+	ErrNoPeerAddress    = errors.New("could not get peer address")
 )
 
 const (

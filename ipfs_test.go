@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/repo"
-	types "github.com/datahop/ipfs-lite/pb"
-	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -523,30 +521,5 @@ func TestFilesWithCRDT(t *testing.T) {
 		t.Error(string(content))
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
-	}
-}
-
-func TestReplicaArray(t *testing.T) {
-	replicas := types.Content{}
-	replicas.Replicas = append(replicas.Replicas, &types.Replica{
-		Key:   "k",
-		Value: []byte("k"),
-	})
-	replicas.Replicas = append(replicas.Replicas, &types.Replica{
-		Key:   "n",
-		Value: []byte("n"),
-	})
-	asd, err := proto.Marshal(&replicas)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	newReplicas := types.Content{}
-	err = proto.Unmarshal(asd, &newReplicas)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if newReplicas.Replicas[0].Key != replicas.Replicas[0].Key {
-		t.Fatal("proto marshal unmarshal not working")
 	}
 }

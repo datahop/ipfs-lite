@@ -130,21 +130,23 @@ func TestAddresses(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	if Addrs() != "Could not get peer address" {
+
+	if _, err := Addrs(); err == ErrNoPeerAddress {
 		t.Fatal(err)
 	}
-	if InterfaceAddrs() != "Could not get peer address" {
+	if _, err := InterfaceAddrs(); err == ErrNoPeerAddress {
 		t.Fatal(err)
 	}
+
 	err = Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer Stop()
-	if Addrs() == "Could not get peer address" {
+	if _, err := Addrs(); err != nil {
 		t.Fatal(err)
 	}
-	if InterfaceAddrs() == "Could not get peer address" {
+	if _, err := InterfaceAddrs(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -169,8 +171,8 @@ func TestNoPeerConnected(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Stop()
-	if Peers() != NoPeersConnected {
-		t.Fatal("There should not be any peers connected")
+	if _, err := Peers(); err != ErrNoPeersConnected {
+		t.Fatal(err)
 	}
 }
 
@@ -287,7 +289,7 @@ func TestBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -328,7 +330,7 @@ func TestConnectWithAddress(t *testing.T) {
 			}
 		}
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -369,7 +371,7 @@ func TestReplicationOut(t *testing.T) {
 			}
 		}
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -424,7 +426,7 @@ func TestReplicationGet(t *testing.T) {
 			}
 		}
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -484,7 +486,7 @@ func TestReplicationIn(t *testing.T) {
 			}
 		}
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
@@ -546,7 +548,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if Peers() == NoPeersConnected {
+	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	defer func() {
