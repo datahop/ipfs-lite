@@ -3,14 +3,13 @@ package repo
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/facebookgo/atomicfile"
 	"github.com/ipfs/go-datastore"
@@ -42,8 +41,8 @@ type Repo interface {
 	Config() (*config.Config, error)
 	Datastore() Datastore
 	Close() error
-	State() int
-	SetState(int) error
+	State() *bloom.BloomFilter
+	SetState() error
 }
 
 // Datastore is the interface required from a datastore to be
@@ -62,7 +61,7 @@ type FSRepo struct {
 	lockfile io.Closer
 	config   *config.Config
 	ds       Datastore
-	state    int
+	state    *bloom.BloomFilter
 	io.Closer
 }
 
@@ -92,19 +91,31 @@ func (r *FSRepo) Datastore() Datastore {
 	return r.ds
 }
 
-func (r *FSRepo) State() int {
+func (r *FSRepo) State() *bloom.BloomFilter {
 	packageLock.Lock()
 	defer packageLock.Unlock()
 
 	return r.state
 }
 
-func (r *FSRepo) SetState(s int) error {
+func (r *FSRepo) SetState() error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
 
-	r.state = s
-	return initState(r.path, fmt.Sprintf("%d", s))
+	f, err := os.OpenFile(filepath.Join(r.path, DefaultStateFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	b, err := r.state.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *FSRepo) Close() error {
@@ -142,7 +153,7 @@ func Init(repoPath, swarmPort string) error {
 	if err := initConfig(repoPath, conf); err != nil {
 		return err
 	}
-	if err := initState(repoPath, "0"); err != nil {
+	if err := initState(repoPath); err != nil {
 		return err
 	}
 	return nil
@@ -233,14 +244,18 @@ func initConfig(path string, cfg *config.Config) error {
 	return encode(f, cfg)
 }
 
-func initState(path, count string) error {
+func initState(path string) error {
 	f, err := os.Create(filepath.Join(path, DefaultStateFile))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	_, err = f.WriteString(count)
+	filter := bloom.New(uint(2000), 5)
+	b, err := filter.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
 	return err
 }
 
@@ -275,7 +290,7 @@ func (r *FSRepo) openConfig() error {
 func (r *FSRepo) openState() error {
 	f, err := os.Open(filepath.Join(r.path, DefaultStateFile))
 	if os.IsNotExist(err) {
-		err = initState(r.path, "0")
+		err = initState(r.path)
 		if err != nil {
 			return err
 		}
@@ -291,12 +306,8 @@ func (r *FSRepo) openState() error {
 	if err != nil {
 		return err
 	}
-
-	state, err := strconv.Atoi(string(buf))
-	if err != nil {
-		return err
-	}
-	r.state = state
+	r.state = bloom.New(uint(2000), 5)
+	err = r.state.UnmarshalJSON(buf)
 	return nil
 }
 
