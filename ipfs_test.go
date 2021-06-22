@@ -303,9 +303,7 @@ func TestState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p1.Repo.State() != 1 {
-		t.Fatal("State should be 1")
-	}
+
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		buf := bytes.NewReader(content)
@@ -318,30 +316,11 @@ func TestState(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if p1.Repo.State() != 11 {
-		t.Fatal("State should be 11")
-	}
-
-	cancel()
-	p1.Repo.Close()
-	<-time.After(time.Second * 3)
-	ctx, cancel = context.WithCancel(context.Background())
-	root1 = filepath.Join("./test", "root1")
-	err = repo.Init(root1, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r1, err = repo.Open(root1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r1.Close()
-	p1, err = New(ctx, cancel, r1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p1.Repo.State() != 11 {
-		t.Fatal("State should be 11")
+	<-time.After(time.Second)
+	for i := 0; i < 10; i++ {
+		if !p1.Repo.State().Test([]byte(fmt.Sprintf("tag%d", i))) {
+			t.Fatal("tag should in bloom")
+		}
 	}
 }
 
@@ -366,9 +345,6 @@ func TestStateDualPeer(t *testing.T) {
 		t.Fatal(err)
 	}
 	cids = append(cids, n.Cid())
-	if p1.Repo.State() != 1 {
-		t.Fatal("State should be 1")
-	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		buf := bytes.NewReader(content)
@@ -382,12 +358,11 @@ func TestStateDualPeer(t *testing.T) {
 		}
 		cids = append(cids, n.Cid())
 	}
-	if p1.Repo.State() != 11 {
-		t.Fatal("State should be 11")
-	}
 	<-time.After(time.Second * 5)
-	if p2.Repo.State() != 11 {
-		t.Fatal("State should be 11")
+	for i := 0; i < 10; i++ {
+		if !p2.Repo.State().Test([]byte(fmt.Sprintf("tag%d", i))) {
+			t.Fatal("tag should in bloom")
+		}
 	}
 	for _, v := range cids {
 		inStore, _ := p2.bstore.Has(v)

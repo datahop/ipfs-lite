@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,32 +66,8 @@ func TestStateWithNoStateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Close()
-	if r.State() != 0 {
-		t.Fatal("initial state should be 0")
-	}
-}
-
-func TestStateWithUnsupportedValue(t *testing.T) {
-	<-time.After(time.Second)
-	root := filepath.Join("../../test", "root1")
-	err := Init(root, "0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer removeRepo(root, t)
-	f, err := os.Create(filepath.Join(root, DefaultStateFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.WriteString("UnsupportedValue")
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
-	r, err := Open(root)
-	if err == nil {
-		r.Close()
-		t.Fatal(err)
+	if r.State() == nil {
+		t.Fatal("initial state should not be nil")
 	}
 }
 
@@ -106,16 +83,43 @@ func TestStateValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
-	if r.State() != 0 {
-		t.Fatal("initial state should be 0")
+	if r.State() == nil {
+		r.Close()
+		t.Fatal("initial state should not be nil")
 	}
-	err = r.SetState(100)
+
+	bf1, err := r.State().MarshalJSON()
+	if err != nil {
+		r.Close()
+		t.Fatal(err)
+	}
+	r.Close()
+	r, err = Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.State() != 100 {
-		t.Fatal("initial state should be 100")
+	defer r.Close()
+	bf2, err := r.State().MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Compare(bf1, bf2) != 0 {
+		t.Fatal("bloom filters should be identical")
+	}
+	newBloom := r.State().Add([]byte("This is a text"))
+	bf3, err := r.State().MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bf4, err := newBloom.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !newBloom.Equal(r.State()) {
+		t.Fatal("bloom filters should be identical")
+	}
+	if bytes.Compare(bf3, bf4) != 0 {
+		t.Fatal("bloom filters should be identical")
 	}
 }
 

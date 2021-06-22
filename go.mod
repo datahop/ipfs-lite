@@ -3,6 +3,7 @@ module github.com/datahop/ipfs-lite
 go 1.15
 
 require (
+	github.com/bits-and-blooms/bloom/v3 v3.0.1
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5
 	github.com/golang/protobuf v1.5.2
 	github.com/ipfs/go-bitswap v0.3.3

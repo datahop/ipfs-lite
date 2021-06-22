@@ -379,6 +379,10 @@ func TestReplicationOut(t *testing.T) {
 		p.Repo.Close()
 		removeRepo(secondNode, t)
 	}()
+	bf1, err := State()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		err := Add(fmt.Sprintf("tag%d", i), content)
@@ -386,12 +390,20 @@ func TestReplicationOut(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if State() != 10 {
-		t.Fatal("State should be 10")
+	bf2, err := State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Compare(bf1, bf2) == 0 {
+		t.Fatal("bloom filter is same after addition")
 	}
 	<-time.After(time.Second * 5)
-	if p.Repo.State() != 10 {
-		t.Fatal("State should be 10")
+	bf3, err := p.Repo.State().MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Compare(bf3, bf2) != 0 {
+		t.Fatal("bloom filter should be same")
 	}
 }
 
@@ -494,6 +506,10 @@ func TestReplicationIn(t *testing.T) {
 		p.Repo.Close()
 		removeRepo(secondNode, t)
 	}()
+	bf1, err := State()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		buf := bytes.NewReader(content)
@@ -503,12 +519,20 @@ func TestReplicationIn(t *testing.T) {
 		}
 		p.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
 	}
-	if p.Repo.State() != 10 {
-		t.Fatal("State should be 10")
+	bf2, err := p.Repo.State().MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Compare(bf1, bf2) == 0 {
+		t.Fatal("bloom filter are same")
 	}
 	<-time.After(time.Second * 5)
-	if State() != 10 {
-		t.Fatal("State should be 10")
+	bf3, err := State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Compare(bf3, bf2) != 0 {
+		t.Fatal("bloom filter should be same")
 	}
 }
 

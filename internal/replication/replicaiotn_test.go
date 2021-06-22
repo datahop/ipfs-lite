@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	syncds "github.com/ipfs/go-datastore/sync"
-	leveldb "github.com/ipfs/go-ds-leveldb"
-
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-cid"
+	syncds "github.com/ipfs/go-datastore/sync"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	ipld "github.com/ipfs/go-ipld-format"
 	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p"
@@ -65,7 +65,7 @@ func (m mockSyncer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekClose
 
 type mockRepo struct {
 	path  string
-	state int
+	state *bloom.BloomFilter
 	ds    repo.Datastore
 }
 
@@ -85,12 +85,11 @@ func (m *mockRepo) Close() error {
 	return nil
 }
 
-func (m *mockRepo) State() int {
+func (m mockRepo) State() *bloom.BloomFilter {
 	return m.state
 }
 
-func (m *mockRepo) SetState(i int) error {
-	m.state = i
+func (m mockRepo) SetState() error {
 	return nil
 }
 
@@ -106,7 +105,7 @@ func TestNewManager(t *testing.T) {
 	defer d.Close()
 	r := &mockRepo{
 		path:  root,
-		state: 0,
+		state: bloom.New(uint(2000), 5),
 		ds:    syncds.MutexWrap(d),
 	}
 	defer r.Close()
@@ -163,7 +162,7 @@ func TestGetAllCids(t *testing.T) {
 	defer d.Close()
 	r := &mockRepo{
 		path:  root,
-		state: 0,
+		state: bloom.New(uint(2000), 5),
 		ds:    syncds.MutexWrap(d),
 	}
 	defer r.Close()

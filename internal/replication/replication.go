@@ -64,10 +64,9 @@ func New(
 		}
 		log.Debugf("Added: [%s] -> %s\n", k, id.String())
 		contentChan <- id
-		state := repo.State()
-		state++
+		state := repo.State().Add([]byte(k.Name()))
 		log.Debugf("New State: %d\n", state)
-		err = repo.SetState(state)
+		err = repo.SetState()
 		if err != nil {
 			log.Errorf("SetState failed %s\n", err.Error())
 		}
