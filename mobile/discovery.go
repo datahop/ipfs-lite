@@ -28,7 +28,7 @@ type discoveryService struct {
 	scan            int
 	interval        int
 	advertisingInfo map[string][]byte
-
+	stopSignal      chan struct{}
 	// handleConnectionRequest will take care of the incoming connection request.
 	// but it is not safe to use this approach, as in case of multiple back to
 	// back connection requests we might loose some connection request as
@@ -57,6 +57,7 @@ func NewDiscoveryService(
 		wifiCon:         con,
 		scan:            scanTime,
 		interval:        interval,
+		stopSignal:      make(chan struct{}),
 		advertisingInfo: make(map[string][]byte),
 	}
 	return discovery, nil
@@ -125,7 +126,6 @@ func (b *discoveryService) PeerSameStatusDiscovered(device string, topic string)
 
 func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, peerinfo string) {
 	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
-	b.Close()
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)

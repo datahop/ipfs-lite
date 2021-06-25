@@ -88,8 +88,9 @@ type datahop struct {
 }
 
 func init() {
-	logger.SetLogLevel("datahop", "Debug")
 	logger.SetLogLevel("ipfslite", "Debug")
+	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("replication", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -191,22 +192,35 @@ func Start() error {
 func StartDiscovery() error {
 	if hop.discService != nil {
 		hop.discService.Start()
-		st, err := State()
-		if err != nil {
-			return err
-		}
-		hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+		go func() {
+			for {
+				st, err := State()
+				if err != nil {
+					log.Error("Unable to fetch state")
+					return
+				}
+				hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+				select {
+				case <-hop.discService.stopSignal:
+					log.Error("Stop AddAdvertisingInfo Routine")
+					return
+				case <-time.After(time.Second * 20):
+				}
+			}
+		}()
+		log.Debug("Stated discovery")
 		return nil
 	} else {
-		return errors.New("discService is null")
+		return errors.New("discovery service is not initialised")
 	}
 }
 
 func StopDiscovery() error {
 	if hop.discService != nil {
+		hop.discService.stopSignal <- struct{}{}
 		return hop.discService.Close()
 	} else {
-		return errors.New("discService is null")
+		return errors.New("discovery service is not initialised")
 	}
 }
 
@@ -354,6 +368,14 @@ func Add(tag string, content []byte) error {
 		if err != nil {
 			return err
 		}
+
+		// Update advertise info
+		st, err := State()
+		if err != nil {
+			return err
+		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+
 		return nil
 	}
 	return errors.New("datahop ipfs-lite node is not running")
