@@ -463,7 +463,7 @@ func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	log.Debug("Discovered Peer : ", pi)
 	err := p.Host.Connect(context.Background(), pi)
 	if err != nil {
-		log.Errorf("Failed to connect to peer %s\n", pi.ID.String())
+		log.Errorf("Failed to connect to peer %s : %s\n", pi.ID.String(), err.Error())
 	}
 }
 
