@@ -48,7 +48,6 @@ func init() {
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
 	logging.SetLogLevel("config", "Debug")
 	logging.SetLogLevel("repo", "Debug")
-	logging.SetLogLevel("replication", "Debug")
 }
 
 const (
@@ -461,10 +460,8 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 // HandlePeerFound tries to connect to a given peerinfo
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	log.Debug("Discovered Peer : ", pi)
-	err := p.Host.Connect(context.Background(), pi)
-	if err != nil {
-		log.Errorf("Failed to connect to peer %s : %s\n", pi.ID.String(), err.Error())
-	}
+	<-time.After(time.Second)
+	p.Bootstrap([]peer.AddrInfo{pi})
 }
 
 func (p *Peer) IsOnline() bool {
