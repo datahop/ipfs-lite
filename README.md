@@ -13,9 +13,26 @@ datahop it adds some more features of full ipfs, such as config, repo, leveldb e
 
 ## Running Example
 
+### cli client
 ```
  go run ./examples/litepeer/litepeer.go
 ```
+
+### mobile client
+```
+  go run ./examples/mobilepeer/mobilepeer.go
+```
+
+## Objectives
+
+* [x] create cache repo as ipfs
+* [x] have persistent config information (Id, keys, ports, bootstraps etc)
+* [x] use leveldb as datastore to set up peer
+* [x] generate gomobile binding for android
+* [x] adding content
+* [x] replicating content
+* [ ] remove content
+* [ ] remove respective replication info for removed content
 
 ## License
 
