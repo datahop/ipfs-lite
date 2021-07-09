@@ -215,8 +215,11 @@ func StartDiscovery() error {
 }
 
 func StopDiscovery() error {
+	log.Debug("Stopping discovery")
 	if hop.discService != nil {
-		hop.discService.stopSignal <- struct{}{}
+		go func() {
+			hop.discService.stopSignal <- struct{}{}
+		}()
 		return hop.discService.Close()
 	} else {
 		return errors.New("discovery service is not initialised")
@@ -433,8 +436,6 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
-	hop.wifiCon.Disconnect()
-	hop.wifiHS.Stop()
 }
 
 func UpdateTopicStatus(topic string, value []byte) {

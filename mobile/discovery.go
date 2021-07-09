@@ -90,6 +90,8 @@ func (b *discoveryService) Close() error {
 	log.Debug("discoveryService Close")
 	b.discovery.Stop()
 	b.advertiser.Stop()
+	hop.wifiCon.Disconnect()
+	hop.wifiHS.Stop()
 	return nil
 }
 func (b *discoveryService) RegisterNotifee(n Notifee) {
