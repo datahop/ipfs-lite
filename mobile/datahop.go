@@ -177,6 +177,8 @@ func Start() error {
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
 
+		hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+
 		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():

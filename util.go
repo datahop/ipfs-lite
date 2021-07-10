@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ipfs/go-datastore"
-	ipfsconfig "github.com/ipfs/go-ipfs-config"
 	"github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -21,10 +20,18 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-// DefaultBootstrapPeers returns the default go-ipfs bootstrap peers (for use
+var DefaultBootstrapAddresses = []string{
+	"/ip4/172.31.20.176/tcp/4501/p2p/QmevJNn8Um8HQV5VYYapQmgqFDYQMxXL1HLTAReHBXosXh",
+}
+
+// DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
 // with NewLibp2pHost.
 func DefaultBootstrapPeers() []peer.AddrInfo {
-	defaults, _ := ipfsconfig.DefaultBootstrapPeers()
+	maddrs := make([]multiaddr.Multiaddr, len(DefaultBootstrapAddresses))
+	for i, addr := range DefaultBootstrapAddresses {
+		maddrs[i], _ = multiaddr.NewMultiaddr(addr)
+	}
+	defaults, _ := peer.AddrInfosFromP2pAddrs(maddrs...)
 	return defaults
 }
 

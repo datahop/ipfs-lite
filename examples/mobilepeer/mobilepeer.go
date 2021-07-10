@@ -96,6 +96,8 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(datahop.PeerInfo())
+	fmt.Println(datahop.Peers())
+
 	<-time.After(time.Second * 30)
 	datahop.Stop()
 	datahop.Close()
