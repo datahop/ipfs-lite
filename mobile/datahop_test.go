@@ -96,7 +96,7 @@ func TestInit(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestNoPeerConnected(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestMultipleStart(t *testing.T) {
 		Close()
 	}()
 	for i := 0; i < 10; i++ {
-		err = Start()
+		err = Start(false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -266,7 +266,7 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestConnectWithAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,7 +353,7 @@ func TestReplicationOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +420,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +480,7 @@ func TestReplicationIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -549,7 +549,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start()
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}

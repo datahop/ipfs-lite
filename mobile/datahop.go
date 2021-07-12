@@ -160,7 +160,7 @@ func DiskUsage() (int64, error) {
 }
 
 // Start an ipfslite node in a go routine
-func Start() error {
+func Start(shouldBootstrap bool) error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
@@ -176,9 +176,9 @@ func Start() error {
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
-
-		hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
-
+		if shouldBootstrap {
+			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+		}
 		wg.Done()
 		select {
 		case <-hop.peer.Ctx.Done():
