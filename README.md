@@ -33,6 +33,11 @@ datahop it adds some more features of full ipfs, such as config, repo, leveldb e
 * [x] replicating content
 * [ ] remove content
 * [ ] remove respective replication info for removed content
+* [x] bootstrap mobile client
+* [ ] cli for bootstrap peer
+
+
+
 
 ## License
 
