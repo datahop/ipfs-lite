@@ -91,11 +91,12 @@ func main() {
 		panic(err)
 	}
 	defer datahop.Close()
-	err = datahop.Start()
+	err = datahop.Start(true)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(datahop.PeerInfo())
+
 	<-time.After(time.Second * 30)
 	datahop.Stop()
 	datahop.Close()

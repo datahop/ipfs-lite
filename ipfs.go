@@ -461,7 +461,10 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	log.Debug("Discovered Peer : ", pi)
 	<-time.After(time.Second)
-	p.Bootstrap([]peer.AddrInfo{pi})
+	err := p.Connect(p.Ctx, pi)
+	if err != nil {
+		log.Error(fmt.Printf("Connect failed with peer %s for %s", pi.ID, err.Error()))
+	}
 }
 
 func (p *Peer) IsOnline() bool {
