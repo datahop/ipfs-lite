@@ -36,6 +36,11 @@ datahop it adds some more features of full ipfs, such as config, repo, leveldb e
 * [x] bootstrap mobile client
 * [ ] cli for bootstrap peer
 
+
+## Documentation
+
+[Go pkg docs](https://pkg.go.dev/github.com/datahop/ipfs-lite)
+
 ## License
 
 Copyright 2021 Datahop
