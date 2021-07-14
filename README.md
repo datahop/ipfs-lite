@@ -36,12 +36,7 @@ datahop it adds some more features of full ipfs, such as config, repo, leveldb e
 * [x] bootstrap mobile client
 * [ ] cli for bootstrap peer
 
-
-
-
 ## License
-
-# License
 
 Copyright 2021 Datahop
 
@@ -54,7 +49,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
 language governing permissions and limitations under the License.
 
-# Acknowledgment
+## Acknowledgment
 
 This software is part of the NGI Pointer project "Incentivised Content Dissemination at the Network Edge" that has
 received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No
