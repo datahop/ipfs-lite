@@ -25,17 +25,16 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
-type Replica struct {
+type StringSlice struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Output []string `protobuf:"bytes,1,rep,name=output,proto3" json:"output,omitempty"`
 }
 
-func (x *Replica) Reset() {
-	*x = Replica{}
+func (x *StringSlice) Reset() {
+	*x = StringSlice{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_types_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -43,13 +42,13 @@ func (x *Replica) Reset() {
 	}
 }
 
-func (x *Replica) String() string {
+func (x *StringSlice) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Replica) ProtoMessage() {}
+func (*StringSlice) ProtoMessage() {}
 
-func (x *Replica) ProtoReflect() protoreflect.Message {
+func (x *StringSlice) ProtoReflect() protoreflect.Message {
 	mi := &file_types_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -61,35 +60,28 @@ func (x *Replica) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Replica.ProtoReflect.Descriptor instead.
-func (*Replica) Descriptor() ([]byte, []int) {
+// Deprecated: Use StringSlice.ProtoReflect.Descriptor instead.
+func (*StringSlice) Descriptor() ([]byte, []int) {
 	return file_types_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Replica) GetKey() string {
+func (x *StringSlice) GetOutput() []string {
 	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-func (x *Replica) GetValue() []byte {
-	if x != nil {
-		return x.Value
+		return x.Output
 	}
 	return nil
 }
 
-type Content struct {
+type String struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Replicas []*Replica `protobuf:"bytes,1,rep,name=replicas,proto3" json:"replicas,omitempty"`
+	Output []string `protobuf:"bytes,1,rep,name=output,proto3" json:"output,omitempty"`
 }
 
-func (x *Content) Reset() {
-	*x = Content{}
+func (x *String) Reset() {
+	*x = String{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_types_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -97,13 +89,13 @@ func (x *Content) Reset() {
 	}
 }
 
-func (x *Content) String() string {
+func (x *String) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Content) ProtoMessage() {}
+func (*String) ProtoMessage() {}
 
-func (x *Content) ProtoReflect() protoreflect.Message {
+func (x *String) ProtoReflect() protoreflect.Message {
 	mi := &file_types_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -115,14 +107,14 @@ func (x *Content) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Content.ProtoReflect.Descriptor instead.
-func (*Content) Descriptor() ([]byte, []int) {
+// Deprecated: Use String.ProtoReflect.Descriptor instead.
+func (*String) Descriptor() ([]byte, []int) {
 	return file_types_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Content) GetReplicas() []*Replica {
+func (x *String) GetOutput() []string {
 	if x != nil {
-		return x.Replicas
+		return x.Output
 	}
 	return nil
 }
@@ -130,15 +122,13 @@ func (x *Content) GetReplicas() []*Replica {
 var File_types_proto protoreflect.FileDescriptor
 
 var file_types_proto_rawDesc = []byte{
-	0x0a, 0x0b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x31, 0x0a,
-	0x07, 0x52, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61,
-	0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
-	0x22, 0x2f, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x12, 0x24, 0x0a, 0x08, 0x72,
-	0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x08, 0x2e,
-	0x52, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x52, 0x08, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61,
-	0x73, 0x42, 0x0f, 0x0a, 0x0d, 0x64, 0x61, 0x74, 0x61, 0x68, 0x6f, 0x70, 0x2e, 0x74, 0x79, 0x70,
-	0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x0a, 0x0b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x25, 0x0a,
+	0x0b, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x53, 0x6c, 0x69, 0x63, 0x65, 0x12, 0x16, 0x0a, 0x06,
+	0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x6f, 0x75,
+	0x74, 0x70, 0x75, 0x74, 0x22, 0x20, 0x0a, 0x06, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x12, 0x16,
+	0x0a, 0x06, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06,
+	0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x42, 0x0f, 0x0a, 0x0d, 0x64, 0x61, 0x74, 0x61, 0x68, 0x6f,
+	0x70, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -155,16 +145,15 @@ func file_types_proto_rawDescGZIP() []byte {
 
 var file_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_types_proto_goTypes = []interface{}{
-	(*Replica)(nil), // 0: Replica
-	(*Content)(nil), // 1: Content
+	(*StringSlice)(nil), // 0: StringSlice
+	(*String)(nil),      // 1: String
 }
 var file_types_proto_depIdxs = []int32{
-	0, // 0: Content.replicas:type_name -> Replica
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_types_proto_init() }
@@ -174,7 +163,7 @@ func file_types_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_types_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Replica); i {
+			switch v := v.(*StringSlice); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -186,7 +175,7 @@ func file_types_proto_init() {
 			}
 		}
 		file_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Content); i {
+			switch v := v.(*String); i {
 			case 0:
 				return &v.state
 			case 1:

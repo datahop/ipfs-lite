@@ -1,31 +1,39 @@
-// Package datahop is a mobile client for running a minimalistic ipfs node.
 package datahop
 
-// add a separate GOMODCACHE fro faster builds
-
-//go:generate ./generate.sh
+//go:generate gomobile bind -o datahop.aar -target=android github.com/datahop/ipfs-lite/mobile
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io/ioutil"
 	"strings"
+	"sync"
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/query"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 var (
-	log = logger.Logger("datahop")
-	hop *datahop
+	log                 = logger.Logger("datahop")
+	hop                 *datahop
+	ErrNoPeersConnected = errors.New("no Peers connected")
+	ErrNoPeerAddress    = errors.New("could not get peer address")
+)
+
+const (
+	NoPeersConnected = "No Peers connected"
+	CRDTStatus       = "datahop-crdt-status"
 )
 
 // ConnectionManager is used by clients to get notified client connection
@@ -34,150 +42,190 @@ type ConnectionManager interface {
 	PeerDisconnected(string)
 }
 
-// BleManager is used by clients to interact with Bluetooth Low Energy
-type BleManager interface {
-	StartAdvertising()
-	StopAdvertising()
-	StartScanning()
-	StopScanning()
-	StartGATTServer()
-	StopGATTServer()
-}
-
-// WifiP2PManager is used by clients to mange wifi direct
-type WifiP2PManager interface {
-	StartHotspot() (string, error) // Returns "ssid:password"
-	StopHotspot()
-}
-
-// WifiManager is used by clients to mange wifi connection
-type WifiManager interface {
-	Connect(string, string) // takes in ssid and password
-	Disconnect()
-}
-
 type Notifier struct{}
 
 func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *Notifier) Connected(net network.Network, c network.Conn) {
-	hop.hook.PeerConnected(c.RemotePeer().String())
+	if hop.hook != nil {
+		hop.hook.PeerConnected(c.RemotePeer().String())
+	}
 }
 func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
-	hop.hook.PeerDisconnected(c.RemotePeer().String())
+	if hop.hook != nil {
+		hop.hook.PeerDisconnected(c.RemotePeer().String())
+	}
 }
 func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
 func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
+
+type discNotifee struct{}
+
+func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
+	var peerInfo peer.AddrInfo
+	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
+	if err != nil {
+		return
+	}
+	hop.peer.HandlePeerFound(peerInfo)
+}
 
 type datahop struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	root            string
 	peer            *ipfslite.Peer
-	identity        *ipfslite.Identity
+	identity        config.Identity
 	hook            ConnectionManager
+	wifiHS          WifiHotspot
+	wifiCon         WifiConnection
+	discDriver      DiscoveryDriver
+	advDriver       AdvertisingDriver
 	networkNotifier network.Notifiee
-	ble             BleManager
+	repo            repo.Repo
+	notifier        Notifee
+	discService     *discoveryService
 }
 
 func init() {
-	logger.SetLogLevel("datahop", "Debug")
 	logger.SetLogLevel("ipfslite", "Debug")
+	logger.SetLogLevel("datahop", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
-func Init(root string, h ConnectionManager, ble BleManager) error {
-	identity, err := ipfslite.Init(root, "0")
+func Init(
+	root string,
+	connManager ConnectionManager,
+	discDriver DiscoveryDriver,
+	advDriver AdvertisingDriver,
+	hs WifiHotspot,
+	con WifiConnection,
+) error {
+	err := repo.Init(root, "0")
 	if err != nil {
 		return err
 	}
 	n := &Notifier{}
-	ctx, cancel := context.WithCancel(context.Background())
-	hop = &datahop{
-		root:            root,
-		identity:        identity,
-		hook:            h,
-		networkNotifier: n,
-		ble:             ble,
-		ctx:             ctx,
-		cancel:          cancel,
-	}
-	return nil
-}
-
-// StartDiscovery initialises ble services
-//
-// It starts three services in three different go routines. Advertising scanning and gatt server
-// Advertising happens every one minute interval for 30 seconds. Same for scanning. Although
-// scanning starts 30 seconds after initials start, i.e. After advertising stops.
-func StartDiscovery() error {
-	if hop == nil {
-		return errors.New("start failed. datahop not initialised")
-	}
-	go func() {
-		advertiseTicker := time.NewTicker(time.Minute * 1)
-		defer advertiseTicker.Stop()
-		for {
-			hop.ble.StartAdvertising()
-			<-time.After(time.Second * 30)
-			hop.ble.StopAdvertising()
-			select {
-			case <-hop.ctx.Done():
-				return
-			case <-advertiseTicker.C:
-			}
-		}
-	}()
-	go func() {
-		hop.ble.StartGATTServer()
-		<-hop.ctx.Done()
-		hop.ble.StopGATTServer()
-	}()
-	go func() {
-		<-time.After(time.Second * 30)
-		scannerTicker := time.NewTicker(time.Minute * 1)
-		defer scannerTicker.Stop()
-		for {
-			hop.ble.StartScanning()
-			<-time.After(time.Second * 30)
-			hop.ble.StopScanning()
-			select {
-			case <-hop.ctx.Done():
-				return
-			case <-scannerTicker.C:
-			}
-		}
-	}()
-	return nil
-}
-
-// Start an ipfslite node in a go routine
-func Start() error {
-	if hop == nil {
-		return errors.New("start failed. datahop not initialised")
-	}
-
-	r, err := ipfslite.Open(hop.root)
+	r, err := repo.Open(root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
 		return err
 	}
+	cfg, err := r.Config()
+	if err != nil {
+		log.Error("Config Failed : ", err.Error())
+		return err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	dn := &discNotifee{}
+	hop = &datahop{
+		root:            root,
+		identity:        cfg.Identity,
+		hook:            connManager,
+		networkNotifier: n,
+		ctx:             ctx,
+		cancel:          cancel,
+		repo:            r,
+		notifier:        dn,
+		wifiHS:          hs,
+		wifiCon:         con,
+		discDriver:      discDriver,
+		advDriver:       advDriver,
+	}
+	service, err := NewDiscoveryService(hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	if err != nil {
+		log.Error("ble discovery setup failed : ", err.Error())
+		return err
+	}
+	if res, ok := service.(*discoveryService); ok {
+		hop.discService = res
+		hop.discService.RegisterNotifee(hop.notifier)
+	}
+	return nil
+}
+
+// State returns number of keys in crdt store
+func State() ([]byte, error) {
+	return hop.repo.State().MarshalJSON()
+}
+
+// DiskUsage returns number of bytes stored in the datastore
+func DiskUsage() (int64, error) {
+	du, err := datastore.DiskUsage(hop.repo.Datastore())
+	if err != nil {
+		return 0, err
+	}
+	return int64(du), nil
+}
+
+// Start an ipfslite node in a go routine
+func Start(shouldBootstrap bool) error {
+	if hop == nil {
+		return errors.New("start failed. datahop not initialised")
+	}
+	ctx, cancel := context.WithCancel(hop.ctx)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		p, err := ipfslite.New(hop.ctx, r)
+		p, err := ipfslite.New(ctx, cancel, hop.repo)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
+			wg.Done()
 			return
 		}
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
+		if shouldBootstrap {
+			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+		}
+		wg.Done()
 		select {
-		case <-hop.ctx.Done():
-			log.Debug("Context Closed")
+		case <-hop.peer.Ctx.Done():
+			log.Debug("Context Closed ")
 		}
 	}()
+	wg.Wait()
 	log.Debug("Node Started")
 	return nil
+}
+
+func StartDiscovery() error {
+	if hop.discService != nil {
+		hop.discService.Start()
+		go func() {
+			for {
+				st, err := State()
+				if err != nil {
+					log.Error("Unable to fetch state")
+					return
+				}
+				hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+				select {
+				case <-hop.discService.stopSignal:
+					log.Error("Stop AddAdvertisingInfo Routine")
+					return
+				case <-time.After(time.Second * 20):
+				}
+			}
+		}()
+		log.Debug("Stated discovery")
+		return nil
+	} else {
+		return errors.New("discovery service is not initialised")
+	}
+}
+
+func StopDiscovery() error {
+	log.Debug("Stopping discovery")
+	if hop.discService != nil {
+		go func() {
+			hop.discService.stopSignal <- struct{}{}
+		}()
+		return hop.discService.Close()
+	} else {
+		return errors.New("discovery service is not initialised")
+	}
 }
 
 // ConnectWithAddress Connects to a given peer address
@@ -219,13 +267,18 @@ func Bootstrap(peerInfoByteString string) error {
 	return nil
 }
 
-// GetPeerInfo Returns string of the peer.AddrInfo []byte of the node
-func GetPeerInfo() string {
+// PeerInfo Returns a string of the peer.AddrInfo []byte of the node
+func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		if hop.peer != nil {
+			addrs := hop.peer.Host.Addrs()
+			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+			if err == nil {
+				addrs = append(addrs, interfaceAddrs...)
+			}
 			pr := peer.AddrInfo{
 				ID:    hop.peer.Host.ID(),
-				Addrs: hop.peer.Host.Addrs(),
+				Addrs: interfaceAddrs,
 			}
 			prb, err := pr.MarshalJSON()
 			if err != nil {
@@ -238,126 +291,133 @@ func GetPeerInfo() string {
 	return "Could not get peerInfo"
 }
 
-// GetID Returns peerId of the node
-func GetID() string {
+// ID Returns peerId of the node
+func ID() string {
 	return hop.identity.PeerID
 }
 
-// GetAddress Returns a comma(,) separated string of all the possible addresses of a node
-func GetAddress() string {
+// Addrs Returns a comma(,) separated string of all the possible addresses of a node
+func Addrs() ([]byte, error) {
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
 			for _, v := range hop.peer.Host.Addrs() {
-				addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+				if !strings.HasPrefix(v.String(), "127") {
+					addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+				}
 			}
-			return strings.Join(addrs, ",")
+			addrs := &types.StringSlice{
+				Output: addrs,
+			}
+			return proto.Marshal(addrs)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
-	return "Could not get peer address"
+	return nil, errors.New("could not get peer address")
+}
+
+// InterfaceAddrs returns a list of addresses at which this network
+// listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
+// use the known local interfaces.
+func InterfaceAddrs() ([]byte, error) {
+	for i := 0; i < 5; i++ {
+		addrs := []string{}
+		if hop.peer != nil {
+			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+			if err == nil {
+				for _, v := range interfaceAddrs {
+					if !strings.HasPrefix(v.String(), "127") {
+						addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+					}
+				}
+			}
+			addrs := &types.StringSlice{
+				Output: addrs,
+			}
+			return proto.Marshal(addrs)
+		}
+		<-time.After(time.Millisecond * 200)
+	}
+	return nil, errors.New("could not get peer address")
 }
 
 // IsNodeOnline Checks if the node is running
 func IsNodeOnline() bool {
-	if hop.peer != nil {
+	if hop != nil && hop.peer != nil {
 		return hop.peer.IsOnline()
 	}
 	return false
 }
 
 // Peers Returns a comma(,) separated string of all the connected peers of a node
-func Peers() string {
-	if hop != nil && hop.peer != nil {
-		return strings.Join(hop.peer.Peers(), ",")
+func Peers() ([]byte, error) {
+	if hop != nil && hop.peer != nil && len(hop.peer.Peers()) > 0 {
+		peers := &types.StringSlice{
+			Output: hop.peer.Peers(),
+		}
+		return proto.Marshal(peers)
 	}
-	return "No Peers connected"
+	return nil, ErrNoPeersConnected
 }
 
-// Replicate adds a record in the crdt store
-func Replicate(replica []byte) error {
+// Add adds a record in the store
+func Add(tag string, content []byte) error {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return errors.New("replication module not running")
+		buf := bytes.NewReader(content)
+		n, err := hop.peer.AddFile(context.Background(), buf, nil)
+		if err != nil {
+			return err
 		}
-		r := types.Replica{}
-		err := proto.Unmarshal(replica, &r)
+		err = hop.peer.Manager.Tag(tag, n.Cid())
 		if err != nil {
 			return err
 		}
 
-		dsKey := datastore.NewKey(r.GetKey())
-		err = hop.peer.CrdtStore.Put(dsKey, r.GetValue())
+		// Update advertise info
+		st, err := State()
 		if err != nil {
 			return err
 		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+
+		return nil
 	}
 	return errors.New("datahop ipfs-lite node is not running")
 }
 
-// GetReplicatedValue retrieves a record from the crdt store
-func GetReplicatedValue(key string) ([]byte, error) {
+// Get gets a record from the store by given tag
+func Get(tag string) ([]byte, error) {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return []byte{}, errors.New("replication module not running")
-		}
-		dsKey := datastore.NewKey(key)
-		value, err := hop.peer.CrdtStore.Get(dsKey)
+		id, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		r := types.Replica{
-			Key:   key,
-			Value: value,
-		}
-		data, err := proto.Marshal(&r)
+		r, err := hop.peer.GetFile(context.Background(), id)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		return data, nil
-	}
-	return []byte{}, errors.New("datahop ipfs-lite node is not running")
-}
-
-// GetReplicatedContent retrieves all records from the crdt store
-func GetReplicatedContent() ([]byte, error) {
-	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return []byte{}, errors.New("replication module not running")
-		}
-		records := types.Content{}
-		results, err := hop.peer.CrdtStore.Query(query.Query{})
+		content, err := ioutil.ReadAll(r)
 		if err != nil {
-			return []byte{}, err
-		}
-		for v := range results.Next() {
-			records.Replicas = append(records.Replicas, &types.Replica{
-				Key:   v.Key,
-				Value: v.Value,
-			})
-		}
-		content, err := proto.Marshal(&records)
-		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
 		return content, nil
 	}
-	return []byte{}, errors.New("datahop ipfs-lite node is not running")
+	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
-// RemoveReplication deletes record from the crdt store
-func RemoveReplication(key string) error {
+// GetTags gets all the tags from the store
+func GetTags() ([]byte, error) {
 	if hop != nil && hop.peer != nil {
-		if hop.peer.CrdtStore == nil {
-			return errors.New("replication module not running")
-		}
-		dsKey := datastore.NewKey(key)
-		err := hop.peer.CrdtStore.Delete(dsKey)
+		tags, err := hop.peer.Manager.GetAllTags()
 		if err != nil {
-			return err
+			return nil, err
 		}
+		allTags := &types.StringSlice{
+			Output: tags,
+		}
+		return proto.Marshal(allTags)
 	}
-	return errors.New("datahop ipfs-lite node is not running")
+	return nil, errors.New("datahop ipfs-lite node is not running")
 }
 
 // Version of ipfs-lite
@@ -367,5 +427,35 @@ func Version() string {
 
 // Stop the node
 func Stop() {
+	hop.peer.Cancel()
+	select {
+	case <-hop.peer.Stopped:
+	case <-time.After(time.Second * 5):
+	}
+}
+
+// Close the repo and all
+func Close() {
+	hop.repo.Close()
 	hop.cancel()
+}
+
+func UpdateTopicStatus(topic string, value []byte) {
+	hop.discService.AddAdvertisingInfo(topic, value)
+}
+
+func GetDiscoveryNotifier() DiscoveryNotifier {
+	return hop.discService
+}
+
+func GetAdvertisementNotifier() AdvertisementNotifier {
+	return hop.discService
+}
+
+func GetWifiHotspotNotifier() WifiHotspotNotifier {
+	return hop.discService
+}
+
+func GetWifiConnectionNotifier() WifiConnectionNotifier {
+	return hop.discService
 }

@@ -6,54 +6,56 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/go-datastore"
-	"io/ioutil"
 	"os"
-	"time"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	ipfslite "github.com/datahop/ipfs-lite"
-	"github.com/ipfs/go-cid"
+	"github.com/datahop/ipfs-lite/internal/repo"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	root := "/tmp" + string(os.PathSeparator) + ipfslite.Root
-	_, err := ipfslite.Init(root, "0")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	root := filepath.Join(home, repo.Root)
+	err = repo.Init(root, "0")
 	if err != nil {
 		return
 	}
 
-	r, err := ipfslite.Open(root)
+	r, err := repo.Open(root)
 	if err != nil {
 		return
 	}
 
-	lite, err := ipfslite.New(ctx, r)
+	lite, err := ipfslite.New(ctx, cancel, r)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(lite.Host.ID())
-	lite.Bootstrap(ipfslite.DefaultBootstrapPeers())
-	c, _ := cid.Decode("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u")
-	rsc, err := lite.GetFile(ctx, c)
-	if err != nil {
-		panic(err)
+	addrs := []string{}
+	for _, v := range lite.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			addrs = append(addrs, v.String()+"/p2p/"+lite.Host.ID().String())
+		}
 	}
-	defer rsc.Close()
-	content, err := ioutil.ReadAll(rsc)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(content))
-	myvalue := "myValue"
-	key := datastore.NewKey("mykey2")
-	err = lite.CrdtStore.Put(key, []byte(myvalue))
-	if err != nil {
-		panic(err)
-	}
-
-	<-time.After(time.Minute * 1)
+	fmt.Println(addrs)
+	endWaiter := sync.WaitGroup{}
+	endWaiter.Add(1)
+	var sigChan chan os.Signal
+	sigChan = make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		<-sigChan
+		fmt.Println()
+		endWaiter.Done()
+	}()
+	endWaiter.Wait()
 }

@@ -2,45 +2,43 @@ package ipfslite
 
 import (
 	"context"
-	"os"
 	"time"
 
-	"github.com/libp2p/go-tcp-transport"
-
 	"github.com/ipfs/go-datastore"
-	leveldb "github.com/ipfs/go-ds-leveldb"
-	ipfsconfig "github.com/ipfs/go-ipfs-config"
-	ipns "github.com/ipfs/go-ipns"
+	"github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	host "github.com/libp2p/go-libp2p-core/host"
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	routing "github.com/libp2p/go-libp2p-core/routing"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/routing"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dualdht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	record "github.com/libp2p/go-libp2p-record"
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 )
 
-// DefaultBootstrapPeers returns the default go-ipfs bootstrap peers (for use
+var DefaultBootstrapAddresses = []string{
+	"/ip4/52.66.216.67/tcp/4501/p2p/QmevJNn8Um8HQV5VYYapQmgqFDYQMxXL1HLTAReHBXosXh",
+}
+
+// DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
 // with NewLibp2pHost.
 func DefaultBootstrapPeers() []peer.AddrInfo {
-	defaults, _ := ipfsconfig.DefaultBootstrapPeers()
+	maddrs := make([]multiaddr.Multiaddr, len(DefaultBootstrapAddresses))
+	for i, addr := range DefaultBootstrapAddresses {
+		maddrs[i], _ = multiaddr.NewMultiaddr(addr)
+	}
+	defaults, _ := peer.AddrInfosFromP2pAddrs(maddrs...)
 	return defaults
 }
 
-// LevelDatastore returns a new instance of LevelDB persisting
-// to the given path with the default options.
-func LevelDatastore(path string) (datastore.Batching, error) {
-	return leveldb.NewDatastore(path, &leveldb.Options{})
-}
-
-// Libp2pOptionsExtra provides some useful libp2p options
+// libp2pOptionsExtra provides some useful libp2p options
 // to create a fully featured libp2p host. It can be used with
 // SetupLibp2p.
-var Libp2pOptionsExtra = []libp2p.Option{
+var libp2pOptionsExtra = []libp2p.Option{
 	libp2p.Transport(tcp.NewTCPTransport),
 	libp2p.DisableRelay(),
 	libp2p.NATPortMap(),
@@ -99,15 +97,5 @@ func newDHT(ctx context.Context, h host.Host, ds datastore.Batching) (*dualdht.D
 	if ds != nil {
 		dhtOpts = append(dhtOpts, dualdht.DHTOption(dht.Datastore(ds)))
 	}
-
 	return dualdht.New(ctx, h, dhtOpts...)
-}
-
-// FileExists check if the file with the given path exits.
-func FileExists(filename string) bool {
-	fi, err := os.Lstat(filename)
-	if fi != nil || (err != nil && !os.IsNotExist(err)) {
-		return true
-	}
-	return false
 }

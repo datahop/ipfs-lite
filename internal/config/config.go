@@ -1,13 +1,15 @@
-package ipfslite
+package config
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
+	logging "github.com/ipfs/go-log/v2"
 	ci "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
+
+var log = logging.Logger("config")
 
 const (
 	SwarmPort = "4501"
@@ -39,6 +41,7 @@ func NewConfig(swarmPort string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Debug("Generated new id ", identity.PeerID)
 	if swarmPort == "0" {
 		swarmPort = SwarmPort
 	}
@@ -49,12 +52,6 @@ func NewConfig(swarmPort string) (*Config, error) {
 		SwarmPort: swarmPort,
 	}
 	return conf, nil
-}
-
-// Marshal configuration with JSON
-func Marshal(value interface{}) ([]byte, error) {
-	// need to prettyprint, hence MarshalIndent, instead of Encoder
-	return json.MarshalIndent(value, "", "  ")
 }
 
 func identityConfig(nbits int) (Identity, error) {

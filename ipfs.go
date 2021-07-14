@@ -8,17 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/replication"
+
+	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	crdt "github.com/ipfs/go-ds-crdt"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
 	provider "github.com/ipfs/go-ipfs-provider"
@@ -35,7 +36,6 @@ import (
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
@@ -46,13 +46,17 @@ func init() {
 	ipld.Register(cid.DagProtobuf, merkledag.DecodeProtobufBlock)
 	ipld.Register(cid.Raw, merkledag.DecodeRawBlock)
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
+	logging.SetLogLevel("config", "Debug")
+	logging.SetLogLevel("repo", "Debug")
 }
 
 const (
-	ServiceTag                     = "_datahop-discovery._tcp"
+	// ServiceTag is used for mDNS
+	ServiceTag = "_datahop-discovery._tcp"
+
 	defaultCrdtNamespace           = "/crdt"
-	defaultCrdtRebroadcastInterval = time.Second * 20
-	defaultMDNSInterval            = time.Minute
+	defaultCrdtRebroadcastInterval = time.Second * 3
+	defaultMDNSInterval            = time.Second * 5
 	defaultTopic                   = "datahop-crdt"
 )
 
@@ -64,42 +68,42 @@ var (
 // blocks from/to the IPFS network.
 type Peer struct {
 	Ctx             context.Context
+	Cancel          context.CancelFunc
 	Host            host.Host
 	Store           datastore.Batching
 	DHT             routing.Routing
-	Repo            Repo
+	Repo            repo.Repo
 	Provider        provider.System
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
 	online          bool
 	mtx             sync.Mutex
-	CrdtStore       *crdt.Datastore
+	Manager         *replication.Manager
+	Stopped         chan bool
+	CrdtTopic       string
 }
 
 type Option func(*Options)
 
+// WithmDNSInterval changes default mDNS rebroadcast interval
 func WithmDNSInterval(interval time.Duration) Option {
 	return func(h *Options) {
 		h.mDNSInterval = interval
 	}
 }
 
+// WithRebroadcastInterval changes default crdt rebroadcast interval
 func WithRebroadcastInterval(interval time.Duration) Option {
 	return func(h *Options) {
 		h.crdtRebroadcastInterval = interval
 	}
 }
 
+// WithmDNS decides if the ipfs node will start with mDNS or not
 func WithmDNS(withmDNS bool) Option {
 	return func(h *Options) {
 		h.withmDNS = withmDNS
-	}
-}
-
-func WithCrdt(withCrdt bool) Option {
-	return func(h *Options) {
-		h.withCRDT = withCrdt
 	}
 }
 
@@ -109,19 +113,18 @@ func WithCrdtTopic(topic string) Option {
 	}
 }
 
-func WithCrdtNamespace(namespace string) Option {
+func WithCrdtNamespace(ns string) Option {
 	return func(h *Options) {
-		h.crdtNamespace = namespace
+		h.crdtPrefix = ns
 	}
 }
 
 type Options struct {
 	mDNSInterval            time.Duration
 	crdtRebroadcastInterval time.Duration
+	crdtPrefix              string
 	withmDNS                bool
-	withCRDT                bool
 	crdtTopic               string
-	crdtNamespace           string
 }
 
 func defaultOptions() *Options {
@@ -129,9 +132,8 @@ func defaultOptions() *Options {
 		mDNSInterval:            defaultMDNSInterval,
 		crdtRebroadcastInterval: defaultCrdtRebroadcastInterval,
 		withmDNS:                true,
-		withCRDT:                true,
 		crdtTopic:               defaultTopic,
-		crdtNamespace:           defaultCrdtNamespace,
+		crdtPrefix:              defaultCrdtNamespace,
 	}
 }
 
@@ -139,7 +141,8 @@ func defaultOptions() *Options {
 // Routing (usuall the DHT). Peer implements the ipld.DAGService interface.
 func New(
 	ctx context.Context,
-	r Repo,
+	cancelFunc context.CancelFunc,
+	r repo.Repo,
 	opts ...Option,
 ) (*Peer, error) {
 	options := defaultOptions()
@@ -154,24 +157,10 @@ func New(
 	privKey, _ := crypto.UnmarshalPrivateKey(privb)
 
 	listenAddrs := []multiaddr.Multiaddr{}
-
-	// Listen for local interface addresses
-	ifaces := listMulticastInterfaces()
-	for _, iface := range ifaces {
-		v4, _ := addrsForInterface(&iface)
-		for _, v := range v4 {
-			if !strings.HasPrefix(v.String(), "127") {
-				listen, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", v.String(), cfg.SwarmPort))
-				listenAddrs = append(listenAddrs, listen)
-			}
-		}
-	}
-	if len(listenAddrs) == 0 {
-		confAddrs := cfg.Addresses.Swarm
-		for _, v := range confAddrs {
-			listen, _ := multiaddr.NewMultiaddr(v)
-			listenAddrs = append(listenAddrs, listen)
-		}
+	confAddrs := cfg.Addresses.Swarm
+	for _, v := range confAddrs {
+		listen, _ := multiaddr.NewMultiaddr(v)
+		listenAddrs = append(listenAddrs, listen)
 	}
 
 	h, dht, err := SetupLibp2p(
@@ -179,17 +168,19 @@ func New(
 		privKey,
 		listenAddrs,
 		r.Datastore(),
-		Libp2pOptionsExtra...,
+		libp2pOptionsExtra...,
 	)
 	if err != nil {
 		return nil, err
 	}
 	p := &Peer{
-		Ctx:   ctx,
-		Host:  h,
-		DHT:   dht,
-		Store: r.Datastore(),
-		Repo:  r,
+		Ctx:     ctx,
+		Cancel:  cancelFunc,
+		Host:    h,
+		DHT:     dht,
+		Store:   r.Datastore(),
+		Repo:    r,
+		Stopped: make(chan bool, 1),
 	}
 	err = p.setupBlockstore()
 	if err != nil {
@@ -204,17 +195,12 @@ func New(
 		p.bserv.Close()
 		return nil, err
 	}
+	err = p.setupCrdtStore(options)
 	if err != nil {
 		p.bserv.Close()
 		return nil, err
 	}
-	if options.withCRDT {
-		err = p.setupCrdtStore(options)
-		if err != nil {
-			p.bserv.Close()
-			return nil, err
-		}
-	}
+	p.Manager.StartContentWatcher()
 
 	p.mtx.Lock()
 	p.online = true
@@ -259,31 +245,13 @@ func (p *Peer) setupDAGService() error {
 }
 
 func (p *Peer) setupCrdtStore(opts *Options) error {
-	psub, err := pubsub.NewGossipSub(p.Ctx, p.Host)
+	ctx, cancel := context.WithCancel(p.Ctx)
+	manager, err := replication.New(ctx, cancel, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p)
 	if err != nil {
 		return err
 	}
-	// TODO Add RegisterTopicValidator
-	pubsubBC, err := crdt.NewPubSubBroadcaster(p.Ctx, psub, opts.crdtTopic)
-	if err != nil {
-		return err
-	}
-
-	crdtOpts := crdt.DefaultOptions()
-	crdtOpts.Logger = log
-	crdtOpts.RebroadcastInterval = opts.crdtRebroadcastInterval
-	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
-		log.Debugf("Added: [%s] -> %s\n", k, string(v))
-	}
-	crdtOpts.DeleteHook = func(k datastore.Key) {
-		log.Debugf("Removed: [%s]\n", k)
-	}
-
-	crdtStore, err := crdt.New(p.Store, datastore.NewKey(opts.crdtNamespace), p, pubsubBC, crdtOpts)
-	if err != nil {
-		return err
-	}
-	p.CrdtStore = crdtStore
+	p.Manager = manager
+	p.CrdtTopic = opts.crdtTopic
 	return nil
 }
 
@@ -292,51 +260,10 @@ func (p *Peer) autoclose() {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.online = false
-	p.CrdtStore.Close()
-	p.Repo.Datastore().Close()
+	p.Manager.Close()
 	p.Host.Close()
 	p.bserv.Close()
-}
-
-func addrsForInterface(iface *net.Interface) ([]net.IP, []net.IP) {
-	var v4, v6, v6local []net.IP
-	addrs, _ := iface.Addrs()
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				v4 = append(v4, ipnet.IP)
-			} else {
-				switch ip := ipnet.IP.To16(); ip != nil {
-				case ip.IsGlobalUnicast():
-					v6 = append(v6, ipnet.IP)
-				case ip.IsLinkLocalUnicast():
-					v6local = append(v6local, ipnet.IP)
-				}
-			}
-		}
-	}
-	if len(v6) == 0 {
-		v6 = v6local
-	}
-	return v4, v6
-}
-
-func listMulticastInterfaces() []net.Interface {
-	var interfaces []net.Interface
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return nil
-	}
-	for _, ifi := range ifaces {
-		if (ifi.Flags & net.FlagUp) == 0 {
-			continue
-		}
-		if (ifi.Flags & net.FlagMulticast) > 0 {
-			interfaces = append(interfaces, ifi)
-		}
-	}
-
-	return interfaces
+	p.Stopped <- true
 }
 
 // Bootstrap is an optional helper to connect to the given peers and bootstrap
@@ -530,10 +457,13 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 	return nil
 }
 
+// HandlePeerFound tries to connect to a given peerinfo
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
-	log.Debug("mDNS Found Peer : ", pi.ID)
-	if err := p.Host.Connect(context.Background(), pi); err != nil {
-		log.Error("Failed to connect to peer : ", pi.ID.String())
+	log.Debug("Discovered Peer : ", pi)
+	<-time.After(time.Second)
+	err := p.Connect(p.Ctx, pi)
+	if err != nil {
+		log.Error(fmt.Printf("Connect failed with peer %s for %s", pi.ID, err.Error()))
 	}
 }
 
