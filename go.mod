@@ -15,7 +15,7 @@ require (
 	github.com/ipfs/go-fs-lock v0.0.6
 	github.com/ipfs/go-ipfs-blockstore v1.0.3
 	github.com/ipfs/go-ipfs-chunker v0.0.5
-	github.com/ipfs/go-ipfs-config v0.12.0
+	github.com/ipfs/go-ipfs-files v0.0.8 // indirect
 	github.com/ipfs/go-ipfs-provider v0.5.1
 	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/ipfs/go-ipld-format v0.2.0
@@ -35,6 +35,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.3.2
 	github.com/multiformats/go-multihash v0.0.15
+	github.com/spf13/cobra v0.0.5
 	golang.org/x/tools v0.1.0 // indirect
 	google.golang.org/protobuf v1.26.0
 )
