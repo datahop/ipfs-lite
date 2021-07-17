@@ -3,6 +3,7 @@ module github.com/datahop/ipfs-lite
 go 1.15
 
 require (
+	github.com/asabya/uds v0.0.0-20200603183238-f227537d11c5
 	github.com/bits-and-blooms/bloom/v3 v3.0.1
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5
 	github.com/golang/protobuf v1.5.2
@@ -20,7 +21,7 @@ require (
 	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/ipfs/go-ipns v0.1.0
-	github.com/ipfs/go-log/v2 v2.1.3
+	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipfs/go-merkledag v0.3.2
 	github.com/ipfs/go-unixfs v0.2.6
 	github.com/libp2p/go-libp2p v0.14.2
@@ -39,3 +40,5 @@ require (
 	golang.org/x/tools v0.1.0 // indirect
 	google.golang.org/protobuf v1.26.0
 )
+
+replace github.com/asabya/uds => ../../asabya/uds
