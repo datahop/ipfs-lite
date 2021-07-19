@@ -13,8 +13,8 @@ func InitStopCmd(comm *common.Common) {
 		Short: "Stop datahop daemon",
 		Long:  `Add Long Description`,
 		Run: func(cmd *cobra.Command, args []string) {
-			comm.Cancel()
 			cmd.Printf("Daemon Stopped")
+			comm.Cancel()
 		},
 	}
 }

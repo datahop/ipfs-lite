@@ -39,22 +39,39 @@ func main() {
 	cmd.InitStopCmd(comm)
 	rootCmd.AddCommand(cmd.DaemonCmd)
 	rootCmd.AddCommand(cmd.StopCmd)
+
+	socketPath := filepath.Join("/tmp", SockPath)
 	if len(os.Args) > 1 {
-		if os.Args[1] != "daemon" {
+		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
 				Size:       512,
 				SocketPath: filepath.Join("/tmp", SockPath),
 			}
-			in, out, err := uds.Dialer(opts)
+			r, w, c, err := uds.Dialer(opts)
 			if err != nil {
 				log.Error(err)
 				goto Execute
 			}
-			in <- os.Args[1]
-			fmt.Println(<-out)
+			defer c()
+			err = w(os.Args[1])
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+			v, err := r()
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+
+			}
+			fmt.Println(v)
 			return
 		}
 		if os.Args[1] == "daemon" {
+			if uds.IsIPCListening(socketPath) {
+				fmt.Println("Datahop daemon is already running")
+				return
+			}
 			_, err := os.Stat(filepath.Join("/tmp", SockPath))
 			if !os.IsNotExist(err) {
 				err := os.Remove(filepath.Join("/tmp", SockPath))
@@ -75,6 +92,7 @@ func main() {
 			go func() {
 				for {
 					data := <-out
+					log.Debug("run command :", data)
 					var (
 						childCmd *cobra.Command
 					)
