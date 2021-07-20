@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/asabya/uds"
+	"github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
 	"github.com/datahop/ipfs-lite/cli/common"
 	logger "github.com/ipfs/go-log/v2"
@@ -36,8 +36,10 @@ func main() {
 		Cancel:   cancel,
 	}
 	cmd.InitDaemonCmd(comm)
+	cmd.InitStatCmd(comm)
 	cmd.InitStopCmd(comm)
 	rootCmd.AddCommand(cmd.DaemonCmd)
+	rootCmd.AddCommand(cmd.StatCmd)
 	rootCmd.AddCommand(cmd.StopCmd)
 
 	socketPath := filepath.Join("/tmp", SockPath)
@@ -84,52 +86,62 @@ func main() {
 				Size:       512,
 				SocketPath: filepath.Join("/tmp", SockPath),
 			}
-			out, ext, err := uds.Listener(context.Background(), opts)
+			in, err := uds.Listener(context.Background(), opts)
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}
 			go func() {
 				for {
-					data := <-out
-					log.Debug("run command :", data)
-					var (
-						childCmd *cobra.Command
-					)
-					if rootCmd.TraverseChildren {
-						childCmd, _, err = rootCmd.Traverse([]string{data})
-					} else {
-						childCmd, _, err = rootCmd.Find([]string{data})
-					}
-					outBuf := new(bytes.Buffer)
-					childCmd.SetOut(outBuf)
-					if childCmd.Args != nil {
-						if err := childCmd.Args(childCmd, []string{data}); err != nil {
-							return
-						}
-					}
-					if childCmd.PreRunE != nil {
-						if err := childCmd.PreRunE(childCmd, []string{data}); err != nil {
-							return
-						}
-					} else if childCmd.PreRun != nil {
-						childCmd.PreRun(childCmd, []string{data})
-					}
+					client := <-in
+					go func() {
+						for {
+							ip, err := client.Read()
+							if err != nil {
+								break
+							}
+							commandStr := string(ip)
+							log.Debug("run command :", commandStr)
+							var (
+								childCmd *cobra.Command
+							)
+							if rootCmd.TraverseChildren {
+								childCmd, _, err = rootCmd.Traverse([]string{commandStr})
+							} else {
+								childCmd, _, err = rootCmd.Find([]string{commandStr})
+							}
+							outBuf := new(bytes.Buffer)
+							childCmd.SetOut(outBuf)
+							if childCmd.Args != nil {
+								if err := childCmd.Args(childCmd, []string{commandStr}); err != nil {
+									return
+								}
+							}
+							if childCmd.PreRunE != nil {
+								if err := childCmd.PreRunE(childCmd, []string{commandStr}); err != nil {
+									return
+								}
+							} else if childCmd.PreRun != nil {
+								childCmd.PreRun(childCmd, []string{commandStr})
+							}
 
-					if childCmd.RunE != nil {
-						if err := childCmd.RunE(childCmd, []string{data}); err != nil {
-							return
+							if childCmd.RunE != nil {
+								if err := childCmd.RunE(childCmd, []string{commandStr}); err != nil {
+									return
+								}
+							} else if childCmd.Run != nil {
+								childCmd.Run(childCmd, []string{commandStr})
+							}
+							out := outBuf.Next(outBuf.Len())
+							outBuf.Reset()
+							err = client.Write(out)
+							if err != nil {
+								log.Error("Write error", err)
+								client.Close()
+								break
+							}
 						}
-					} else if childCmd.Run != nil {
-						childCmd.Run(childCmd, []string{data})
-					}
-					out := outBuf.Next(outBuf.Len())
-					outBuf.Reset()
-					if err != nil {
-						log.Error(err)
-						os.Exit(1)
-					}
-					ext <- string(out)
+					}()
 				}
 			}()
 		}
