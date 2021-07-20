@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/asabya/go-ipc-uds"
+	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
 	"github.com/datahop/ipfs-lite/cli/common"
 	logger "github.com/ipfs/go-log/v2"
@@ -31,22 +31,21 @@ func init() {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	comm := &common.Common{
-		IsDaemon: false,
-		Context:  ctx,
-		Cancel:   cancel,
+		Context: ctx,
+		Cancel:  cancel,
 	}
 	cmd.InitDaemonCmd(comm)
-	cmd.InitStatCmd(comm)
+	cmd.InitInfoCmd(comm)
 	cmd.InitStopCmd(comm)
 	rootCmd.AddCommand(cmd.DaemonCmd)
-	rootCmd.AddCommand(cmd.StatCmd)
+	rootCmd.AddCommand(cmd.InfoCmd)
 	rootCmd.AddCommand(cmd.StopCmd)
 
 	socketPath := filepath.Join("/tmp", SockPath)
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
-				Size:       512,
+				Size:       2048,
 				SocketPath: filepath.Join("/tmp", SockPath),
 			}
 			r, w, c, err := uds.Dialer(opts)
@@ -83,7 +82,7 @@ func main() {
 				}
 			}
 			opts := uds.Options{
-				Size:       512,
+				Size:       2048,
 				SocketPath: filepath.Join("/tmp", SockPath),
 			}
 			in, err := uds.Listener(context.Background(), opts)
@@ -98,6 +97,9 @@ func main() {
 						for {
 							ip, err := client.Read()
 							if err != nil {
+								break
+							}
+							if len(ip) == 0 {
 								break
 							}
 							commandStr := string(ip)

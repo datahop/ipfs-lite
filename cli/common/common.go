@@ -1,9 +1,15 @@
 package common
 
-import "context"
+import (
+	"context"
+
+	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/repo"
+)
 
 type Common struct {
-	IsDaemon bool
+	Repo     repo.Repo
+	LitePeer *ipfslite.Peer
 	Context  context.Context
 	Cancel   context.CancelFunc
 }

@@ -44,11 +44,13 @@ func InitDaemonCmd(comm *common.Common) {
 				os.Exit(1)
 			}
 			defer r.Close()
-			_, err = ipfslite.New(comm.Context, comm.Cancel, r)
+			comm.Repo = r
+			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, r)
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}
+			comm.LitePeer = litePeer
 
 			cfg, err := r.Config()
 			if err != nil {
