@@ -40,3 +40,5 @@ require (
 	golang.org/x/tools v0.1.0 // indirect
 	google.golang.org/protobuf v1.26.0
 )
+
+replace "github.com/asabya/go-ipc-uds" => "../../asabya/uds"

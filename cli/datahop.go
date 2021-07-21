@@ -56,9 +56,14 @@ func main() {
 	cmd.InitDaemonCmd(comm)
 	cmd.InitInfoCmd(comm)
 	cmd.InitStopCmd(comm)
+	cmd.InitAddCmd(comm)
+	cmd.InitIndexCmd(comm)
+	cmd.InitVersionCmd(comm)
 	rootCmd.AddCommand(cmd.DaemonCmd)
 	rootCmd.AddCommand(cmd.InfoCmd)
-	rootCmd.AddCommand(cmd.StopCmd)
+	rootCmd.AddCommand(cmd.AddCmd)
+	rootCmd.AddCommand(cmd.IndexCmd)
+	rootCmd.AddCommand(cmd.VersionCmd)
 
 	socketPath := filepath.Join("/tmp", SockPath)
 	if !uds.IsIPCListening(socketPath) {
@@ -74,7 +79,6 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
-				Size:       2048,
 				SocketPath: filepath.Join("/tmp", SockPath),
 			}
 			r, w, c, err := uds.Dialer(opts)
@@ -111,7 +115,6 @@ func main() {
 				}
 			}
 			opts := uds.Options{
-				Size:       2048,
 				SocketPath: filepath.Join("/tmp", SockPath),
 			}
 			in, err := uds.Listener(context.Background(), opts)

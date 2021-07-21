@@ -110,6 +110,23 @@ func (m *Manager) FindTag(tag string) (cid.Cid, error) {
 	return cid.Cast(b)
 }
 
+func (m *Manager) Index() (map[string]string, error) {
+	indexes := map[string]string{}
+	r, err := m.crdt.Query(query.Query{})
+	if err != nil {
+		return indexes, err
+	}
+	defer r.Close()
+	for j := range r.Next() {
+		id, err := cid.Cast(j.Entry.Value)
+		if err != nil {
+			continue
+		}
+		indexes[j.Key] = id.String()
+	}
+	return indexes, nil
+}
+
 func (m *Manager) GetAllTags() ([]string, error) {
 	tags := []string{}
 	r, err := m.crdt.Query(query.Query{})
