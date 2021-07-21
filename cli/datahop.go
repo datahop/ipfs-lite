@@ -65,6 +65,15 @@ func main() {
 	rootCmd.AddCommand(cmd.IndexCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 
+	// check help flag
+	for _, v := range os.Args {
+		if v == "-h" || v == "--help" {
+			log.Debug("Executing help command")
+			rootCmd.Execute()
+			return
+		}
+	}
+
 	socketPath := filepath.Join("/tmp", SockPath)
 	if !uds.IsIPCListening(socketPath) {
 		r, err := repo.Open(root)
@@ -146,6 +155,14 @@ func main() {
 							} else {
 								childCmd, flags, err = rootCmd.Find(command)
 							}
+							if err != nil {
+								err = client.Write([]byte(err.Error()))
+								if err != nil {
+									log.Error("Write error", err)
+									client.Close()
+								}
+								break
+							}
 							childCmd.Flags().VisitAll(func(f *pflag.Flag) {
 								err := f.Value.Set(f.DefValue)
 								if err != nil {
@@ -154,17 +171,33 @@ func main() {
 							})
 							if err := childCmd.Flags().Parse(flags); err != nil {
 								log.Error("Unable to parse flags ", err.Error())
+								err = client.Write([]byte(err.Error()))
+								if err != nil {
+									log.Error("Write error", err)
+									client.Close()
+								}
+								break
 							}
 							outBuf := new(bytes.Buffer)
 							childCmd.SetOut(outBuf)
 							if childCmd.Args != nil {
 								if err := childCmd.Args(childCmd, flags); err != nil {
-									return
+									err = client.Write([]byte(err.Error()))
+									if err != nil {
+										log.Error("Write error", err)
+										client.Close()
+									}
+									break
 								}
 							}
 							if childCmd.PreRunE != nil {
 								if err := childCmd.PreRunE(childCmd, flags); err != nil {
-									return
+									err = client.Write([]byte(err.Error()))
+									if err != nil {
+										log.Error("Write error", err)
+										client.Close()
+									}
+									break
 								}
 							} else if childCmd.PreRun != nil {
 								childCmd.PreRun(childCmd, command)
@@ -172,7 +205,12 @@ func main() {
 
 							if childCmd.RunE != nil {
 								if err := childCmd.RunE(childCmd, flags); err != nil {
-									return
+									err = client.Write([]byte(err.Error()))
+									if err != nil {
+										log.Error("Write error", err)
+										client.Close()
+									}
+									break
 								}
 							} else if childCmd.Run != nil {
 								childCmd.Run(childCmd, flags)
