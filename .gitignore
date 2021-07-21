@@ -17,3 +17,5 @@
 .idea
 
 test/
+
+cli/datahop-cli

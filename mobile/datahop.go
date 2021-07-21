@@ -422,7 +422,7 @@ func GetTags() ([]byte, error) {
 
 // Version of ipfs-lite
 func Version() string {
-	return version.Version
+	return version.MobileVersion
 }
 
 // Stop the node
