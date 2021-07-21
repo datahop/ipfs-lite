@@ -8,6 +8,7 @@ import (
 )
 
 type Common struct {
+	Root     string
 	Repo     repo.Repo
 	LitePeer *ipfslite.Peer
 	Context  context.Context

@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"strings"
 
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/ipfs/go-datastore"
@@ -15,7 +18,7 @@ type Info struct {
 	IsDaemonRunning bool
 	Config          config.Config
 	Peers           []string
-	CRDTStatus      string
+	CRDTStatus      *bloom.BloomFilter
 	DiskUsage       int64
 	Addresses       []string
 }
@@ -27,9 +30,32 @@ func InitInfoCmd(comm *common.Common) {
 		Long:  `Add Long Description`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			info := &Info{}
-			// is daemon running
+
 			if comm.LitePeer != nil {
+				// is daemon running
 				info.IsDaemonRunning = comm.LitePeer.IsOnline()
+
+				// peers
+				info.Peers = comm.LitePeer.Peers()
+
+				// addresses
+				addrs := []string{}
+				if comm.LitePeer != nil {
+					for _, v := range comm.LitePeer.Host.Addrs() {
+						if !strings.HasPrefix(v.String(), "127") {
+							addrs = append(addrs, v.String()+"/p2p/"+comm.LitePeer.Host.ID().String())
+						}
+					}
+					info.Addresses = addrs
+				}
+
+				// disk usage
+				du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
+				if err != nil {
+					log.Error("Unable to get datastore usage ", err)
+					return err
+				}
+				info.DiskUsage = int64(du)
 			} else {
 				info.IsDaemonRunning = false
 			}
@@ -45,34 +71,27 @@ func InitInfoCmd(comm *common.Common) {
 			}
 			info.Config = *cfg
 			info.Config.Identity.PrivKey = ""
-			// peers
-			info.Peers = comm.LitePeer.Peers()
 
 			// crdt status
-			st, err := comm.Repo.State().MarshalJSON()
+			info.CRDTStatus = comm.Repo.State()
+			b, err := json.Marshal(info)
 			if err != nil {
 				log.Error("Unable to get crdt state ", err)
 				return err
 			}
-			info.CRDTStatus = string(st)
-			// disk usage
-			du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
-			if err != nil {
-				log.Error("Unable to get datastore usage ", err)
-				return err
-			}
-			info.DiskUsage = int64(du)
-
-			addrs := []string{}
-			if comm.LitePeer != nil {
-				for _, v := range comm.LitePeer.Host.Addrs() {
-					if !strings.HasPrefix(v.String(), "127") {
-						addrs = append(addrs, v.String()+"/p2p/"+comm.LitePeer.Host.ID().String())
-					}
+			pFlag, _ := cmd.Flags().GetBool("pretty")
+			log.Debug(pFlag)
+			if pFlag {
+				var prettyJSON bytes.Buffer
+				err = json.Indent(&prettyJSON, b, "", "\t")
+				if err != nil {
+					log.Debug("JSON parse error: ", err)
+					return err
 				}
-				info.Addresses = addrs
+				cmd.Printf("%s\n", prettyJSON.String())
+				return nil
 			}
-			cmd.Printf("%+v\n", *info)
+			cmd.Printf(string(b))
 			return nil
 		},
 	}

@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
 	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	logger "github.com/ipfs/go-log/v2"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var rootCmd = &cobra.Command{
@@ -20,6 +23,7 @@ var rootCmd = &cobra.Command{
 	Short: "This is datahop cli client",
 	Long:  `Add Long Description`,
 }
+
 var SockPath = "uds.sock"
 var log = logging.Logger("cmd")
 
@@ -30,10 +34,25 @@ func init() {
 }
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+	root := filepath.Join(home, repo.Root)
+	err = repo.Init(root, "0")
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+
 	comm := &common.Common{
+		Root:    root,
 		Context: ctx,
 		Cancel:  cancel,
 	}
+	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "pretty output")
+
 	cmd.InitDaemonCmd(comm)
 	cmd.InitInfoCmd(comm)
 	cmd.InitStopCmd(comm)
@@ -42,6 +61,16 @@ func main() {
 	rootCmd.AddCommand(cmd.StopCmd)
 
 	socketPath := filepath.Join("/tmp", SockPath)
+	if !uds.IsIPCListening(socketPath) {
+		r, err := repo.Open(root)
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
+		defer r.Close()
+		comm.Repo = r
+	}
+
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
@@ -54,7 +83,7 @@ func main() {
 				goto Execute
 			}
 			defer c()
-			err = w(os.Args[1])
+			err = w(strings.Join(os.Args[1:], " "))
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
@@ -106,34 +135,46 @@ func main() {
 							log.Debug("run command :", commandStr)
 							var (
 								childCmd *cobra.Command
+								flags    []string
 							)
+							command := strings.Split(commandStr, " ")
 							if rootCmd.TraverseChildren {
-								childCmd, _, err = rootCmd.Traverse([]string{commandStr})
+								childCmd, flags, err = rootCmd.Traverse(command)
 							} else {
-								childCmd, _, err = rootCmd.Find([]string{commandStr})
+								childCmd, flags, err = rootCmd.Find(command)
+							}
+							childCmd.Flags().VisitAll(func(f *pflag.Flag) {
+								err := f.Value.Set(f.DefValue)
+								if err != nil {
+									log.Error("Unable to set flags ", childCmd.Name(), f.Name, err.Error())
+								}
+							})
+							if err := childCmd.Flags().Parse(flags); err != nil {
+								log.Error("Unable to parse flags ", err.Error())
 							}
 							outBuf := new(bytes.Buffer)
 							childCmd.SetOut(outBuf)
 							if childCmd.Args != nil {
-								if err := childCmd.Args(childCmd, []string{commandStr}); err != nil {
+								if err := childCmd.Args(childCmd, flags); err != nil {
 									return
 								}
 							}
 							if childCmd.PreRunE != nil {
-								if err := childCmd.PreRunE(childCmd, []string{commandStr}); err != nil {
+								if err := childCmd.PreRunE(childCmd, flags); err != nil {
 									return
 								}
 							} else if childCmd.PreRun != nil {
-								childCmd.PreRun(childCmd, []string{commandStr})
+								childCmd.PreRun(childCmd, command)
 							}
 
 							if childCmd.RunE != nil {
-								if err := childCmd.RunE(childCmd, []string{commandStr}); err != nil {
+								if err := childCmd.RunE(childCmd, flags); err != nil {
 									return
 								}
 							} else if childCmd.Run != nil {
-								childCmd.Run(childCmd, []string{commandStr})
+								childCmd.Run(childCmd, flags)
 							}
+
 							out := outBuf.Next(outBuf.Len())
 							outBuf.Reset()
 							err = client.Write(out)

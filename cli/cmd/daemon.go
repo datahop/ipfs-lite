@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/cli/common"
-	"github.com/datahop/ipfs-lite/internal/repo"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 )
@@ -26,33 +24,13 @@ func InitDaemonCmd(comm *common.Common) {
 
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				log.Error(err)
-				os.Exit(1)
-			}
-			root := filepath.Join(home, repo.Root)
-			err = repo.Init(root, "0")
-			if err != nil {
-				log.Error(err)
-				os.Exit(1)
-			}
-
-			r, err := repo.Open(root)
-			if err != nil {
-				log.Error(err)
-				os.Exit(1)
-			}
-			defer r.Close()
-			comm.Repo = r
-			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, r)
+			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo)
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}
 			comm.LitePeer = litePeer
-
-			cfg, err := r.Config()
+			cfg, err := comm.Repo.Config()
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
