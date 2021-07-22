@@ -19,16 +19,26 @@ major-release-mobile: VERSION := $(shell . $(SUPPORT); nextMobileMajorVersion)
 major-release-mobile:
 	@. $(SUPPORT) ; setMobileVersion $(VERSION)
 
-patch-mobile: patch-release-mobile build-mobile
+patch-mobile:
+	@make patch-release-mobile
+	@make build-mobile
 
-minor-mobile: minor-release-mobile build-mobile
+minor-mobile:
+	@make minor-release-mobile
+	@make build-mobile
 
-major-mobile: major-release-mobile build-mobile
-
+major-mobile:
+	@make major-release-mobile
+	@make build-mobile
 
 build-cli: VERSION := $(shell . $(SUPPORT); getCliVersion)
 build-cli:
-	cd ./cli && go build -o datahop-cli datahop.go
+	@cd ./cli && GOOS=linux GOARCH=amd64 go build -ldflags "\
+		-X '$(VERSION_PACKAGE).CliVersion=$(VERSION)'" -o datahop-cli-linux-v$(VERSION) datahop.go
+	@cd ./cli && GOOS=darwin GOARCH=amd64 go build -ldflags "\
+    	-X '$(VERSION_PACKAGE).CliVersion=$(VERSION)'" -o datahop-cli-darwin-v$(VERSION) datahop.go
+	@cd ./cli && GOOS=windows GOARCH=amd64 go build -ldflags "\
+		-X '$(VERSION_PACKAGE).CliVersion=$(VERSION)'" -o datahop-cli-windows-v$(VERSION).exe datahop.go
 
 patch-release-cli: VERSION := $(shell . $(SUPPORT); nextCliPatchVersion)
 patch-release-cli:
@@ -42,8 +52,14 @@ major-release-cli: VERSION := $(shell . $(SUPPORT); nextCliMajorVersion)
 major-release-cli:
 	@. $(SUPPORT) ; setCliVersion $(VERSION)
 
-patch-cli: patch-release-cli build-cli
+patch-cli:
+	@make patch-release-cli
+	@make build-cli
 
-minor-cli: minor-release-cli build-cli
+minor-cli:
+	@make minor-release-cli
+	@make build-cli
 
-major-cli: major-release-cli build-cli
+major-cli:
+	@make major-release-cli
+	@make build-cli

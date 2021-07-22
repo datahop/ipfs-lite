@@ -14,7 +14,7 @@ func InitVersionCmd(comm *common.Common) {
 		Short: "Datahop cli version",
 		Long:  `Add Long Description`,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf(version.CliVersion)
+			cmd.Println(version.CliVersion)
 		},
 	}
 }
