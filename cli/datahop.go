@@ -51,7 +51,9 @@ func main() {
 		Context: ctx,
 		Cancel:  cancel,
 	}
-	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "pretty output")
+
+	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
+	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "pretty json output")
 
 	cmd.InitDaemonCmd(comm)
 	cmd.InitInfoCmd(comm)

@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"strings"
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
@@ -74,24 +73,26 @@ func InitInfoCmd(comm *common.Common) {
 
 			// crdt status
 			info.CRDTStatus = comm.Repo.State()
-			b, err := json.Marshal(info)
+
+			// output
+			pFlag, _ := cmd.Flags().GetBool("pretty")
+			jFlag, _ := cmd.Flags().GetBool("json")
+			log.Debug(pFlag, jFlag)
+			var f out.Format
+			if jFlag {
+				f = out.Json
+			}
+			if pFlag {
+				f = out.PrettyJson
+			}
+			if !pFlag && !jFlag {
+				f = out.NoStyle
+			}
+			err = out.Print(cmd, info, f)
 			if err != nil {
-				log.Error("Unable to get crdt state ", err)
+				log.Error("Unable to get config ", err)
 				return err
 			}
-			pFlag, _ := cmd.Flags().GetBool("pretty")
-			log.Debug(pFlag)
-			if pFlag {
-				var prettyJSON bytes.Buffer
-				err = json.Indent(&prettyJSON, b, "", "\t")
-				if err != nil {
-					log.Debug("JSON parse error: ", err)
-					return err
-				}
-				cmd.Printf("%s\n", prettyJSON.String())
-				return nil
-			}
-			cmd.Printf(string(b))
 			return nil
 		},
 	}
