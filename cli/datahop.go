@@ -65,6 +65,7 @@ func main() {
 	rootCmd.AddCommand(cmd.InfoCmd)
 	rootCmd.AddCommand(cmd.AddCmd)
 	rootCmd.AddCommand(cmd.IndexCmd)
+	rootCmd.AddCommand(cmd.StopCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 
 	// check help flag
