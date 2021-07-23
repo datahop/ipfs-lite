@@ -18,12 +18,12 @@ type DiscoveryDriver interface {
 }
 
 type DiscoveryNotifier interface {
-	PeerDiscovered(device string)
-	PeerSameStatusDiscovered(device string, topic string)
-	PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, info string)
+	//PeerDiscovered(device string)
+	DiscoveryPeerSameStatus(device string, topic string)
+	DiscoveryPeerDifferentStatus(device string, topic string, network string, pass string, info string)
 }
 
 type AdvertisementNotifier interface {
-	SameStatusDiscovered()
-	DifferentStatusDiscovered(topic string, value []byte)
+	AdvertiserPeerSameStatus()
+	AdvertiserPeerDifferentStatus(topic string, value []byte)
 }

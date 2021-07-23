@@ -190,29 +190,61 @@ func Start(shouldBootstrap bool) error {
 	return nil
 }
 
-func StartDiscovery() error {
-	if hop.discService != nil {
-		hop.discService.Start()
-		go func() {
-			for {
-				st, err := State()
-				if err != nil {
-					log.Error("Unable to fetch state")
-					return
-				}
-				hop.discService.AddAdvertisingInfo(CRDTStatus, st)
-				select {
-				case <-hop.discService.stopSignal:
-					log.Error("Stop AddAdvertisingInfo Routine")
-					return
-				case <-time.After(time.Second * 20):
-				}
+func StartDiscovery(advertising bool, scanning bool) error {
+	if hop != nil {
+		if hop.discService != nil {
+			if advertising && scanning {
+				hop.discService.Start()
+				go func() {
+					for {
+						st, err := State()
+						if err != nil {
+							log.Error("Unable to fetch state")
+							return
+						}
+						hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+						select {
+						case <-hop.discService.stopSignal:
+							log.Error("Stop AddAdvertisingInfo Routine")
+							return
+						case <-time.After(time.Second * 20):
+						}
+					}
+				}()
+				log.Debug("Stated discovery")
+				return nil
+			} else if advertising {
+				hop.discService.StartOnlyAdvertising()
+				go func() {
+					for {
+						st, err := State()
+						if err != nil {
+							log.Error("Unable to fetch state")
+							return
+						}
+						hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+						select {
+						case <-hop.discService.stopSignal:
+							log.Error("Stop AddAdvertisingInfo Routine")
+							return
+						case <-time.After(time.Second * 20):
+						}
+					}
+				}()
+				log.Debug("Started discovery only advertising")
+				return nil
+			} else if scanning {
+				hop.discService.StartOnlyScanning()
+				log.Debug("Started discovery only scanning")
+				return nil
+			} else {
+				return errors.New("no advertising and no scanning enabled")
 			}
-		}()
-		log.Debug("Stated discovery")
-		return nil
+		} else {
+			return errors.New("discovery service is not initialised")
+		}
 	} else {
-		return errors.New("discovery service is not initialised")
+		return errors.New("Datahop service is not initialised")
 	}
 }
 

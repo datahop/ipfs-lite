@@ -27,7 +27,7 @@ type discoveryService struct {
 	wifiCon         WifiConnection
 	scan            int
 	interval        int
-	advertisingInfo map[string][]byte
+	//advertisingInfo map[string][]byte
 	stopSignal      chan struct{}
 	// handleConnectionRequest will take care of the incoming connection request.
 	// but it is not safe to use this approach, as in case of multiple back to
@@ -58,7 +58,7 @@ func NewDiscoveryService(
 		scan:            scanTime,
 		interval:        interval,
 		stopSignal:      make(chan struct{}),
-		advertisingInfo: make(map[string][]byte),
+		//advertisingInfo: make(map[string][]byte),
 	}
 	return discovery, nil
 }
@@ -69,12 +69,24 @@ func (b *discoveryService) Start() {
 	b.advertiser.Start(b.tag)
 }
 
+func (b *discoveryService) StartOnlyAdvertising() {
+	log.Debug("discoveryService Start advertising only")
+	//b.discovery.Start(b.tag, b.scan, b.interval)
+	b.advertiser.Start(b.tag)
+}
+
+func (b *discoveryService) StartOnlyScanning() {
+	log.Debug("discoveryService Start scanning only")
+	b.discovery.Start(b.tag, b.scan, b.interval)
+	//b.advertiser.Start(b.tag)
+}
+
 func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
 	log.Debug("discoveryService AddAdvertisingInfo :", topic, string(info))
 	b.discovery.AddAdvertisingInfo(topic, info)
 	b.advertiser.AddAdvertisingInfo(topic, info)
-	b.advertiser.Stop()
-	b.advertiser.Start(b.tag)
+	//b.advertiser.Stop()
+	//b.advertiser.Start(b.tag)
 }
 
 func (b *discoveryService) handleEntry(peerInfoByteString string) {
@@ -117,32 +129,33 @@ func (b *discoveryService) UnregisterNotifee(n Notifee) {
 	b.lk.Unlock()
 }
 
-func (b *discoveryService) PeerDiscovered(device string) {
+/*func (b *discoveryService) PeerDiscovered(device string) {
 	log.Debug("discovery new peer device ", device)
-}
+}*/
 
-func (b *discoveryService) PeerSameStatusDiscovered(device string, topic string) {
+func (b *discoveryService) DiscoveryPeerSameStatus(device string, topic string) {
 	log.Debug("discovery new peer device same status", device, topic)
 	//	hop.discoveryDriver.Stop()
 }
 
-func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, peerinfo string) {
+func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic string, network string, pass string, peerinfo string) {
 	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
+	b.discovery.Stop()
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)
 	}
 }
 
-func (b *discoveryService) SameStatusDiscovered() {
+func (b *discoveryService) AdvertiserPeerSameStatus() {
 	log.Debug("advertising new peer device same status")
 	b.advertiser.NotifyEmptyValue()
 }
 
-func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte) {
+func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []byte) {
 	log.Debug("advertising new peer device different status", string(value))
 	//hop.advertisingDriver.NotifyNetworkInformation("topic1",GetPeerInfo())
-	b.advertisingInfo[topic] = value
+	//b.advertisingInfo[topic] = value
 	b.discovery.Stop()
 	b.wifiHS.Start()
 }

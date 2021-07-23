@@ -460,10 +460,15 @@ func (p *Peer) Disconnect(pi peer.AddrInfo) error {
 // HandlePeerFound tries to connect to a given peerinfo
 func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	log.Debug("Discovered Peer : ", pi)
-	<-time.After(time.Second)
-	err := p.Connect(p.Ctx, pi)
-	if err != nil {
-		log.Error(fmt.Printf("Connect failed with peer %s for %s", pi.ID, err.Error()))
+
+	for i := 0; i < 10; i++ {
+		<-time.After(2*time.Second)
+		err := p.Connect(p.Ctx, pi)
+		if err != nil {
+			log.Error("Connect failed with peer %s for %s", pi.ID, err.Error())
+		} else {
+			break
+		}
 	}
 }
 
