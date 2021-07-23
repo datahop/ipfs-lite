@@ -60,12 +60,16 @@ func main() {
 	cmd.InitStopCmd(comm)
 	cmd.InitAddCmd(comm)
 	cmd.InitIndexCmd(comm)
+	cmd.InitRemoveCmd(comm)
+	cmd.InitGetCmd(comm)
 	cmd.InitVersionCmd(comm)
 	rootCmd.AddCommand(cmd.DaemonCmd)
 	rootCmd.AddCommand(cmd.InfoCmd)
 	rootCmd.AddCommand(cmd.AddCmd)
 	rootCmd.AddCommand(cmd.IndexCmd)
 	rootCmd.AddCommand(cmd.StopCmd)
+	rootCmd.AddCommand(cmd.RemoveCmd)
+	rootCmd.AddCommand(cmd.GetCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 
 	// check help flag

@@ -72,8 +72,13 @@ func New(
 		}
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
-		// TODO reduce count
 		log.Debugf("Removed: [%s]\n", k)
+		state := repo.State().Add([]byte("removed " + k.Name()))
+		log.Debugf("New State: %d\n", state)
+		err = repo.SetState()
+		if err != nil {
+			log.Errorf("SetState failed %s\n", err.Error())
+		}
 	}
 	crdtStore, err := crdt.New(st, datastore.NewKey(prefix), dagSyncer, pubsubBC, crdtOpts)
 	if err != nil {
@@ -159,6 +164,10 @@ func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 
 func (m *Manager) Put(key datastore.Key, v []byte) error {
 	return m.crdt.Put(key, v)
+}
+
+func (m *Manager) Delete(key datastore.Key) error {
+	return m.crdt.Delete(key)
 }
 
 func (m *Manager) Get(key datastore.Key) ([]byte, error) {

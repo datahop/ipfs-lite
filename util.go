@@ -2,10 +2,16 @@ package ipfslite
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-ipns"
+	dag "github.com/ipfs/go-merkledag"
+	"github.com/ipfs/go-verifcid"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -98,4 +104,41 @@ func newDHT(ctx context.Context, h host.Host, ds datastore.Batching) (*dualdht.D
 		dhtOpts = append(dhtOpts, dualdht.DHTOption(dht.Datastore(ds)))
 	}
 	return dualdht.New(ctx, h, dhtOpts...)
+}
+
+// descendants recursively finds all the descendants of the given roots and
+// adds them to the given cid.Set, using the provided dag.GetLinks function
+// to walk the tree.
+func descendants(ctx context.Context, getLinks dag.GetLinks, set *cid.Set, roots []cid.Cid) error {
+	verifyGetLinks := func(ctx context.Context, c cid.Cid) ([]*ipld.Link, error) {
+		err := verifcid.ValidateCid(c)
+		if err != nil {
+			return nil, err
+		}
+
+		return getLinks(ctx, c)
+	}
+
+	verboseCidError := func(err error) error {
+		if strings.Contains(err.Error(), verifcid.ErrBelowMinimumHashLength.Error()) ||
+			strings.Contains(err.Error(), verifcid.ErrPossiblyInsecureHashFunction.Error()) {
+			err = fmt.Errorf("\"%s\"\nPlease run 'ipfs pin verify'"+
+				" to list insecure hashes. If you want to read them,"+
+				" please downgrade your go-ipfs to 0.4.13\n", err)
+			log.Error(err)
+		}
+		return err
+	}
+
+	for _, c := range roots {
+		// Walk recursively walks the dag and adds the keys to the given set
+		err := dag.Walk(ctx, verifyGetLinks, c, set.Visit, dag.Concurrent())
+
+		if err != nil {
+			err = verboseCidError(err)
+			return err
+		}
+	}
+
+	return nil
 }
