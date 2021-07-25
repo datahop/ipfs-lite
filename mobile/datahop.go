@@ -5,6 +5,7 @@ package datahop
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"strings"
@@ -56,8 +57,12 @@ func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
 	}
 }
-func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
-func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
+func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {
+	//log.Debug("Opened stream")
+}
+func (n *Notifier) ClosedStream(network.Network, network.Stream)       {
+	//log.Debug("Closed stream")
+}
 
 type discNotifee struct{}
 
@@ -69,6 +74,22 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	}
 	hop.peer.HandlePeerFound(peerInfo)
 }
+
+/*type connectionNotifier struct{}
+
+func (cn *connectionNotifier) OnConnectionSuccess() {
+	log.Debug("Connected")
+	hop.connected = true
+}
+func (cn *connectionNotifier) OnConnectionFailure(code int) {
+	log.Debug("Connection failed ",code)
+	hop.connected = false
+
+}
+func (cn *connectionNotifier)  OnDisconnect() {
+	log.Debug("Disconnected")
+	hop.connected = false
+}*/
 
 type datahop struct {
 	ctx             context.Context
@@ -84,7 +105,10 @@ type datahop struct {
 	networkNotifier network.Notifiee
 	repo            repo.Repo
 	notifier        Notifee
+//	cnotifier 		WifiConnectionNotifier
 	discService     *discoveryService
+//	state			string
+//	connected		bool
 }
 
 func init() {
@@ -119,6 +143,7 @@ func Init(
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	dn := &discNotifee{}
+//	cnotif := &connectionNotifier{}
 	hop = &datahop{
 		root:            root,
 		identity:        cfg.Identity,
@@ -128,6 +153,7 @@ func Init(
 		cancel:          cancel,
 		repo:            r,
 		notifier:        dn,
+	//	cnotifier:		 cnotif,
 		wifiHS:          hs,
 		wifiCon:         con,
 		discDriver:      discDriver,
@@ -147,7 +173,20 @@ func Init(
 
 // State returns number of keys in crdt store
 func State() ([]byte, error) {
+
 	return hop.repo.State().MarshalJSON()
+}
+
+func FilterFromState([]byte) (string,error) {
+	byt, err := State()
+	var dat map[string]interface{}
+
+	if err := json.Unmarshal(byt, &dat); err != nil {
+		panic(err)
+	}
+	filter := dat["b"].(string)
+
+	return filter,err
 }
 
 // DiskUsage returns number of bytes stored in the datastore
@@ -190,47 +229,43 @@ func Start(shouldBootstrap bool) error {
 	return nil
 }
 
-func StartDiscovery(advertising bool, scanning bool) error {
+func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error {
 	if hop != nil {
 		if hop.discService != nil {
+			go func() {
+				for {
+					st, err := State()
+					if err != nil {
+						log.Error("Unable to fetch state")
+						return
+					}
+					bf, err :=FilterFromState(st)
+					if err != nil {
+						log.Error("Unable to filter state")
+						return
+					}
+					log.Debug("Filter state ",bf)
+					/*if hop.state != bf && hop.connected && autoDisconnect {
+						hop.wifiCon.Disconnect()
+					}
+
+					hop.state = bf
+					 */
+					hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+					select {
+					case <-hop.discService.stopSignal:
+						log.Error("Stop AddAdvertisingInfo Routine")
+						return
+					case <-time.After(time.Second * 10):
+					}
+				}
+			}()
 			if advertising && scanning {
 				hop.discService.Start()
-				go func() {
-					for {
-						st, err := State()
-						if err != nil {
-							log.Error("Unable to fetch state")
-							return
-						}
-						hop.discService.AddAdvertisingInfo(CRDTStatus, st)
-						select {
-						case <-hop.discService.stopSignal:
-							log.Error("Stop AddAdvertisingInfo Routine")
-							return
-						case <-time.After(time.Second * 20):
-						}
-					}
-				}()
 				log.Debug("Stated discovery")
 				return nil
 			} else if advertising {
 				hop.discService.StartOnlyAdvertising()
-				go func() {
-					for {
-						st, err := State()
-						if err != nil {
-							log.Error("Unable to fetch state")
-							return
-						}
-						hop.discService.AddAdvertisingInfo(CRDTStatus, st)
-						select {
-						case <-hop.discService.stopSignal:
-							log.Error("Stop AddAdvertisingInfo Routine")
-							return
-						case <-time.After(time.Second * 20):
-						}
-					}
-				}()
 				log.Debug("Started discovery only advertising")
 				return nil
 			} else if scanning {
@@ -410,7 +445,13 @@ func Add(tag string, content []byte) error {
 		if err != nil {
 			return err
 		}
-		hop.discService.AddAdvertisingInfo(CRDTStatus, st)
+		bf, err :=FilterFromState(st)
+		if err != nil {
+			log.Error("Unable to filter state")
+			return err
+		}
+		//hop.state = bf
+		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
 
 		return nil
 	}
@@ -472,7 +513,7 @@ func Close() {
 	hop.cancel()
 }
 
-func UpdateTopicStatus(topic string, value []byte) {
+func UpdateTopicStatus(topic string, value string) {
 	hop.discService.AddAdvertisingInfo(topic, value)
 }
 

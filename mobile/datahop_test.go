@@ -191,7 +191,7 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = StartDiscovery()
+	err = StartDiscovery(true,true,true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(c, content) {
-		t.Fatal("contect mismatch")
+		t.Fatal("content mismatch")
 	}
 }
 

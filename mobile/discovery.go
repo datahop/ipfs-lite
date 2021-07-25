@@ -7,6 +7,14 @@ import (
 
 const ServiceTag = "_datahop-discovery._ble"
 
+type ServiceType string
+
+const(
+	ScanAndAdvertise ServiceType = "Both"
+	OnlyScan = "OnlyScan"
+	OnlyAdv = "OnlyAdv"
+)
+
 type Service interface {
 	io.Closer
 	RegisterNotifee(Notifee)
@@ -27,8 +35,11 @@ type discoveryService struct {
 	wifiCon         WifiConnection
 	scan            int
 	interval        int
-	//advertisingInfo map[string][]byte
 	stopSignal      chan struct{}
+	advertisingInfo map[string]string
+	connected		bool
+	numConnected	int
+	service			ServiceType
 	// handleConnectionRequest will take care of the incoming connection request.
 	// but it is not safe to use this approach, as in case of multiple back to
 	// back connection requests we might loose some connection request as
@@ -58,7 +69,7 @@ func NewDiscoveryService(
 		scan:            scanTime,
 		interval:        interval,
 		stopSignal:      make(chan struct{}),
-		//advertisingInfo: make(map[string][]byte),
+		advertisingInfo: make(map[string]string),
 	}
 	return discovery, nil
 }
@@ -67,24 +78,34 @@ func (b *discoveryService) Start() {
 	log.Debug("discoveryService Start")
 	b.discovery.Start(b.tag, b.scan, b.interval)
 	b.advertiser.Start(b.tag)
+	b.service = "Both"
 }
 
 func (b *discoveryService) StartOnlyAdvertising() {
 	log.Debug("discoveryService Start advertising only")
 	//b.discovery.Start(b.tag, b.scan, b.interval)
 	b.advertiser.Start(b.tag)
+	b.service = "OnlyAdv"
+
 }
 
 func (b *discoveryService) StartOnlyScanning() {
 	log.Debug("discoveryService Start scanning only")
 	b.discovery.Start(b.tag, b.scan, b.interval)
+	b.service = "OnlyScan"
 	//b.advertiser.Start(b.tag)
 }
 
-func (b *discoveryService) AddAdvertisingInfo(topic string, info []byte) {
-	log.Debug("discoveryService AddAdvertisingInfo :", topic, string(info))
-	b.discovery.AddAdvertisingInfo(topic, info)
-	b.advertiser.AddAdvertisingInfo(topic, info)
+func (b *discoveryService) AddAdvertisingInfo(topic string, info string) {
+	log.Debug("discoveryService AddAdvertisingInfo :", topic, info)
+
+	if b.advertisingInfo[topic] != info {
+		b.discovery.AddAdvertisingInfo(topic, info)
+		b.advertiser.AddAdvertisingInfo(topic, info)
+		b.advertisingInfo[topic] = info
+	} else if b.connected {
+		b.wifiCon.Disconnect()
+	}
 	//b.advertiser.Stop()
 	//b.advertiser.Start(b.tag)
 }
@@ -163,15 +184,21 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 func (b *discoveryService) OnConnectionSuccess() {
 	log.Debug("Connection success")
 	b.handleConnectionRequest()
+	b.connected = true
 }
 
 func (b *discoveryService) OnConnectionFailure(code int) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
+	b.connected = false
 }
 
 func (b *discoveryService) OnDisconnect() {
 	log.Debug("OnDisconnect")
+	b.connected = false
+	if b.service != "OnlyAdv" {
+		b.discovery.Start(b.tag, b.scan, b.interval)
+	}
 }
 
 func (b *discoveryService) OnSuccess() {
@@ -197,4 +224,8 @@ func (b *discoveryService) NetworkInfo(network string, password string) {
 
 func (b *discoveryService) ClientsConnected(num int) {
 	log.Debug("hotspot clients connected ", num)
+	if b.numConnected>0 && num == 0 && b.service != "onlyAdv"{
+		b.discovery.Start(b.tag, b.scan, b.interval)
+	}
+	b.numConnected = num
 }
