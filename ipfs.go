@@ -508,7 +508,7 @@ func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	<-time.After(time.Second)
 	err := p.Connect(p.Ctx, pi)
 	if err != nil {
-		log.Error(fmt.Printf("Connect failed with peer %s for %s", pi.ID, err.Error()))
+		log.Errorf("Connect failed with peer %s for %s", pi.ID, err.Error())
 	}
 }
 

@@ -2,6 +2,7 @@ package replication
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/repo"
@@ -18,6 +19,14 @@ import (
 var (
 	log = logging.Logger("replication")
 )
+
+type Metatag struct {
+	Size      int64
+	Type      string
+	Name      string
+	Hash      cid.Cid
+	Timestamp int64
+}
 
 type Manager struct {
 	ctx         context.Context
@@ -58,12 +67,13 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("Added: [%s] -> %s\n", k, string(v))
-		id, err := cid.Cast(v)
+		m := &Metatag{}
+		err := json.Unmarshal(v, m)
 		if err != nil {
+			log.Error(err.Error())
 			return
 		}
-		log.Debugf("Added: [%s] -> %s\n", k, id.String())
-		contentChan <- id
+		contentChan <- m.Hash
 		state := repo.State().Add([]byte(k.Name()))
 		log.Debugf("New State: %d\n", state)
 		err = repo.SetState()
@@ -99,35 +109,45 @@ func (m *Manager) Close() error {
 	return m.crdt.Close()
 }
 
-func (m *Manager) Tag(tag string, id cid.Cid) error {
-	err := m.Put(datastore.NewKey(tag), id.Bytes())
+func (m *Manager) Tag(tag string, meta *Metatag) error {
+	bMeta, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	err = m.Put(datastore.NewKey(tag), bMeta)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *Manager) FindTag(tag string) (cid.Cid, error) {
+func (m *Manager) FindTag(tag string) (*Metatag, error) {
 	b, err := m.Get(datastore.NewKey(tag))
 	if err != nil {
-		return cid.Cid{}, err
+		return nil, err
 	}
-	return cid.Cast(b)
+	meta := &Metatag{}
+	err = json.Unmarshal(b, meta)
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
 
-func (m *Manager) Index() (map[string]string, error) {
-	indexes := map[string]string{}
+func (m *Manager) Index() (map[string]*Metatag, error) {
+	indexes := map[string]*Metatag{}
 	r, err := m.crdt.Query(query.Query{})
 	if err != nil {
 		return indexes, err
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		id, err := cid.Cast(j.Entry.Value)
+		m := &Metatag{}
+		err := json.Unmarshal(j.Entry.Value, m)
 		if err != nil {
 			continue
 		}
-		indexes[j.Key] = id.String()
+		indexes[j.Key] = m
 	}
 	return indexes, nil
 }

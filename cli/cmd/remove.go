@@ -23,13 +23,13 @@ func InitRemoveCmd(comm *common.Common) {
 			}
 			tag := args[0]
 			// Find cid for the chosen key
-			id, err := comm.LitePeer.Manager.FindTag(tag)
+			meta, err := comm.LitePeer.Manager.FindTag(tag)
 			if err != nil {
 				log.Error("Unable to find tag ", err)
 				return err
 			}
 
-			err = comm.LitePeer.DeleteFile(comm.Context, id)
+			err = comm.LitePeer.DeleteFile(comm.Context, meta.Hash)
 			if err != nil {
 				log.Error("Content removal failed ", err)
 				return err

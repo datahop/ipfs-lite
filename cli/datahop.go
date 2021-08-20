@@ -91,7 +91,7 @@ func main() {
 		defer r.Close()
 		comm.Repo = r
 	}
-
+	log.Debug(os.Args[len(os.Args)-1])
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
@@ -103,7 +103,7 @@ func main() {
 				goto Execute
 			}
 			defer c()
-			err = w(strings.Join(os.Args[1:], " "))
+			err = w(strings.Join(os.Args[1:], "$^~@@*"))
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
@@ -156,7 +156,7 @@ func main() {
 								childCmd *cobra.Command
 								flags    []string
 							)
-							command := strings.Split(commandStr, " ")
+							command := strings.Split(commandStr, "$^~@@*")
 							if rootCmd.TraverseChildren {
 								childCmd, flags, err = rootCmd.Traverse(command)
 							} else {

@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/h2non/filetype"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -299,7 +301,14 @@ func TestState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = p1.Manager.Tag("tag", n.Cid())
+	meta := &replication.Metatag{
+		Size:      int64(len(content)),
+		Type:      filetype.Unknown.Extension,
+		Name:      "tag",
+		Hash:      n.Cid(),
+		Timestamp: time.Now().Unix(),
+	}
+	err = p1.Manager.Tag("tag", meta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +320,14 @@ func TestState(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
+		meta := &replication.Metatag{
+			Size:      int64(len(content)),
+			Type:      filetype.Unknown.Extension,
+			Name:      fmt.Sprintf("tag%d", i),
+			Hash:      n.Cid(),
+			Timestamp: time.Now().Unix(),
+		}
+		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -340,7 +356,14 @@ func TestStateDualPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = p1.Manager.Tag("tag", n.Cid())
+	meta := &replication.Metatag{
+		Size:      int64(len(content)),
+		Type:      filetype.Unknown.Extension,
+		Name:      "tag",
+		Hash:      n.Cid(),
+		Timestamp: time.Now().Unix(),
+	}
+	err = p1.Manager.Tag("tag", meta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +375,14 @@ func TestStateDualPeer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
+		meta := &replication.Metatag{
+			Size:      int64(len(content)),
+			Type:      filetype.Unknown.Extension,
+			Name:      "tag",
+			Hash:      n.Cid(),
+			Timestamp: time.Now().Unix(),
+		}
+		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 		if err != nil {
 			t.Fatal(err)
 		}

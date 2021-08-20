@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"errors"
+	"io"
 	"os"
+	"time"
 
 	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/internal/replication"
+	"github.com/h2non/filetype"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +25,8 @@ func InitAddCmd(comm *common.Common) {
 				return errors.New("daemon not running")
 			}
 			filePath := args[0]
-			_, err := os.Lstat(filePath)
+			log.Debug(filePath)
+			fileinfo, err := os.Lstat(filePath)
 			if err != nil {
 				log.Errorf("Failed executing share command Err:%s", err.Error())
 				return err
@@ -31,11 +36,29 @@ func InitAddCmd(comm *common.Common) {
 				log.Errorf("Failed executing share command Err:%s", err.Error())
 				return err
 			}
+			defer f.Close()
 			n, err := comm.LitePeer.AddFile(comm.Context, f, nil)
 			if err != nil {
 				return err
 			}
-			err = comm.LitePeer.Manager.Tag(f.Name(), n.Cid())
+			_, err = f.Seek(0, io.SeekStart)
+			if err != nil {
+				return err
+			}
+			head := make([]byte, 261)
+			_, err = f.Read(head)
+			if err != nil {
+				return err
+			}
+			kind, _ := filetype.Match(head)
+			meta := &replication.Metatag{
+				Size:      fileinfo.Size(),
+				Type:      kind.MIME.Value,
+				Name:      f.Name(),
+				Hash:      n.Cid(),
+				Timestamp: time.Now().Unix(),
+			}
+			err = comm.LitePeer.Manager.Tag(f.Name(), meta)
 			if err != nil {
 				return err
 			}
