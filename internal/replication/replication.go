@@ -173,11 +173,12 @@ func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		id, err := cid.Cast(j.Entry.Value)
+		meta := &Metatag{}
+		err = json.Unmarshal(j.Entry.Value, meta)
 		if err != nil {
 			continue
 		}
-		cids = append(cids, id)
+		cids = append(cids, meta.Hash)
 	}
 	return cids, nil
 }

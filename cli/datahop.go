@@ -18,20 +18,26 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "datahop",
-	Short: "This is datahop cli client",
-	Long:  `Add Long Description`,
-}
+const (
+	argSeparator = "$^~@@*"
+)
 
-var SockPath = "uds.sock"
-var log = logging.Logger("cmd")
+var (
+	rootCmd = &cobra.Command{
+		Use:   "datahop",
+		Short: "This is datahop cli client",
+		Long:  `Add Long Description`,
+	}
+	SockPath = "uds.sock"
+	log      = logging.Logger("cmd")
+)
 
 func init() {
 	logger.SetLogLevel("uds", "Debug")
 	logger.SetLogLevel("cmd", "Debug")
 
 }
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	home, err := os.UserHomeDir()
@@ -103,7 +109,7 @@ func main() {
 				goto Execute
 			}
 			defer c()
-			err = w(strings.Join(os.Args[1:], "$^~@@*"))
+			err = w(strings.Join(os.Args[1:], argSeparator))
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
@@ -156,7 +162,7 @@ func main() {
 								childCmd *cobra.Command
 								flags    []string
 							)
-							command := strings.Split(commandStr, "$^~@@*")
+							command := strings.Split(commandStr, argSeparator)
 							if rootCmd.TraverseChildren {
 								childCmd, flags, err = rootCmd.Traverse(command)
 							} else {
