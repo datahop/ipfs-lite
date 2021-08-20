@@ -13,10 +13,8 @@ import (
 
 var log = logging.Logger("cmd")
 
-var DaemonCmd *cobra.Command
-
-func InitDaemonCmd(comm *common.Common) {
-	DaemonCmd = &cobra.Command{
+func InitDaemonCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "daemon",
 		Short: "Start datahop daemon",
 		Long:  `Add Long Description`,
@@ -51,5 +49,4 @@ func InitDaemonCmd(comm *common.Common) {
 			}
 		},
 	}
-
 }

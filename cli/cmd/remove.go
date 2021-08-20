@@ -9,10 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var RemoveCmd *cobra.Command
-
-func InitRemoveCmd(comm *common.Common) {
-	RemoveCmd = &cobra.Command{
+func InitRemoveCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "remove",
 		Short: "Remove content from datahop network",
 		Long:  `Add Long Description`,

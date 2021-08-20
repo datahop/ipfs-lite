@@ -61,22 +61,22 @@ func main() {
 	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
 	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "pretty json output")
 
-	cmd.InitDaemonCmd(comm)
-	cmd.InitInfoCmd(comm)
-	cmd.InitStopCmd(comm)
-	cmd.InitAddCmd(comm)
-	cmd.InitIndexCmd(comm)
-	cmd.InitRemoveCmd(comm)
-	cmd.InitGetCmd(comm)
-	cmd.InitVersionCmd(comm)
-	rootCmd.AddCommand(cmd.DaemonCmd)
-	rootCmd.AddCommand(cmd.InfoCmd)
-	rootCmd.AddCommand(cmd.AddCmd)
-	rootCmd.AddCommand(cmd.IndexCmd)
-	rootCmd.AddCommand(cmd.StopCmd)
-	rootCmd.AddCommand(cmd.RemoveCmd)
-	rootCmd.AddCommand(cmd.GetCmd)
-	rootCmd.AddCommand(cmd.VersionCmd)
+	var allCommands []*cobra.Command
+	allCommands = append(
+		allCommands,
+		cmd.InitDaemonCmd(comm),
+		cmd.InitInfoCmd(comm),
+		cmd.InitStopCmd(comm),
+		cmd.InitAddCmd(comm),
+		cmd.InitIndexCmd(comm),
+		cmd.InitRemoveCmd(comm),
+		cmd.InitGetCmd(comm),
+		cmd.InitVersionCmd(comm),
+	)
+
+	for _, i := range allCommands {
+		rootCmd.AddCommand(i)
+	}
 
 	// check help flag
 	for _, v := range os.Args {
@@ -97,7 +97,6 @@ func main() {
 		defer r.Close()
 		comm.Repo = r
 	}
-	log.Debug(os.Args[len(os.Args)-1])
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{

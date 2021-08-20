@@ -11,8 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var InfoCmd *cobra.Command
-
 type Info struct {
 	IsDaemonRunning bool
 	Config          config.Config
@@ -22,8 +20,8 @@ type Info struct {
 	Addresses       []string
 }
 
-func InitInfoCmd(comm *common.Common) {
-	InfoCmd = &cobra.Command{
+func InitInfoCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "info",
 		Short: "Get datahop node information",
 		Long:  `Add Long Description`,

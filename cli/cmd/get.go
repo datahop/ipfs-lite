@@ -5,10 +5,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var GetCmd *cobra.Command
-
-func InitGetCmd(comm *common.Common) {
-	GetCmd = &cobra.Command{
+func InitGetCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "get",
 		Short: "Get content by tag",
 		Long:  `Add Long Description`,

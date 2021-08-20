@@ -12,10 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var AddCmd *cobra.Command
-
-func InitAddCmd(comm *common.Common) {
-	AddCmd = &cobra.Command{
+func InitAddCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "add",
 		Short: "Add content into datahop network",
 		Long:  `Add Long Description`,

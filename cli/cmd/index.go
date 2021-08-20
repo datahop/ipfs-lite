@@ -8,10 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var IndexCmd *cobra.Command
-
-func InitIndexCmd(comm *common.Common) {
-	IndexCmd = &cobra.Command{
+func InitIndexCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "index",
 		Short: "Index datahop node content",
 		Long:  `Add Long Description`,

@@ -6,10 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var VersionCmd *cobra.Command
-
-func InitVersionCmd(comm *common.Common) {
-	VersionCmd = &cobra.Command{
+func InitVersionCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
 		Short: "Datahop cli version",
 		Long:  `Add Long Description`,

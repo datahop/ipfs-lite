@@ -5,10 +5,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var StopCmd *cobra.Command
-
-func InitStopCmd(comm *common.Common) {
-	StopCmd = &cobra.Command{
+func InitStopCmd(comm *common.Common) *cobra.Command {
+	return &cobra.Command{
 		Use:   "stop",
 		Short: "Stop datahop daemon",
 		Long:  `Add Long Description`,
