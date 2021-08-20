@@ -10,6 +10,7 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/h2non/filetype"
 	"github.com/ipfs/go-cid"
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
@@ -137,15 +138,22 @@ func TestNewManager(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.StartContentWatcher()
-	err = m.Tag("mtag", id)
+	meta := &Metatag{
+		Size:      0,
+		Type:      filetype.Unknown.Extension,
+		Name:      "some content",
+		Hash:      id,
+		Timestamp: time.Now().Unix(),
+	}
+	err = m.Tag("mtag", meta)
 	if err != nil {
 		t.Fatal(err)
 	}
-	nId, err := m.FindTag("mtag")
+	metaFound, err := m.FindTag("mtag")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id.String() != nId.String() {
+	if id != metaFound.Hash {
 		t.Fatal("cid mismatch")
 	}
 }
@@ -203,11 +211,25 @@ func TestGetAllCids(t *testing.T) {
 	}
 
 	m.StartContentWatcher()
-	err = m.Tag("mtag1", id)
+	meta1 := &Metatag{
+		Size:      0,
+		Type:      filetype.Unknown.Extension,
+		Name:      "mtag1",
+		Hash:      id,
+		Timestamp: time.Now().Unix(),
+	}
+	meta2 := &Metatag{
+		Size:      0,
+		Type:      filetype.Unknown.Extension,
+		Name:      "mtag2",
+		Hash:      id2,
+		Timestamp: time.Now().Unix(),
+	}
+	err = m.Tag("mtag1", meta1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = m.Tag("mtag2", id2)
+	err = m.Tag("mtag2", meta2)
 	if err != nil {
 		t.Fatal(err)
 	}

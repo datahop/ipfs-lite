@@ -234,7 +234,7 @@ func TestSession(t *testing.T) {
 	}
 }
 
-func TestFiles(t *testing.T) {
+func TestAddFile(t *testing.T) {
 	// Wait one second for the datastore closer by the previous test
 	<-time.After(time.Second)
 
@@ -266,6 +266,62 @@ func TestFiles(t *testing.T) {
 		t.Error(string(content))
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
+	}
+}
+
+func TestDeleteFile(t *testing.T) {
+	// Wait one second for the datastore closer by the previous test
+	<-time.After(time.Second)
+
+	p1, p2, closer := setupPeers(t)
+	defer func() {
+		closer(t)
+		cleanup(t)
+	}()
+
+	content := []byte("content to be deleted")
+	buf := bytes.NewReader(content)
+	n, err := p1.AddFile(context.Background(), buf, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rsc, err := p2.GetFile(context.Background(), n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rsc.Close()
+
+	content2, err := ioutil.ReadAll(rsc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(content, content2) {
+		t.Error(string(content))
+		t.Error(string(content2))
+		t.Error("different content put and retrieved")
+	}
+	has, err := p1.BlockStore().Has(n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
+		t.Fatal("blockstore should have the cid")
+	}
+
+	err = p1.DeleteFile(p1.Ctx, n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	has, err = p1.BlockStore().Has(n.Cid())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if has {
+		t.Fatal("blockstore should not have the cid")
 	}
 }
 
