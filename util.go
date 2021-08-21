@@ -27,7 +27,7 @@ import (
 )
 
 var DefaultBootstrapAddresses = []string{
-	"/ip4/52.66.216.67/tcp/4501/p2p/QmevJNn8Um8HQV5VYYapQmgqFDYQMxXL1HLTAReHBXosXh",
+	"/ip4/52.66.216.67/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
 }
 
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
