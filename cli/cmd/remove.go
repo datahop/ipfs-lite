@@ -3,9 +3,8 @@ package cmd
 import (
 	"errors"
 
-	"github.com/ipfs/go-datastore"
-
 	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
 )
 

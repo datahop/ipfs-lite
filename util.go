@@ -54,7 +54,7 @@ var libp2pOptionsExtra = []libp2p.Option{
 }
 
 // SetupLibp2p returns a routed host and DHT instances that can be used to
-// easily create a ipfslite Peer. You may consider to use Peer.Bootstrap()
+// easily create an ipfslite Peer. You may consider to use Peer.Bootstrap()
 // or Peer.Connect() after creating the IPFS-Lite Peer to connect to other peers.
 //
 // Additional libp2p options can be passed.

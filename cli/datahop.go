@@ -35,7 +35,6 @@ var (
 func init() {
 	logger.SetLogLevel("uds", "Debug")
 	logger.SetLogLevel("cmd", "Debug")
-
 }
 
 func main() {
