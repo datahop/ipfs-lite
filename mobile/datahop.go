@@ -13,10 +13,12 @@ import (
 
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
+	"github.com/h2non/filetype"
 	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -368,7 +370,15 @@ func Add(tag string, content []byte) error {
 		if err != nil {
 			return err
 		}
-		err = hop.peer.Manager.Tag(tag, n.Cid())
+		kind, _ := filetype.Match(content)
+		meta := &replication.Metatag{
+			Size:      int64(len(content)),
+			Type:      kind.MIME.Value,
+			Name:      tag,
+			Hash:      n.Cid(),
+			Timestamp: time.Now().Unix(),
+		}
+		err = hop.peer.Manager.Tag(tag, meta)
 		if err != nil {
 			return err
 		}
@@ -388,11 +398,12 @@ func Add(tag string, content []byte) error {
 // Get gets a record from the store by given tag
 func Get(tag string) ([]byte, error) {
 	if hop != nil && hop.peer != nil {
-		id, err := hop.peer.Manager.FindTag(tag)
+		meta, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
 			return nil, err
 		}
-		r, err := hop.peer.GetFile(context.Background(), id)
+		log.Debugf("%s => %+v", tag, meta)
+		r, err := hop.peer.GetFile(context.Background(), meta.Hash)
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +433,7 @@ func GetTags() ([]byte, error) {
 
 // Version of ipfs-lite
 func Version() string {
-	return version.Version
+	return version.MobileVersion
 }
 
 // Stop the node

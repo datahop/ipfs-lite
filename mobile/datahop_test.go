@@ -11,7 +11,9 @@ import (
 	"time"
 
 	ipfslite "github.com/datahop/ipfs-lite"
+	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/h2non/filetype"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
@@ -453,7 +455,14 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	tag := "tag"
-	err = p.Manager.Tag(tag, n.Cid())
+	meta := &replication.Metatag{
+		Size:      int64(len(content)),
+		Type:      filetype.Unknown.Extension,
+		Name:      tag,
+		Hash:      n.Cid(),
+		Timestamp: time.Now().Unix(),
+	}
+	err = p.Manager.Tag(tag, meta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +526,14 @@ func TestReplicationIn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		p.Manager.Tag(fmt.Sprintf("tag%d", i), n.Cid())
+		meta := &replication.Metatag{
+			Size:      int64(len(content)),
+			Type:      filetype.Unknown.Extension,
+			Name:      fmt.Sprintf("tag%d", i),
+			Hash:      n.Cid(),
+			Timestamp: time.Now().Unix(),
+		}
+		p.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 	}
 	bf2, err := p.Repo.State().MarshalJSON()
 	if err != nil {
