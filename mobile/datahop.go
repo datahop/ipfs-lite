@@ -11,10 +11,12 @@ import (
 	"sync"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
+
+	ipfslite "github.com/datahop/ipfs-lite"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
@@ -49,11 +51,21 @@ type Notifier struct{}
 func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *Notifier) Connected(net network.Network, c network.Conn) {
+	// NodeMatrix management
+	if hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()] == nil {
+		hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()] = &matrix.DiscoveredNodeMatrix{}
+	}
+	nodeMatrix := hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()]
+	nodeMatrix.ConnectionSuccessCount++
+	nodeMatrix.LastConnected = time.Now().Unix()
 	if hop.hook != nil {
 		hop.hook.PeerConnected(c.RemotePeer().String())
 	}
 }
 func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
+	// NodeMatrix management
+	nodeMatrix := hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()]
+	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.LastConnected
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
 	}
@@ -69,7 +81,16 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	if err != nil {
 		return
 	}
-	hop.peer.HandlePeerFound(peerInfo)
+	err = hop.peer.HandlePeerFoundWithError(peerInfo)
+	if err != nil {
+		// NodeMatrix management
+		if hop.peer.Matrix.NodeMatrix.NodesDiscovered[peerInfo.ID.String()] == nil {
+			hop.peer.Matrix.NodeMatrix.NodesDiscovered[peerInfo.ID.String()] = &matrix.DiscoveredNodeMatrix{}
+		}
+		nodeMatrix := hop.peer.Matrix.NodeMatrix.NodesDiscovered[peerInfo.ID.String()]
+		nodeMatrix.ConnectionFailureCount++
+		return
+	}
 }
 
 type datahop struct {

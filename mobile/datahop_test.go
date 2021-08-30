@@ -335,6 +335,26 @@ func TestConnectWithAddress(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
+
+	// test matrix
+	if hop.peer.Matrix.NodeMatrix.NodesDiscovered[p.Host.ID().String()].ConnectionSuccessCount != 1 {
+		t.Fatal("ConnectionSuccessCount is not 1")
+	}
+	pi := PeerInfo()
+	var peerInfo peer.AddrInfo
+	err = peerInfo.UnmarshalJSON([]byte(pi))
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 5)
+	err = p.Disconnect(peerInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Millisecond * 100)
+	if hop.peer.Matrix.NodeMatrix.NodesDiscovered[p.Host.ID().String()].LastSuccessfulConnectionDuration != 5 {
+		t.Fatal("LastSuccessfulConnectionDuration should be 5")
+	}
 	defer func() {
 		p.Cancel()
 		p.Repo.Close()

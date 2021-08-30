@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/datahop/ipfs-lite/internal/replication"
-
 	"github.com/datahop/ipfs-lite/internal/repo"
+
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
@@ -80,6 +81,7 @@ type Peer struct {
 	online          bool
 	mtx             sync.Mutex
 	Manager         *replication.Manager
+	Matrix          *matrix.MatrixKeeper
 	Stopped         chan bool
 	CrdtTopic       string
 }
@@ -201,6 +203,9 @@ func New(
 		return nil, err
 	}
 	p.Manager.StartContentWatcher()
+
+	p.Matrix = matrix.NewMatrixKeeper(ctx, r.Datastore())
+	p.Matrix.StartTicker()
 
 	p.mtx.Lock()
 	p.online = true
@@ -510,6 +515,18 @@ func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	if err != nil {
 		log.Errorf("Connect failed with peer %s for %s", pi.ID, err.Error())
 	}
+}
+
+// HandlePeerFoundWithError tries to connect to a given peerinfo, returns error if failed
+func (p *Peer) HandlePeerFoundWithError(pi peer.AddrInfo) error {
+	log.Debug("Discovered Peer : ", pi)
+	<-time.After(time.Second)
+	err := p.Connect(p.Ctx, pi)
+	if err != nil {
+		log.Errorf("Connect failed with peer %s for %s", pi.ID, err.Error())
+		return err
+	}
+	return nil
 }
 
 func (p *Peer) IsOnline() bool {

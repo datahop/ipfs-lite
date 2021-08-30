@@ -1,7 +1,10 @@
 package matrix
 
 import (
+	"context"
 	"encoding/json"
+	"sync"
+	"time"
 
 	"github.com/ipfs/go-datastore"
 )
@@ -20,8 +23,8 @@ type ContentMatrix struct {
 }
 
 type NodeMatrix struct {
-	TotalUptime     int64                           // total time node has been inline (seconds)
-	NodesDiscovered map[string]DiscoveredNodeMatrix // Nodes discovered this session
+	TotalUptime     int64                            // total time node has been inline (seconds)
+	NodesDiscovered map[string]*DiscoveredNodeMatrix // Nodes discovered this session
 }
 
 type DiscoveredNodeMatrix struct {
@@ -32,17 +35,20 @@ type DiscoveredNodeMatrix struct {
 }
 
 type MatrixKeeper struct {
+	mtx           sync.Mutex
+	ctx           context.Context
 	db            datastore.Datastore
 	NodeMatrix    *NodeMatrix
 	ContentMatrix map[string]ContentMatrix
 }
 
-func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
+func NewMatrixKeeper(ctx context.Context, ds datastore.Datastore) *MatrixKeeper {
 	mKeeper := &MatrixKeeper{
-		db: ds,
+		ctx: ctx,
+		db:  ds,
 		NodeMatrix: &NodeMatrix{
 			TotalUptime:     0,
-			NodesDiscovered: map[string]DiscoveredNodeMatrix{},
+			NodesDiscovered: map[string]*DiscoveredNodeMatrix{},
 		},
 		ContentMatrix: map[string]ContentMatrix{},
 	}
@@ -65,7 +71,23 @@ func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 	return mKeeper
 }
 
+func (mKeeper *MatrixKeeper) StartTicker() {
+	go func() {
+		for {
+			select {
+			case <-mKeeper.ctx.Done():
+				return
+			case <-time.After(time.Second * 10):
+				mKeeper.NodeMatrix.TotalUptime += 10
+			}
+		}
+	}()
+}
+
 func (mKeeper *MatrixKeeper) Flush() error {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
 	nm, err := json.Marshal(mKeeper.NodeMatrix)
 	if err != nil {
 		return err
