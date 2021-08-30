@@ -78,7 +78,9 @@ func (mKeeper *MatrixKeeper) StartTicker() {
 			case <-mKeeper.ctx.Done():
 				return
 			case <-time.After(time.Second * 10):
+				mKeeper.mtx.Lock()
 				mKeeper.NodeMatrix.TotalUptime += 10
+				mKeeper.mtx.Unlock()
 			}
 		}
 	}()
