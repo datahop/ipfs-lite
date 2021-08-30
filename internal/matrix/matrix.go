@@ -108,3 +108,23 @@ func (mKeeper *MatrixKeeper) Flush() error {
 	}
 	return nil
 }
+
+func (mKeeper *MatrixKeeper) NodeConnected(address string) {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
+		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{}
+	}
+	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
+	nodeMatrix.ConnectionSuccessCount++
+	nodeMatrix.LastConnected = time.Now().Unix()
+}
+
+func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
+	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.LastConnected
+}

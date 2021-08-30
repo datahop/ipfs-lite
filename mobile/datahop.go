@@ -52,20 +52,14 @@ func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *Notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
-	if hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()] == nil {
-		hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()] = &matrix.DiscoveredNodeMatrix{}
-	}
-	nodeMatrix := hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()]
-	nodeMatrix.ConnectionSuccessCount++
-	nodeMatrix.LastConnected = time.Now().Unix()
+	hop.peer.Matrix.NodeConnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerConnected(c.RemotePeer().String())
 	}
 }
 func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
 	// NodeMatrix management
-	nodeMatrix := hop.peer.Matrix.NodeMatrix.NodesDiscovered[c.RemotePeer().String()]
-	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.LastConnected
+	hop.peer.Matrix.NodeDisconnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
 	}
