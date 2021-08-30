@@ -109,11 +109,18 @@ func (mKeeper *MatrixKeeper) Flush() error {
 	return nil
 }
 
-func (mKeeper *MatrixKeeper) NodeStatSnapshot(address string) DiscoveredNodeMatrix {
+func (mKeeper *MatrixKeeper) GetNodeStatSnapshot(address string) DiscoveredNodeMatrix {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
 	return *mKeeper.NodeMatrix.NodesDiscovered[address]
+}
+
+func (mKeeper *MatrixKeeper) GetTotalUptime() int64 {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	return mKeeper.NodeMatrix.TotalUptime
 }
 
 func (mKeeper *MatrixKeeper) NodeConnected(address string) {

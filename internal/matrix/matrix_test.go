@@ -106,7 +106,7 @@ func TestMatrixKeeperTicker(t *testing.T) {
 	defer mKeeper.db.Close()
 	mKeeper.StartTicker()
 	<-time.After(time.Second * 15)
-	if mKeeper.NodeMatrix.TotalUptime != 10 {
+	if mKeeper.GetTotalUptime() != 10 {
 		t.Fatal("TotalUptime should be 10")
 	}
 	defer cancel()
