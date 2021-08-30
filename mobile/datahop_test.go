@@ -337,7 +337,8 @@ func TestConnectWithAddress(t *testing.T) {
 	}
 
 	// test matrix
-	if hop.peer.Matrix.NodeMatrix.NodesDiscovered[p.Host.ID().String()].ConnectionSuccessCount != 1 {
+	nodeStatSnapshot := hop.peer.Matrix.NodeStatSnapshot(p.Host.ID().String())
+	if nodeStatSnapshot.ConnectionSuccessCount != 1 {
 		t.Fatal("ConnectionSuccessCount is not 1")
 	}
 	pi := PeerInfo()
@@ -352,7 +353,8 @@ func TestConnectWithAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-time.After(time.Millisecond * 100)
-	if hop.peer.Matrix.NodeMatrix.NodesDiscovered[p.Host.ID().String()].LastSuccessfulConnectionDuration != 5 {
+	nodeStatSnapshot = hop.peer.Matrix.NodeStatSnapshot(p.Host.ID().String())
+	if nodeStatSnapshot.LastSuccessfulConnectionDuration != 5 {
 		t.Fatal("LastSuccessfulConnectionDuration should be 5")
 	}
 	defer func() {
