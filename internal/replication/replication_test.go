@@ -9,6 +9,7 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-cid"
@@ -76,6 +77,10 @@ func (m *mockRepo) Path() string {
 
 func (m *mockRepo) Config() (*config.Config, error) {
 	return nil, nil
+}
+
+func (m *mockRepo) Matrix() *matrix.MatrixKeeper {
+	return nil
 }
 
 func (m *mockRepo) Datastore() repo.Datastore {

@@ -1,17 +1,18 @@
 package matrix
 
 import (
-	"context"
 	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/ipfs/go-datastore"
+	logging "github.com/ipfs/go-log/v2"
 )
 
 var (
 	nodeMatrixKey    = datastore.NewKey("/node-matrix")
 	contentMatrixKey = datastore.NewKey("/content-matrix")
+	log              = logging.Logger("matrix")
 )
 
 type ContentMatrix struct {
@@ -35,17 +36,18 @@ type DiscoveredNodeMatrix struct {
 }
 
 type MatrixKeeper struct {
-	mtx           sync.Mutex
-	ctx           context.Context
-	db            datastore.Datastore
-	NodeMatrix    *NodeMatrix
-	ContentMatrix map[string]ContentMatrix
+	mtx             sync.Mutex
+	stop            chan struct{}
+	isTickerRunning bool
+	db              datastore.Datastore
+	NodeMatrix      *NodeMatrix
+	ContentMatrix   map[string]ContentMatrix
 }
 
-func NewMatrixKeeper(ctx context.Context, ds datastore.Datastore) *MatrixKeeper {
+func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 	mKeeper := &MatrixKeeper{
-		ctx: ctx,
-		db:  ds,
+		stop: make(chan struct{}),
+		db:   ds,
 		NodeMatrix: &NodeMatrix{
 			TotalUptime:     0,
 			NodesDiscovered: map[string]*DiscoveredNodeMatrix{},
@@ -54,6 +56,7 @@ func NewMatrixKeeper(ctx context.Context, ds datastore.Datastore) *MatrixKeeper 
 	}
 	n, err := mKeeper.db.Get(nodeMatrixKey)
 	if err != nil {
+		log.Error("Unable to get nodeMatrixKey : ", err)
 		return mKeeper
 	}
 	c, err := mKeeper.db.Get(contentMatrixKey)
@@ -72,10 +75,16 @@ func NewMatrixKeeper(ctx context.Context, ds datastore.Datastore) *MatrixKeeper 
 }
 
 func (mKeeper *MatrixKeeper) StartTicker() {
+	if mKeeper.isTickerRunning {
+		return
+	}
+	mKeeper.mtx.Lock()
+	mKeeper.isTickerRunning = true
+	mKeeper.mtx.Unlock()
 	go func() {
 		for {
 			select {
-			case <-mKeeper.ctx.Done():
+			case <-mKeeper.stop:
 				return
 			case <-time.After(time.Second * 10):
 				mKeeper.mtx.Lock()
@@ -90,26 +99,49 @@ func (mKeeper *MatrixKeeper) Flush() error {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
+	return mKeeper.flush()
+}
+
+func (mKeeper *MatrixKeeper) flush() error {
 	nm, err := json.Marshal(mKeeper.NodeMatrix)
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	cm, err := json.Marshal(mKeeper.ContentMatrix)
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	err = mKeeper.db.Put(nodeMatrixKey, nm)
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	err = mKeeper.db.Put(contentMatrixKey, cm)
 	if err != nil {
+		log.Error(err)
 		return err
+	}
+	log.Debug("Flushed")
+	return nil
+}
+
+func (mKeeper *MatrixKeeper) Close() error {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+	err := mKeeper.flush()
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	if mKeeper.isTickerRunning {
+		mKeeper.stop <- struct{}{}
 	}
 	return nil
 }
 
-func (mKeeper *MatrixKeeper) GetNodeStatSnapshot(address string) DiscoveredNodeMatrix {
+func (mKeeper *MatrixKeeper) GetNodeStat(address string) DiscoveredNodeMatrix {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
@@ -141,4 +173,18 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
 	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.LastConnected
+}
+
+func (mKeeper *MatrixKeeper) Snapshot() ([]byte, error) {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	return json.Marshal(mKeeper)
+}
+
+func (mKeeper *MatrixKeeper) SnapshotStruct() MatrixKeeper {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+	log.Debug(mKeeper.NodeMatrix.TotalUptime)
+	return *mKeeper
 }

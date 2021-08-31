@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 
@@ -81,7 +80,6 @@ type Peer struct {
 	online          bool
 	mtx             sync.Mutex
 	Manager         *replication.Manager
-	Matrix          *matrix.MatrixKeeper
 	Stopped         chan bool
 	CrdtTopic       string
 }
@@ -204,8 +202,7 @@ func New(
 	}
 	p.Manager.StartContentWatcher()
 
-	p.Matrix = matrix.NewMatrixKeeper(ctx, r.Datastore())
-	p.Matrix.StartTicker()
+	p.Repo.Matrix().StartTicker()
 
 	p.mtx.Lock()
 	p.online = true

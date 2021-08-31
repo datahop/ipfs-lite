@@ -52,14 +52,14 @@ func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *Notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
-	hop.peer.Matrix.NodeConnected(c.RemotePeer().String())
+	hop.peer.Repo.Matrix().NodeConnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerConnected(c.RemotePeer().String())
 	}
 }
 func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
 	// NodeMatrix management
-	hop.peer.Matrix.NodeDisconnected(c.RemotePeer().String())
+	hop.peer.Repo.Matrix().NodeDisconnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
 	}
@@ -78,10 +78,10 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	err = hop.peer.HandlePeerFoundWithError(peerInfo)
 	if err != nil {
 		// NodeMatrix management
-		if hop.peer.Matrix.NodeMatrix.NodesDiscovered[peerInfo.ID.String()] == nil {
-			hop.peer.Matrix.NodeMatrix.NodesDiscovered[peerInfo.ID.String()] = &matrix.DiscoveredNodeMatrix{}
+		if hop.peer.Repo.Matrix().NodeMatrix.NodesDiscovered[peerInfo.ID.String()] == nil {
+			hop.peer.Repo.Matrix().NodeMatrix.NodesDiscovered[peerInfo.ID.String()] = &matrix.DiscoveredNodeMatrix{}
 		}
-		nodeMatrix := hop.peer.Matrix.NodeMatrix.NodesDiscovered[peerInfo.ID.String()]
+		nodeMatrix := hop.peer.Repo.Matrix().NodeMatrix.NodesDiscovered[peerInfo.ID.String()]
 		nodeMatrix.ConnectionFailureCount++
 		return
 	}

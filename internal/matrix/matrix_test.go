@@ -1,7 +1,6 @@
 package matrix
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,7 +16,7 @@ var root = filepath.Join("./test", "root1")
 func TestNewMatrixKeeper(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
+	mKeeper := NewMatrixKeeper(initDatastore(t))
 	if mKeeper == nil {
 		t.Fatal("Matrix keeper should not be null")
 	}
@@ -27,7 +26,7 @@ func TestNewMatrixKeeper(t *testing.T) {
 func TestNodeMatrix(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
+	mKeeper := NewMatrixKeeper(initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -37,7 +36,7 @@ func TestNodeMatrix(t *testing.T) {
 func TestMatrixKeeperFlush(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
+	mKeeper := NewMatrixKeeper(initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -65,7 +64,7 @@ func TestMatrixKeeperFlush(t *testing.T) {
 func TestMatrixKeeperFlushWithData(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
+	mKeeper := NewMatrixKeeper(initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -89,7 +88,7 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mKeeper2 := NewMatrixKeeper(context.Background(), mKeeper.db)
+	mKeeper2 := NewMatrixKeeper(mKeeper.db)
 	if mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].LastConnected != mKeeper2.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].LastConnected {
 		t.Fatal("discoveredNodeTwo LastConnected mismatch")
 	}
@@ -98,8 +97,7 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 func TestMatrixKeeperTicker(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	mKeeper := NewMatrixKeeper(ctx, initDatastore(t))
+	mKeeper := NewMatrixKeeper(initDatastore(t))
 	if mKeeper == nil {
 		t.Fatal("Matrix keeper should not be null")
 	}
@@ -109,7 +107,7 @@ func TestMatrixKeeperTicker(t *testing.T) {
 	if mKeeper.GetTotalUptime() != 10 {
 		t.Fatal("TotalUptime should be 10")
 	}
-	defer cancel()
+	defer mKeeper.Close()
 }
 
 func removeRepo(t *testing.T) {
