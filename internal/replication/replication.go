@@ -34,6 +34,7 @@ type Manager struct {
 	crdt        *crdt.Datastore
 	contentChan chan cid.Cid
 	syncer      Syncer
+	repo        repo.Repo
 }
 
 type Syncer interface {
@@ -43,7 +44,7 @@ type Syncer interface {
 func New(
 	ctx context.Context,
 	cancel context.CancelFunc,
-	repo repo.Repo,
+	r repo.Repo,
 	h host.Host,
 	dagSyncer crdt.DAGSyncer,
 	st datastore.Batching,
@@ -74,18 +75,19 @@ func New(
 			return
 		}
 		contentChan <- m.Hash
-		state := repo.State().Add([]byte(k.Name()))
+		state := r.State().Add([]byte(k.Name()))
 		log.Debugf("New State: %d\n", state)
-		err = repo.SetState()
+		err = r.SetState()
 		if err != nil {
 			log.Errorf("SetState failed %s\n", err.Error())
 		}
+		r.Matrix().ContentDownloadStarted(m.Hash.String(), m.Size)
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("Removed: [%s]\n", k)
-		state := repo.State().Add([]byte("removed " + k.Name()))
+		state := r.State().Add([]byte("removed " + k.Name()))
 		log.Debugf("New State: %d\n", state)
-		err = repo.SetState()
+		err = r.SetState()
 		if err != nil {
 			log.Errorf("SetState failed %s\n", err.Error())
 		}
@@ -101,6 +103,7 @@ func New(
 		contentChan: contentChan,
 		syncer:      syncer,
 		cancel:      cancel,
+		repo:        r,
 	}, nil
 }
 
@@ -211,6 +214,7 @@ func (m *Manager) StartContentWatcher() {
 				if err != nil {
 					log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
 				}
+				m.repo.Matrix().ContentDownloadFinished(id.String())
 			}
 		}
 	}()

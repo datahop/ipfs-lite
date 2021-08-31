@@ -48,11 +48,25 @@ func TestMatrixKeeperFlush(t *testing.T) {
 	if has {
 		t.Fatal("db should not have the key")
 	}
+	has, err = mKeeper.db.Has(contentMatrixKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
+		t.Fatal("db should not have the key")
+	}
 	err = mKeeper.Flush()
 	if err != nil {
 		t.Fatal(err)
 	}
 	has, err = mKeeper.db.Has(nodeMatrixKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
+		t.Fatal("db should have the key")
+	}
+	has, err = mKeeper.db.Has(contentMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +98,13 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 		LastConnected:                    time.Now().Unix(),
 	}
 	mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"] = &discoveredNodeTwo
+	contentOne := &ContentMatrix{
+		AvgSpeed:          5,
+		Replicators:       []string{"discoveredNodeOne", "discoveredNodeTwo"},
+		DownloadStartedAt: time.Now().Unix() - 150,
+		LastProvidedAt:    time.Now().Unix(),
+	}
+	mKeeper.ContentMatrix["contentOne"] = contentOne
 	err := mKeeper.Flush()
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +112,10 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 	mKeeper2 := NewMatrixKeeper(mKeeper.db)
 	if mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].LastConnected != mKeeper2.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].LastConnected {
 		t.Fatal("discoveredNodeTwo LastConnected mismatch")
+	}
+
+	if mKeeper.ContentMatrix["contentOne"].AvgSpeed != mKeeper2.ContentMatrix["contentOne"].AvgSpeed {
+		t.Fatal("contentOne avgSpeed mismatch")
 	}
 }
 

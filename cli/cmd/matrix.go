@@ -13,7 +13,9 @@ func InitMatrixCmd(comm *common.Common) *cobra.Command {
 		Long:  `Add Long Description`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if comm.LitePeer != nil {
-				matrixSnapshot := comm.LitePeer.Repo.Matrix().SnapshotStruct()
+				nodeMatrixSnapshot := comm.LitePeer.Repo.Matrix().NodeMatrixSnapshot()
+				contentMatrixSnapshot := comm.LitePeer.Repo.Matrix().ContentMatrixSnapshot()
+				uptime := comm.LitePeer.Repo.Matrix().GetTotalUptime()
 				// output
 				pFlag, _ := cmd.Flags().GetBool("pretty")
 				jFlag, _ := cmd.Flags().GetBool("json")
@@ -28,8 +30,11 @@ func InitMatrixCmd(comm *common.Common) *cobra.Command {
 				if !pFlag && !jFlag {
 					f = out.NoStyle
 				}
-
-				err := out.Print(cmd, matrixSnapshot, f)
+				matrix := map[string]interface{}{}
+				matrix["TotalUptime"] = uptime
+				matrix["NodeMatrix"] = nodeMatrixSnapshot
+				matrix["ContentMatrix"] = contentMatrixSnapshot
+				err := out.Print(cmd, matrix, f)
 				if err != nil {
 					log.Error("Unable to get config ", err)
 					return err

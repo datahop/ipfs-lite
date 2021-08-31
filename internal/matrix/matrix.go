@@ -10,17 +10,19 @@ import (
 )
 
 var (
+	log = logging.Logger("matrix")
+
 	nodeMatrixKey    = datastore.NewKey("/node-matrix")
 	contentMatrixKey = datastore.NewKey("/content-matrix")
-	log              = logging.Logger("matrix")
 )
 
 type ContentMatrix struct {
-	AvgSpeed       float32
-	Replicators    []string
-	Completed      int32
-	DownloadedAt   int64
-	LastProvidedAt int64
+	Size               int64
+	AvgSpeed           float32
+	Replicators        []string
+	DownloadStartedAt  int64
+	DownloadFinishedAt int64
+	LastProvidedAt     int64
 }
 
 type NodeMatrix struct {
@@ -41,7 +43,7 @@ type MatrixKeeper struct {
 	isTickerRunning bool
 	db              datastore.Datastore
 	NodeMatrix      *NodeMatrix
-	ContentMatrix   map[string]ContentMatrix
+	ContentMatrix   map[string]*ContentMatrix
 }
 
 func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
@@ -52,7 +54,7 @@ func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 			TotalUptime:     0,
 			NodesDiscovered: map[string]*DiscoveredNodeMatrix{},
 		},
-		ContentMatrix: map[string]ContentMatrix{},
+		ContentMatrix: map[string]*ContentMatrix{},
 	}
 	n, err := mKeeper.db.Get(nodeMatrixKey)
 	if err != nil {
@@ -148,6 +150,13 @@ func (mKeeper *MatrixKeeper) GetNodeStat(address string) DiscoveredNodeMatrix {
 	return *mKeeper.NodeMatrix.NodesDiscovered[address]
 }
 
+func (mKeeper *MatrixKeeper) GetContentStat(hash string) ContentMatrix {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+	log.Debug(mKeeper.ContentMatrix)
+	return *mKeeper.ContentMatrix[hash]
+}
+
 func (mKeeper *MatrixKeeper) GetTotalUptime() int64 {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -175,16 +184,58 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.LastConnected
 }
 
-func (mKeeper *MatrixKeeper) Snapshot() ([]byte, error) {
+func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
-	return json.Marshal(mKeeper)
+	if mKeeper.ContentMatrix[hash] == nil {
+		mKeeper.ContentMatrix[hash] = &ContentMatrix{}
+	}
+	contentMatrix := mKeeper.ContentMatrix[hash]
+	contentMatrix.DownloadStartedAt = time.Now().Unix()
+	contentMatrix.Size = size
+	log.Debug("ContentDownloadStarted : ", contentMatrix)
 }
 
-func (mKeeper *MatrixKeeper) SnapshotStruct() MatrixKeeper {
+func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
-	log.Debug(mKeeper.NodeMatrix.TotalUptime)
-	return *mKeeper
+
+	if mKeeper.ContentMatrix[hash] == nil {
+		mKeeper.ContentMatrix[hash] = &ContentMatrix{}
+	}
+	contentMatrix := mKeeper.ContentMatrix[hash]
+	contentMatrix.DownloadFinishedAt = time.Now().Unix()
+	timeConsumed := contentMatrix.DownloadFinishedAt - contentMatrix.DownloadStartedAt
+	if timeConsumed == 0 {
+		timeConsumed = 1
+	}
+	contentMatrix.AvgSpeed = sizeInMB(contentMatrix.Size) / float32(timeConsumed)
+	log.Debug("ContentDownloadFinished : ", contentMatrix)
+}
+
+func (mKeeper *MatrixKeeper) NodeMatrixSnapshot() map[string]interface{} {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	retMap := make(map[string]interface{})
+	for k, v := range mKeeper.NodeMatrix.NodesDiscovered {
+		retMap[k] = *v
+	}
+	return retMap
+}
+
+func (mKeeper *MatrixKeeper) ContentMatrixSnapshot() map[string]interface{} {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	retMap := make(map[string]interface{})
+	for k, v := range mKeeper.ContentMatrix {
+		retMap[k] = *v
+	}
+	return retMap
+}
+
+func sizeInMB(size int64) float32 {
+	return float32(size) / float32(1024*1024)
 }
