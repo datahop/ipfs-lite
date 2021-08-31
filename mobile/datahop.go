@@ -5,6 +5,7 @@ package datahop
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/config"
-	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 
@@ -77,14 +77,10 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	}
 	err = hop.peer.HandlePeerFoundWithError(peerInfo)
 	if err != nil {
-		// NodeMatrix management
-		if hop.peer.Repo.Matrix().NodeMatrix.NodesDiscovered[peerInfo.ID.String()] == nil {
-			hop.peer.Repo.Matrix().NodeMatrix.NodesDiscovered[peerInfo.ID.String()] = &matrix.DiscoveredNodeMatrix{}
-		}
-		nodeMatrix := hop.peer.Repo.Matrix().NodeMatrix.NodesDiscovered[peerInfo.ID.String()]
-		nodeMatrix.ConnectionFailureCount++
+		hop.peer.Repo.Matrix().NodeConnectionFailed(peerInfo.ID.String())
 		return
 	}
+	// TODO MATRIX_NETWORK Connected
 }
 
 type datahop struct {
@@ -464,6 +460,25 @@ func Stop() {
 func Close() {
 	hop.repo.Close()
 	hop.cancel()
+}
+
+// Matrix returns matrix measurements
+func Matrix() (string, error) {
+	if hop != nil && hop.peer != nil {
+		nodeMatrixSnapshot := hop.peer.Repo.Matrix().NodeMatrixSnapshot()
+		contentMatrixSnapshot := hop.peer.Repo.Matrix().ContentMatrixSnapshot()
+		uptime := hop.peer.Repo.Matrix().GetTotalUptime()
+		matrix := map[string]interface{}{}
+		matrix["TotalUptime"] = uptime
+		matrix["NodeMatrix"] = nodeMatrixSnapshot
+		matrix["ContentMatrix"] = contentMatrixSnapshot
+		b, err := json.Marshal(matrix)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	return "", errors.New("datahop ipfs-lite node is not running")
 }
 
 func UpdateTopicStatus(topic string, value []byte) {

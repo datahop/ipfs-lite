@@ -88,14 +88,14 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 		ConnectionSuccessCount:           5,
 		ConnectionFailureCount:           4,
 		LastSuccessfulConnectionDuration: 120,
-		LastConnected:                    time.Now().Unix(),
+		ConnectedAt:                      time.Now().Unix(),
 	}
 	mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeOne"] = &discoveredNodeOne
 	discoveredNodeTwo := DiscoveredNodeMatrix{
 		ConnectionSuccessCount:           3,
 		ConnectionFailureCount:           0,
 		LastSuccessfulConnectionDuration: 1200,
-		LastConnected:                    time.Now().Unix(),
+		ConnectedAt:                      time.Now().Unix(),
 	}
 	mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"] = &discoveredNodeTwo
 	contentOne := &ContentMatrix{
@@ -110,8 +110,8 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 		t.Fatal(err)
 	}
 	mKeeper2 := NewMatrixKeeper(mKeeper.db)
-	if mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].LastConnected != mKeeper2.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].LastConnected {
-		t.Fatal("discoveredNodeTwo LastConnected mismatch")
+	if mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].ConnectedAt != mKeeper2.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].ConnectedAt {
+		t.Fatal("discoveredNodeTwo ConnectedAt mismatch")
 	}
 
 	if mKeeper.ContentMatrix["contentOne"].AvgSpeed != mKeeper2.ContentMatrix["contentOne"].AvgSpeed {

@@ -3,6 +3,8 @@ package datahop
 import (
 	"io"
 	"sync"
+
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 const ServiceTag = "_datahop-discovery._ble"
@@ -128,6 +130,13 @@ func (b *discoveryService) PeerSameStatusDiscovered(device string, topic string)
 
 func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, peerinfo string) {
 	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
+	// TODO MATRIX_NETWORK BLE
+	var peerInfo peer.AddrInfo
+	err := peerInfo.UnmarshalJSON([]byte(peerinfo))
+	if err != nil {
+		return
+	}
+	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
 	hop.wifiCon.Connect(network, pass, "192.168.49.2")
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)
@@ -162,6 +171,7 @@ func (b *discoveryService) OnDisconnect() {
 }
 
 func (b *discoveryService) OnSuccess() {
+	// TODO MATRIX_NETWORK WIFI
 	log.Debug("Network up")
 }
 
