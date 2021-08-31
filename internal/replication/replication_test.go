@@ -80,7 +80,13 @@ func (m *mockRepo) Config() (*config.Config, error) {
 }
 
 func (m *mockRepo) Matrix() *matrix.MatrixKeeper {
-	return nil
+	return &matrix.MatrixKeeper{
+		NodeMatrix: &matrix.NodeMatrix{
+			TotalUptime:     0,
+			NodesDiscovered: map[string]*matrix.DiscoveredNodeMatrix{},
+		},
+		ContentMatrix: map[string]*matrix.ContentMatrix{},
+	}
 }
 
 func (m *mockRepo) Datastore() repo.Datastore {
