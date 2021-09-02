@@ -16,35 +16,26 @@ var (
 	contentMatrixKey = datastore.NewKey("/content-matrix")
 )
 
-type Client int
-
-const (
-	MobileClient Client = iota
-	CliClient
-)
-
 type ContentMatrix struct {
 	Size               int64
 	AvgSpeed           float32
-	Replicators        []string
 	DownloadStartedAt  int64
 	DownloadFinishedAt int64
-	LastProvidedAt     int64
 }
 
 type NodeMatrix struct {
-	ClientInfo      Client
 	TotalUptime     int64                            // total time node has been inline (seconds)
 	NodesDiscovered map[string]*DiscoveredNodeMatrix // Nodes discovered this session
 }
 
 type DiscoveredNodeMatrix struct {
+	ConnectionAlive                  bool
 	ConnectionSuccessCount           int
 	ConnectionFailureCount           int
 	LastSuccessfulConnectionDuration int64
-	BLEDiscoveryAt                   int64
-	WifiDirectAt                     int64
+	DiscoveredAt                     int64
 	ConnectedAt                      int64
+	DiscoveryDelays                  []int64
 }
 
 type MatrixKeeper struct {
@@ -98,9 +89,10 @@ func (mKeeper *MatrixKeeper) StartTicker() {
 			select {
 			case <-mKeeper.stop:
 				return
-			case <-time.After(time.Second * 10):
+			case <-time.After(time.Second * 30):
 				mKeeper.mtx.Lock()
-				mKeeper.NodeMatrix.TotalUptime += 10
+				mKeeper.NodeMatrix.TotalUptime += 30
+				mKeeper.flush()
 				mKeeper.mtx.Unlock()
 			}
 		}
@@ -150,6 +142,7 @@ func (mKeeper *MatrixKeeper) Close() error {
 	if mKeeper.isTickerRunning {
 		mKeeper.stop <- struct{}{}
 	}
+	log.Debug("matrix closing")
 	return nil
 }
 
@@ -174,38 +167,52 @@ func (mKeeper *MatrixKeeper) GetTotalUptime() int64 {
 	return mKeeper.NodeMatrix.TotalUptime
 }
 
+func (mKeeper *MatrixKeeper) NodeDiscovered(address string) {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
+		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
+			ConnectionSuccessCount:           0,
+			ConnectionFailureCount:           0,
+			LastSuccessfulConnectionDuration: 0,
+			DiscoveredAt:                     0,
+			ConnectedAt:                      0,
+			DiscoveryDelays:                  []int64{},
+		}
+	}
+	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
+	if nodeMatrix.ConnectionAlive {
+		return
+	}
+	nodeMatrix.DiscoveredAt = time.Now().Unix()
+}
+
 func (mKeeper *MatrixKeeper) NodeConnected(address string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
-		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{}
+		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
+			ConnectionSuccessCount:           0,
+			ConnectionFailureCount:           0,
+			LastSuccessfulConnectionDuration: 0,
+			DiscoveredAt:                     0,
+			ConnectedAt:                      0,
+			DiscoveryDelays:                  []int64{},
+		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
 	nodeMatrix.ConnectionSuccessCount++
 	nodeMatrix.ConnectedAt = time.Now().Unix()
-}
-
-func (mKeeper *MatrixKeeper) BLEDiscovered(address string) {
-	mKeeper.mtx.Lock()
-	defer mKeeper.mtx.Unlock()
-
-	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
-		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{}
+	nodeMatrix.ConnectionAlive = true
+	if nodeMatrix.DiscoveredAt != 0 {
+		delay := nodeMatrix.ConnectedAt - nodeMatrix.DiscoveredAt
+		if delay == 0 {
+			delay = 1
+		}
+		nodeMatrix.DiscoveryDelays = append(nodeMatrix.DiscoveryDelays, delay)
 	}
-	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
-	nodeMatrix.BLEDiscoveryAt = time.Now().Unix()
-}
-
-func (mKeeper *MatrixKeeper) WifiConnected(address string) {
-	mKeeper.mtx.Lock()
-	defer mKeeper.mtx.Unlock()
-
-	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
-		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{}
-	}
-	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
-	nodeMatrix.WifiDirectAt = time.Now().Unix()
 }
 
 func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
@@ -213,11 +220,20 @@ func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
 	defer mKeeper.mtx.Unlock()
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
-		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{}
+		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
+			ConnectionSuccessCount:           0,
+			ConnectionFailureCount:           0,
+			LastSuccessfulConnectionDuration: 0,
+			DiscoveredAt:                     0,
+			ConnectedAt:                      0,
+			DiscoveryDelays:                  []int64{},
+		}
 	}
 
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
 	nodeMatrix.ConnectionFailureCount++
+
+	nodeMatrix.DiscoveredAt = 0
 }
 
 func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
@@ -226,6 +242,9 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
 	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.ConnectedAt
+	nodeMatrix.ConnectionAlive = false
+	nodeMatrix.DiscoveredAt = 0
+	nodeMatrix.ConnectedAt = 0
 }
 
 func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
@@ -266,6 +285,7 @@ func (mKeeper *MatrixKeeper) NodeMatrixSnapshot() map[string]interface{} {
 	for k, v := range mKeeper.NodeMatrix.NodesDiscovered {
 		retMap[k] = *v
 	}
+	log.Debug("NodeMatrixSnapshot ", retMap)
 	return retMap
 }
 
@@ -277,6 +297,7 @@ func (mKeeper *MatrixKeeper) ContentMatrixSnapshot() map[string]interface{} {
 	for k, v := range mKeeper.ContentMatrix {
 		retMap[k] = *v
 	}
+	log.Debug("ContentMatrixSnapshot ", retMap)
 	return retMap
 }
 

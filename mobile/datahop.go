@@ -80,7 +80,6 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 		hop.peer.Repo.Matrix().NodeConnectionFailed(peerInfo.ID.String())
 		return
 	}
-	// TODO MATRIX_NETWORK Connected
 }
 
 type datahop struct {
@@ -103,6 +102,7 @@ type datahop struct {
 func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -449,6 +449,7 @@ func Version() string {
 
 // Stop the node
 func Stop() {
+	hop.peer.Repo.Matrix().Flush()
 	hop.peer.Cancel()
 	select {
 	case <-hop.peer.Stopped:

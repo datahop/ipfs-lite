@@ -100,9 +100,7 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 	mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"] = &discoveredNodeTwo
 	contentOne := &ContentMatrix{
 		AvgSpeed:          5,
-		Replicators:       []string{"discoveredNodeOne", "discoveredNodeTwo"},
 		DownloadStartedAt: time.Now().Unix() - 150,
-		LastProvidedAt:    time.Now().Unix(),
 	}
 	mKeeper.ContentMatrix["contentOne"] = contentOne
 	err := mKeeper.Flush()
@@ -128,9 +126,9 @@ func TestMatrixKeeperTicker(t *testing.T) {
 	}
 	defer mKeeper.db.Close()
 	mKeeper.StartTicker()
-	<-time.After(time.Second * 15)
-	if mKeeper.GetTotalUptime() != 10 {
-		t.Fatal("TotalUptime should be 10")
+	<-time.After(time.Second * 31)
+	if mKeeper.GetTotalUptime() != 30 {
+		t.Fatal("TotalUptime should be 30")
 	}
 	defer mKeeper.Close()
 }
