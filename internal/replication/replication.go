@@ -225,8 +225,10 @@ func (m *Manager) StartContentWatcher() {
 						select {
 						case provider := <-providers:
 							m.repo.Matrix().ContentAddProvider(id.String(), provider.ID)
-						case <-time.After(time.Second * 5):
+						case <-time.After(time.Second * 2):
 							break
+						case <-m.ctx.Done():
+							return
 						}
 					}
 				}()
