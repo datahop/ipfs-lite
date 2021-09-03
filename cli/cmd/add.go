@@ -55,6 +55,7 @@ func InitAddCmd(comm *common.Common) *cobra.Command {
 				Name:      f.Name(),
 				Hash:      n.Cid(),
 				Timestamp: time.Now().Unix(),
+				Owner:     comm.LitePeer.Host.ID(),
 			}
 			err = comm.LitePeer.Manager.Tag(f.Name(), meta)
 			if err != nil {

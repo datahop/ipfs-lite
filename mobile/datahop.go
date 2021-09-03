@@ -388,6 +388,7 @@ func Add(tag string, content []byte) error {
 			Name:      tag,
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
+			Owner:     hop.peer.Host.ID(),
 		}
 		err = hop.peer.Manager.Tag(tag, meta)
 		if err != nil {

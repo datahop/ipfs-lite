@@ -13,6 +13,7 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
@@ -26,6 +27,7 @@ type Metatag struct {
 	Name      string
 	Hash      cid.Cid
 	Timestamp int64
+	Owner     peer.ID
 }
 
 type Manager struct {
@@ -39,6 +41,7 @@ type Manager struct {
 
 type Syncer interface {
 	GetFile(context.Context, cid.Cid) (ufsio.ReadSeekCloser, error)
+	FindProvidersAsync(context.Context, cid.Cid, int) <-chan peer.AddrInfo
 }
 
 func New(
@@ -210,11 +213,23 @@ func (m *Manager) StartContentWatcher() {
 				return
 			case id := <-m.contentChan:
 				log.Debugf("got %s\n", id.String())
-				_, err := m.syncer.GetFile(m.ctx, id)
-				if err != nil {
-					log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
-				}
-				m.repo.Matrix().ContentDownloadFinished(id.String())
+				go func() {
+					_, err := m.syncer.GetFile(m.ctx, id)
+					if err != nil {
+						log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
+						return
+					}
+					m.repo.Matrix().ContentDownloadFinished(id.String())
+					providers := m.syncer.FindProvidersAsync(m.ctx, id, 0)
+					for {
+						select {
+						case provider := <-providers:
+							m.repo.Matrix().ContentAddProvider(id.String(), provider.ID)
+						case <-time.After(time.Second * 5):
+							break
+						}
+					}
+				}()
 			}
 		}
 	}()

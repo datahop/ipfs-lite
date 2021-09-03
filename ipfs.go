@@ -22,7 +22,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
-	provider "github.com/ipfs/go-ipfs-provider"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
@@ -73,7 +72,6 @@ type Peer struct {
 	Store           datastore.Batching
 	DHT             routing.Routing
 	Repo            repo.Repo
-	Provider        provider.System
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
@@ -255,6 +253,10 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	p.Manager = manager
 	p.CrdtTopic = opts.crdtTopic
 	return nil
+}
+
+func (p *Peer) FindProvidersAsync(ctx context.Context, id cid.Cid, results int) <-chan peer.AddrInfo {
+	return p.DHT.FindProvidersAsync(ctx, id, results)
 }
 
 func (p *Peer) autoclose() {

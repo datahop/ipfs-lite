@@ -19,6 +19,7 @@ import (
 	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 type mockDAGSyncer struct{}
@@ -63,6 +64,11 @@ type mockSyncer struct{}
 func (m mockSyncer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekCloser, error) {
 	// do something
 	return nil, nil
+}
+
+func (m mockSyncer) FindProvidersAsync(ctx context.Context, id cid.Cid, r int) <-chan peer.AddrInfo {
+	// do something
+	return nil
 }
 
 type mockRepo struct {
@@ -155,6 +161,7 @@ func TestNewManager(t *testing.T) {
 		Name:      "some content",
 		Hash:      id,
 		Timestamp: time.Now().Unix(),
+		Owner:     h.ID(),
 	}
 	err = m.Tag("mtag", meta)
 	if err != nil {
@@ -228,6 +235,7 @@ func TestGetAllCids(t *testing.T) {
 		Name:      "mtag1",
 		Hash:      id,
 		Timestamp: time.Now().Unix(),
+		Owner:     h.ID(),
 	}
 	meta2 := &Metatag{
 		Size:      0,
@@ -235,6 +243,7 @@ func TestGetAllCids(t *testing.T) {
 		Name:      "mtag2",
 		Hash:      id2,
 		Timestamp: time.Now().Unix(),
+		Owner:     h.ID(),
 	}
 	err = m.Tag("mtag1", meta1)
 	if err != nil {

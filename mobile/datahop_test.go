@@ -483,6 +483,7 @@ func TestReplicationGet(t *testing.T) {
 		Name:      tag,
 		Hash:      n.Cid(),
 		Timestamp: time.Now().Unix(),
+		Owner:     p.Host.ID(),
 	}
 	err = p.Manager.Tag(tag, meta)
 	if err != nil {
@@ -554,6 +555,7 @@ func TestReplicationIn(t *testing.T) {
 			Name:      fmt.Sprintf("tag%d", i),
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
+			Owner:     p.Host.ID(),
 		}
 		p.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 	}

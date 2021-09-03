@@ -7,6 +7,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 var (
@@ -21,6 +22,7 @@ type ContentMatrix struct {
 	AvgSpeed           float32
 	DownloadStartedAt  int64
 	DownloadFinishedAt int64
+	ProvidedBy         []peer.ID
 }
 
 type NodeMatrix struct {
@@ -252,7 +254,13 @@ func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
 	defer mKeeper.mtx.Unlock()
 
 	if mKeeper.ContentMatrix[hash] == nil {
-		mKeeper.ContentMatrix[hash] = &ContentMatrix{}
+		mKeeper.ContentMatrix[hash] = &ContentMatrix{
+			Size:               0,
+			AvgSpeed:           0,
+			DownloadStartedAt:  0,
+			DownloadFinishedAt: 0,
+			ProvidedBy:         []peer.ID{},
+		}
 	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
 	contentMatrix.DownloadStartedAt = time.Now().Unix()
@@ -265,7 +273,13 @@ func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 	defer mKeeper.mtx.Unlock()
 
 	if mKeeper.ContentMatrix[hash] == nil {
-		mKeeper.ContentMatrix[hash] = &ContentMatrix{}
+		mKeeper.ContentMatrix[hash] = &ContentMatrix{
+			Size:               0,
+			AvgSpeed:           0,
+			DownloadStartedAt:  0,
+			DownloadFinishedAt: 0,
+			ProvidedBy:         []peer.ID{},
+		}
 	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
 	contentMatrix.DownloadFinishedAt = time.Now().Unix()
@@ -275,6 +289,14 @@ func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 	}
 	contentMatrix.AvgSpeed = sizeInMB(contentMatrix.Size) / float32(timeConsumed)
 	log.Debug("ContentDownloadFinished : ", contentMatrix)
+}
+
+func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
+
+	contentMatrix := mKeeper.ContentMatrix[hash]
+	contentMatrix.ProvidedBy = append(contentMatrix.ProvidedBy, provider)
 }
 
 func (mKeeper *MatrixKeeper) NodeMatrixSnapshot() map[string]interface{} {
