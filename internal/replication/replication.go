@@ -220,13 +220,17 @@ func (m *Manager) StartContentWatcher() {
 						return
 					}
 					m.repo.Matrix().ContentDownloadFinished(id.String())
-					providers := m.syncer.FindProvidersAsync(m.ctx, id, 0)
+					providers := m.syncer.FindProvidersAsync(m.ctx, id, 2)
+				FindProvider:
 					for {
 						select {
 						case provider := <-providers:
+							if provider.ID.String() == "" {
+								break FindProvider
+							}
 							m.repo.Matrix().ContentAddProvider(id.String(), provider.ID)
-						case <-time.After(time.Second * 2):
-							break
+						case <-time.After(time.Second):
+							break FindProvider
 						case <-m.ctx.Done():
 							return
 						}
