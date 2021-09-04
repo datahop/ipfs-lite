@@ -622,7 +622,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 	}
 }
 
-func TestMatrixOwner(t *testing.T) {
+func TestContentOwner(t *testing.T) {
 	<-time.After(time.Second)
 	root := filepath.Join("../test", repo.Root)
 	cm := MockConnManager{}
@@ -676,6 +676,60 @@ func TestMatrixOwner(t *testing.T) {
 		}
 		if meta.Owner != hop.peer.Host.ID() {
 			t.Fatal("Owner mismatch")
+		}
+	}
+}
+
+func TestContentMatrix(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	for _, v := range p.Host.Addrs() {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := Peers(); err == ErrNoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	for i := 0; i < 10; i++ {
+		content := []byte(fmt.Sprintf("checkState%d", i))
+		err := Add(fmt.Sprintf("tag%d", i), content)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	<-time.After(time.Second * 2)
+	for _, v := range p.Repo.Matrix().ContentMatrix {
+		if len(v.ProvidedBy) > 0 && v.ProvidedBy[0] != hop.peer.Host.ID() {
+			t.Fatal("provider info is wrong")
 		}
 	}
 }

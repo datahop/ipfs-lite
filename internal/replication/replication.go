@@ -41,7 +41,7 @@ type Manager struct {
 
 type Syncer interface {
 	GetFile(context.Context, cid.Cid) (ufsio.ReadSeekCloser, error)
-	FindProvidersAsync(context.Context, cid.Cid, int) <-chan peer.AddrInfo
+	FindProviders(context.Context, cid.Cid) []peer.ID
 }
 
 func New(
@@ -214,27 +214,16 @@ func (m *Manager) StartContentWatcher() {
 			case id := <-m.contentChan:
 				log.Debugf("got %s\n", id.String())
 				go func() {
+					providers := m.syncer.FindProviders(m.ctx, id)
+					for _, provider := range providers {
+						m.repo.Matrix().ContentAddProvider(id.String(), provider)
+					}
 					_, err := m.syncer.GetFile(m.ctx, id)
 					if err != nil {
 						log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
 						return
 					}
 					m.repo.Matrix().ContentDownloadFinished(id.String())
-					providers := m.syncer.FindProvidersAsync(m.ctx, id, 2)
-				FindProvider:
-					for {
-						select {
-						case provider := <-providers:
-							if provider.ID.String() == "" {
-								break FindProvider
-							}
-							m.repo.Matrix().ContentAddProvider(id.String(), provider.ID)
-						case <-time.After(time.Second):
-							break FindProvider
-						case <-m.ctx.Done():
-							return
-						}
-					}
 				}()
 			}
 		}

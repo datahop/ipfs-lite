@@ -66,9 +66,9 @@ func (m mockSyncer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekClose
 	return nil, nil
 }
 
-func (m mockSyncer) FindProvidersAsync(ctx context.Context, id cid.Cid, r int) <-chan peer.AddrInfo {
+func (m mockSyncer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
 	// do something
-	return nil
+	return []peer.ID{}
 }
 
 type mockRepo struct {

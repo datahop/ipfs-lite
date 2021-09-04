@@ -255,8 +255,27 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	return nil
 }
 
-func (p *Peer) FindProvidersAsync(ctx context.Context, id cid.Cid, results int) <-chan peer.AddrInfo {
-	return p.DHT.FindProvidersAsync(ctx, id, results)
+func (p *Peer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
+	providerAddresses := []peer.ID{}
+	providers := p.DHT.FindProvidersAsync(ctx, id, 0)
+FindProvider:
+	for {
+		select {
+		case provider := <-providers:
+			if provider.ID == p.Host.ID() {
+				continue
+			}
+			if provider.ID.String() == "" {
+				break FindProvider
+			}
+			providerAddresses = append(providerAddresses, provider.ID)
+		case <-time.After(time.Second):
+			break FindProvider
+		case <-ctx.Done():
+			break FindProvider
+		}
+	}
+	return providerAddresses
 }
 
 func (p *Peer) autoclose() {

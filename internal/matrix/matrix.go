@@ -295,6 +295,15 @@ func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
+	if mKeeper.ContentMatrix[hash] == nil {
+		mKeeper.ContentMatrix[hash] = &ContentMatrix{
+			Size:               0,
+			AvgSpeed:           0,
+			DownloadStartedAt:  0,
+			DownloadFinishedAt: 0,
+			ProvidedBy:         []peer.ID{},
+		}
+	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
 	contentMatrix.ProvidedBy = append(contentMatrix.ProvidedBy, provider)
 }
