@@ -278,6 +278,11 @@ func TestBootstrap(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	pr := peer.AddrInfo{
 		ID:    p.Host.ID(),
 		Addrs: p.Host.Addrs(),
@@ -294,11 +299,6 @@ func TestBootstrap(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
 }
 
 func TestConnectWithAddress(t *testing.T) {
@@ -324,6 +324,11 @@ func TestConnectWithAddress(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	for _, v := range p.Host.Addrs() {
 		if !strings.HasPrefix(v.String(), "127") {
 			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
@@ -355,13 +360,8 @@ func TestConnectWithAddress(t *testing.T) {
 	<-time.After(time.Millisecond * 100)
 	nodeStatSnapshot = hop.peer.Repo.Matrix().GetNodeStat(p.Host.ID().String())
 	if nodeStatSnapshot.LastSuccessfulConnectionDuration != 5 {
-		t.Fatal("LastSuccessfulConnectionDuration should be 5")
+		t.Fatal("LastSuccessfulConnectionDuration should be 5 got ", nodeStatSnapshot.LastSuccessfulConnectionDuration)
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
 }
 
 func TestReplicationOut(t *testing.T) {
@@ -387,6 +387,11 @@ func TestReplicationOut(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	for _, v := range p.Host.Addrs() {
 		if !strings.HasPrefix(v.String(), "127") {
 			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
@@ -398,11 +403,6 @@ func TestReplicationOut(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
 	bf1, err := State()
 	if err != nil {
 		t.Fatal(err)
@@ -454,6 +454,11 @@ func TestReplicationGet(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	for _, v := range p.Host.Addrs() {
 		if !strings.HasPrefix(v.String(), "127") {
 			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
@@ -465,11 +470,6 @@ func TestReplicationGet(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
 	content := []byte(fmt.Sprintf("checkState"))
 	buf := bytes.NewReader(content)
 	n, err := p.AddFile(context.Background(), buf, nil)
@@ -522,6 +522,11 @@ func TestReplicationIn(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	for _, v := range p.Host.Addrs() {
 		if !strings.HasPrefix(v.String(), "127") {
 			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
@@ -533,11 +538,6 @@ func TestReplicationIn(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
 	bf1, err := State()
 	if err != nil {
 		t.Fatal(err)
@@ -599,6 +599,11 @@ func TestConnectWithPeerInfo(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	pr := peer.AddrInfo{
 		ID:    p.Host.ID(),
 		Addrs: p.Host.Addrs(),
@@ -615,11 +620,6 @@ func TestConnectWithPeerInfo(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
 }
 
 func TestMatrixOwner(t *testing.T) {
@@ -645,6 +645,11 @@ func TestMatrixOwner(t *testing.T) {
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, t)
+	defer func() {
+		p.Cancel()
+		p.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
 	for _, v := range p.Host.Addrs() {
 		if !strings.HasPrefix(v.String(), "127") {
 			err := ConnectWithAddress(v.String() + "/p2p/" + p.Host.ID().String())
@@ -656,12 +661,6 @@ func TestMatrixOwner(t *testing.T) {
 	if _, err := Peers(); err == ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	defer func() {
-		p.Cancel()
-		p.Repo.Close()
-		removeRepo(secondNode, t)
-	}()
-
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		err := Add(fmt.Sprintf("tag%d", i), content)
