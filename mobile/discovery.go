@@ -147,12 +147,12 @@ func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte)
 	b.wifiHS.Start()
 }
 
-func (b *discoveryService) OnConnectionSuccess() {
+func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int){
 	log.Debug("Connection success")
 	b.handleConnectionRequest()
 }
 
-func (b *discoveryService) OnConnectionFailure(code int) {
+func (b *discoveryService) OnConnectionFailure(code int,started int64, failed int64) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 }

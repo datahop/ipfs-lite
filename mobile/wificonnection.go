@@ -6,7 +6,7 @@ type WifiConnection interface {
 }
 
 type WifiConnectionNotifier interface {
-	OnConnectionSuccess()
-	OnConnectionFailure(code int)
+	OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int)
+	OnConnectionFailure(code int,started int64, failed int64)
 	OnDisconnect()
 }
