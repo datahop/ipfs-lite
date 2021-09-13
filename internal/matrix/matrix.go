@@ -42,6 +42,17 @@ type DiscoveredNodeMatrix struct {
 	Frequency                        int
 	IPFSConnectedAt                  int64
 	DiscoveryDelays                  []int64 // from BLE Discovery to ipfs Connection
+	ConnectionHistory                []ConnectionInfo
+}
+
+type ConnectionInfo struct {
+	BLEDiscoveredAt int64
+	WifiConnectedAt int64
+	RSSI            int
+	Speed           int
+	Frequency       int
+	IPFSConnectedAt int64
+	DisconnectedAt  int64
 }
 
 type MatrixKeeper struct {
@@ -179,7 +190,8 @@ func (mKeeper *MatrixKeeper) BLEDiscovered(address string) {
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			DiscoveryDelays: []int64{},
+			DiscoveryDelays:   []int64{},
+			ConnectionHistory: []ConnectionInfo{},
 		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
@@ -195,7 +207,8 @@ func (mKeeper *MatrixKeeper) WifiConnected(address string, rssi, speed, freq int
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			DiscoveryDelays: []int64{},
+			DiscoveryDelays:   []int64{},
+			ConnectionHistory: []ConnectionInfo{},
 		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
@@ -214,7 +227,8 @@ func (mKeeper *MatrixKeeper) NodeConnected(address string) {
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			DiscoveryDelays: []int64{},
+			DiscoveryDelays:   []int64{},
+			ConnectionHistory: []ConnectionInfo{},
 		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
@@ -236,7 +250,8 @@ func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			DiscoveryDelays: []int64{},
+			DiscoveryDelays:   []int64{},
+			ConnectionHistory: []ConnectionInfo{},
 		}
 	}
 
@@ -252,10 +267,27 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
 	nodeMatrix.LastSuccessfulConnectionDuration = time.Now().Unix() - nodeMatrix.IPFSConnectedAt
+
+	history := ConnectionInfo{
+		BLEDiscoveredAt: nodeMatrix.BLEDiscoveredAt,
+		WifiConnectedAt: nodeMatrix.WifiConnectedAt,
+		RSSI:            nodeMatrix.RSSI,
+		Speed:           nodeMatrix.Speed,
+		Frequency:       nodeMatrix.Frequency,
+		IPFSConnectedAt: nodeMatrix.IPFSConnectedAt,
+		DisconnectedAt:  time.Now().Unix(),
+	}
+	if nodeMatrix.ConnectionHistory == nil {
+		nodeMatrix.ConnectionHistory = []ConnectionInfo{}
+	}
+	nodeMatrix.ConnectionHistory = append(nodeMatrix.ConnectionHistory, history)
 	nodeMatrix.ConnectionAlive = false
 	nodeMatrix.BLEDiscoveredAt = 0
 	nodeMatrix.WifiConnectedAt = 0
 	nodeMatrix.IPFSConnectedAt = 0
+	nodeMatrix.RSSI = 0
+	nodeMatrix.Speed = 0
+	nodeMatrix.Frequency = 0
 }
 
 func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
