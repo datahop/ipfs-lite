@@ -67,12 +67,16 @@ func (m MockAdvDriver) NotifyEmptyValue() {
 
 type MockWifiConn struct{}
 
-func (m MockWifiConn) Connect(network string, pass string, ip string) {
+func (m MockWifiConn) Connect(network, pass, ip, host string) {
 	// do nothing
 }
 
 func (m MockWifiConn) Disconnect() {
 	// do nothing
+}
+
+func (m MockWifiConn) Host() string {
+	return ""
 }
 
 type MockWifiHotspot struct{}

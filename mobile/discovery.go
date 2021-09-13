@@ -135,8 +135,8 @@ func (b *discoveryService) PeerDifferentStatusDiscovered(device string, topic st
 	if err != nil {
 		return
 	}
-	hop.peer.Repo.Matrix().NodeDiscovered(peerInfo.ID.String())
-	hop.wifiCon.Connect(network, pass, "192.168.49.2")
+	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
+	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)
 	}
@@ -155,12 +155,13 @@ func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte)
 	b.wifiHS.Start()
 }
 
-func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int){
+func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int) {
 	log.Debug("Connection success")
+	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host())
 	b.handleConnectionRequest()
 }
 
-func (b *discoveryService) OnConnectionFailure(code int,started int64, failed int64) {
+func (b *discoveryService) OnConnectionFailure(code int, started int64, failed int64) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 }
