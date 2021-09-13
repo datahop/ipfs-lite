@@ -157,7 +157,7 @@ func (b *discoveryService) DifferentStatusDiscovered(topic string, value []byte)
 
 func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int) {
 	log.Debug("Connection success")
-	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host())
+	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.handleConnectionRequest()
 }
 

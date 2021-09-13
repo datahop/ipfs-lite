@@ -37,6 +37,9 @@ type DiscoveredNodeMatrix struct {
 	LastSuccessfulConnectionDuration int64
 	BLEDiscoveredAt                  int64
 	WifiConnectedAt                  int64
+	RSSI                             int
+	Speed                            int
+	Frequency                        int
 	IPFSConnectedAt                  int64
 	DiscoveryDelays                  []int64 // from BLE Discovery to ipfs Connection
 }
@@ -176,12 +179,7 @@ func (mKeeper *MatrixKeeper) BLEDiscovered(address string) {
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			ConnectionSuccessCount:           0,
-			ConnectionFailureCount:           0,
-			LastSuccessfulConnectionDuration: 0,
-			BLEDiscoveredAt:                  0,
-			IPFSConnectedAt:                  0,
-			DiscoveryDelays:                  []int64{},
+			DiscoveryDelays: []int64{},
 		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
@@ -191,18 +189,13 @@ func (mKeeper *MatrixKeeper) BLEDiscovered(address string) {
 	nodeMatrix.BLEDiscoveredAt = time.Now().Unix()
 }
 
-func (mKeeper *MatrixKeeper) WifiConnected(address string) {
+func (mKeeper *MatrixKeeper) WifiConnected(address string, rssi, speed, freq int) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			ConnectionSuccessCount:           0,
-			ConnectionFailureCount:           0,
-			LastSuccessfulConnectionDuration: 0,
-			BLEDiscoveredAt:                  0,
-			IPFSConnectedAt:                  0,
-			DiscoveryDelays:                  []int64{},
+			DiscoveryDelays: []int64{},
 		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
@@ -210,6 +203,9 @@ func (mKeeper *MatrixKeeper) WifiConnected(address string) {
 		return
 	}
 	nodeMatrix.WifiConnectedAt = time.Now().Unix()
+	nodeMatrix.RSSI = rssi
+	nodeMatrix.Speed = speed
+	nodeMatrix.Frequency = freq
 }
 
 func (mKeeper *MatrixKeeper) NodeConnected(address string) {
@@ -218,12 +214,7 @@ func (mKeeper *MatrixKeeper) NodeConnected(address string) {
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			ConnectionSuccessCount:           0,
-			ConnectionFailureCount:           0,
-			LastSuccessfulConnectionDuration: 0,
-			BLEDiscoveredAt:                  0,
-			IPFSConnectedAt:                  0,
-			DiscoveryDelays:                  []int64{},
+			DiscoveryDelays: []int64{},
 		}
 	}
 	nodeMatrix := mKeeper.NodeMatrix.NodesDiscovered[address]
@@ -245,12 +236,7 @@ func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
 
 	if mKeeper.NodeMatrix.NodesDiscovered[address] == nil {
 		mKeeper.NodeMatrix.NodesDiscovered[address] = &DiscoveredNodeMatrix{
-			ConnectionSuccessCount:           0,
-			ConnectionFailureCount:           0,
-			LastSuccessfulConnectionDuration: 0,
-			BLEDiscoveredAt:                  0,
-			IPFSConnectedAt:                  0,
-			DiscoveryDelays:                  []int64{},
+			DiscoveryDelays: []int64{},
 		}
 	}
 
@@ -278,11 +264,7 @@ func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
 
 	if mKeeper.ContentMatrix[hash] == nil {
 		mKeeper.ContentMatrix[hash] = &ContentMatrix{
-			Size:               0,
-			AvgSpeed:           0,
-			DownloadStartedAt:  0,
-			DownloadFinishedAt: 0,
-			ProvidedBy:         []peer.ID{},
+			ProvidedBy: []peer.ID{},
 		}
 	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
@@ -297,11 +279,7 @@ func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 
 	if mKeeper.ContentMatrix[hash] == nil {
 		mKeeper.ContentMatrix[hash] = &ContentMatrix{
-			Size:               0,
-			AvgSpeed:           0,
-			DownloadStartedAt:  0,
-			DownloadFinishedAt: 0,
-			ProvidedBy:         []peer.ID{},
+			ProvidedBy: []peer.ID{},
 		}
 	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
@@ -320,11 +298,7 @@ func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
 
 	if mKeeper.ContentMatrix[hash] == nil {
 		mKeeper.ContentMatrix[hash] = &ContentMatrix{
-			Size:               0,
-			AvgSpeed:           0,
-			DownloadStartedAt:  0,
-			DownloadFinishedAt: 0,
-			ProvidedBy:         []peer.ID{},
+			ProvidedBy: []peer.ID{},
 		}
 	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
