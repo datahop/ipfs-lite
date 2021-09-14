@@ -23,20 +23,7 @@ func InitIndexCmd(comm *common.Common) *cobra.Command {
 			}
 
 			// output
-			pFlag, _ := cmd.Flags().GetBool("pretty")
-			jFlag, _ := cmd.Flags().GetBool("json")
-			log.Debug(pFlag, jFlag)
-			var f out.Format
-			if jFlag {
-				f = out.Json
-			}
-			if pFlag {
-				f = out.PrettyJson
-			}
-			if !pFlag && !jFlag {
-				f = out.NoStyle
-			}
-			err = out.Print(cmd, tags, f)
+			err = out.Print(cmd, tags, parseFormat(cmd))
 			if err != nil {
 				log.Error("Unable to get config ", err)
 				return err

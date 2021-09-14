@@ -73,20 +73,7 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 			info.CRDTStatus = comm.Repo.State()
 
 			// output
-			pFlag, _ := cmd.Flags().GetBool("pretty")
-			jFlag, _ := cmd.Flags().GetBool("json")
-			log.Debug(pFlag, jFlag)
-			var f out.Format
-			if jFlag {
-				f = out.Json
-			}
-			if pFlag {
-				f = out.PrettyJson
-			}
-			if !pFlag && !jFlag {
-				f = out.NoStyle
-			}
-			err = out.Print(cmd, info, f)
+			err = out.Print(cmd, info, parseFormat(cmd))
 			if err != nil {
 				log.Error("Unable to get config ", err)
 				return err
@@ -94,4 +81,21 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func parseFormat(cmd *cobra.Command) out.Format {
+	pFlag, _ := cmd.Flags().GetBool("pretty")
+	jFlag, _ := cmd.Flags().GetBool("json")
+	log.Debug(pFlag, jFlag)
+	var f out.Format
+	if jFlag {
+		f = out.Json
+	}
+	if pFlag {
+		f = out.PrettyJson
+	}
+	if !pFlag && !jFlag {
+		f = out.NoStyle
+	}
+	return f
 }

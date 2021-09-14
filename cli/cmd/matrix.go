@@ -17,24 +17,11 @@ func InitMatrixCmd(comm *common.Common) *cobra.Command {
 				contentMatrixSnapshot := comm.LitePeer.Repo.Matrix().ContentMatrixSnapshot()
 				uptime := comm.LitePeer.Repo.Matrix().GetTotalUptime()
 				// output
-				pFlag, _ := cmd.Flags().GetBool("pretty")
-				jFlag, _ := cmd.Flags().GetBool("json")
-				log.Debug(pFlag, jFlag)
-				var f out.Format
-				if jFlag {
-					f = out.Json
-				}
-				if pFlag {
-					f = out.PrettyJson
-				}
-				if !pFlag && !jFlag {
-					f = out.NoStyle
-				}
 				matrix := map[string]interface{}{}
 				matrix["TotalUptime"] = uptime
 				matrix["NodeMatrix"] = nodeMatrixSnapshot
 				matrix["ContentMatrix"] = contentMatrixSnapshot
-				err := out.Print(cmd, matrix, f)
+				err := out.Print(cmd, matrix, parseFormat(cmd))
 				if err != nil {
 					log.Error("Unable to get config ", err)
 					return err
