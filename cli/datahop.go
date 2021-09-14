@@ -26,7 +26,10 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "datahop",
 		Short: "This is datahop cli client",
-		Long:  `Add Long Description`,
+		Long: `
+The Datahop CLI client gives access to datahop
+network through a CLI Interface.
+		`,
 	}
 	SockPath = "uds.sock"
 	log      = logging.Logger("cmd")

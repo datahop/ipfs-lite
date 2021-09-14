@@ -11,7 +11,7 @@ from [ipfs-lite](https://github.com/hsanjuan/ipfs-lite).
 It offers all the features of main [ipfs-lite](https://github.com/hsanjuan/ipfs-lite). For certain requirements of
 datahop it adds some more features of full ipfs, such as config, repo, leveldb etc.
 
-## Running Example
+## Examples
 
 ### cli client
 ```

@@ -38,10 +38,9 @@ func InitDaemonCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "daemon",
 		Short: "Start datahop daemon",
-		Long:  `Add Long Description`,
-		PreRun: func(cmd *cobra.Command, args []string) {
-
-		},
+		Long: `
+This command is used to start the Datahop Daemon.
+		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo)
 			if err != nil {
