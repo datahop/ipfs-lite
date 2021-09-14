@@ -1,33 +1,70 @@
-getVersion() {
-	awk -F= '/^version=/{print $2}' .version
+getMobileVersion() {
+	awk -F= '/^mobile=/{print $2}' .version
 }
 
-nextPatchVersion() {
-	version=${1:-$(getVersion)}
+nextMobilePatchVersion() {
+	version=${1:-$(getMobileVersion)}
 	major_and_minor=$(echo $version | cut -d. -f1,2)
 	patch=$(echo $version | cut -d. -f3)
 	version=$(printf "%s.%d" $major_and_minor $(($patch + 1)))
 	echo $version
 }
 
-nextMinorVersion() {
-	version=${1:-$(getVersion)}
+nextMobileMinorVersion() {
+	version=${1:-$(getMobileVersion)}
 	major=$(echo $version | cut -d. -f1);
 	minor=$(echo $version | cut -d. -f2);
 	version=$(printf "%d.%d.0" $major $(($minor + 1))) ;
 	echo $version
 }
 
-nextMajorVersion() {
-	version=${1:-$(getVersion)}
+nextMobileMajorVersion() {
+	version=${1:-$(getMobileVersion)}
 	major=$(echo $version | cut -d. -f1);
 	version=$(printf "%d.0.0" $(($major + 1)))
 	echo $version
 }
 
-setVersion() {
+setMobileVersion() {
 	if [ -n "$1" ] ; then
-		sed -i.x -e "s/^version=.*/version=$1/g" .version
+		sed -i.x -e "s/^mobile=.*/mobile=$1/g" .version
+		rm -f .version.x
+	else
+		echo "ERROR: missing release version parameter " >&2
+		return 1
+	fi
+}
+
+getCliVersion() {
+	awk -F= '/^cli=/{print $2}' .version
+}
+
+nextCliPatchVersion() {
+	version=${1:-$(getCliVersion)}
+	major_and_minor=$(echo $version | cut -d. -f1,2)
+	patch=$(echo $version | cut -d. -f3)
+	version=$(printf "%s.%d" $major_and_minor $(($patch + 1)))
+	echo $version
+}
+
+nextCliMinorVersion() {
+	version=${1:-$(getCliVersion)}
+	major=$(echo $version | cut -d. -f1);
+	minor=$(echo $version | cut -d. -f2);
+	version=$(printf "%d.%d.0" $major $(($minor + 1))) ;
+	echo $version
+}
+
+nextCliMajorVersion() {
+	version=${1:-$(getCliVersion)}
+	major=$(echo $version | cut -d. -f1);
+	version=$(printf "%d.0.0" $(($major + 1)))
+	echo $version
+}
+
+setCliVersion() {
+	if [ -n "$1" ] ; then
+		sed -i.x -e "s/^cli=.*/cli=$1/g" .version
 		rm -f .version.x
 	else
 		echo "ERROR: missing release version parameter " >&2

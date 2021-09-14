@@ -393,6 +393,51 @@ func (p *Peer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekCloser, er
 	return ufsio.NewDagReader(ctx, n, p)
 }
 
+// DeleteFile removes content from blockstore by its root CID. The file
+// must have been added as a UnixFS DAG (default for IPFS).
+func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
+	found, err := p.BlockStore().Has(c)
+	if err != nil {
+		log.Error("Unable to find block ", err)
+		return err
+	}
+	if !found {
+		log.Warn("Content not found in datastore")
+		return errors.New("content not found in datastore")
+	}
+
+	getLinks := func(ctx context.Context, cid cid.Cid) ([]*ipld.Link, error) {
+		links, err := ipld.GetLinks(ctx, p, c)
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		return links, nil
+	}
+	gcs := cid.NewSet()
+	err = descendants(ctx, getLinks, gcs, []cid.Cid{c})
+	if err != nil {
+		log.Error("Descendants failed ", err)
+		return err
+	}
+	err = gcs.ForEach(func(c cid.Cid) error {
+		log.Debug(c)
+		err = p.BlockStore().DeleteBlock(c)
+		if err != nil {
+			log.Error("Unable to remove block ", err)
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error("Block removal failed ", err)
+		return err
+	}
+	return nil
+}
+
 // BlockStore offers access to the blockstore underlying the Peer's DAGService.
 func (p *Peer) BlockStore() blockstore.Blockstore {
 	return p.bstore
@@ -462,7 +507,7 @@ func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	log.Debug("Discovered Peer : ", pi)
 
 	for i := 0; i < 10; i++ {
-		<-time.After(2*time.Second)
+		<-time.After(2 * time.Second)
 		err := p.Connect(p.Ctx, pi)
 		if err != nil {
 			log.Error("Connect failed with peer %s for %s", pi.ID, err.Error())
@@ -470,6 +515,12 @@ func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 			break
 		}
 	}
+	//origin/master
+	/*<-time.After(time.Second)
+	err := p.Connect(p.Ctx, pi)
+	if err != nil {
+		log.Errorf("Connect failed with peer %s for %s", pi.ID, err.Error())
+	}*/
 }
 
 func (p *Peer) IsOnline() bool {

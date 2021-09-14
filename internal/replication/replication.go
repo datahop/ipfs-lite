@@ -2,6 +2,7 @@ package replication
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/repo"
@@ -18,6 +19,14 @@ import (
 var (
 	log = logging.Logger("replication")
 )
+
+type Metatag struct {
+	Size      int64
+	Type      string
+	Name      string
+	Hash      cid.Cid
+	Timestamp int64
+}
 
 type Manager struct {
 	ctx         context.Context
@@ -58,12 +67,13 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("Added: [%s] -> %s\n", k, string(v))
-		id, err := cid.Cast(v)
+		m := &Metatag{}
+		err := json.Unmarshal(v, m)
 		if err != nil {
+			log.Error(err.Error())
 			return
 		}
-		log.Debugf("Added: [%s] -> %s\n", k, id.String())
-		contentChan <- id
+		contentChan <- m.Hash
 		state := repo.State().Add([]byte(k.Name()))
 		log.Debugf("New State: %d\n", state)
 		err = repo.SetState()
@@ -72,8 +82,13 @@ func New(
 		}
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
-		// TODO reduce count
 		log.Debugf("Removed: [%s]\n", k)
+		state := repo.State().Add([]byte("removed " + k.Name()))
+		log.Debugf("New State: %d\n", state)
+		err = repo.SetState()
+		if err != nil {
+			log.Errorf("SetState failed %s\n", err.Error())
+		}
 	}
 	crdtStore, err := crdt.New(st, datastore.NewKey(prefix), dagSyncer, pubsubBC, crdtOpts)
 	if err != nil {
@@ -94,20 +109,47 @@ func (m *Manager) Close() error {
 	return m.crdt.Close()
 }
 
-func (m *Manager) Tag(tag string, id cid.Cid) error {
-	err := m.Put(datastore.NewKey(tag), id.Bytes())
+func (m *Manager) Tag(tag string, meta *Metatag) error {
+	bMeta, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	err = m.Put(datastore.NewKey(tag), bMeta)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *Manager) FindTag(tag string) (cid.Cid, error) {
+func (m *Manager) FindTag(tag string) (*Metatag, error) {
 	b, err := m.Get(datastore.NewKey(tag))
 	if err != nil {
-		return cid.Cid{}, err
+		return nil, err
 	}
-	return cid.Cast(b)
+	meta := &Metatag{}
+	err = json.Unmarshal(b, meta)
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+func (m *Manager) Index() (map[string]*Metatag, error) {
+	indexes := map[string]*Metatag{}
+	r, err := m.crdt.Query(query.Query{})
+	if err != nil {
+		return indexes, err
+	}
+	defer r.Close()
+	for j := range r.Next() {
+		m := &Metatag{}
+		err := json.Unmarshal(j.Entry.Value, m)
+		if err != nil {
+			continue
+		}
+		indexes[j.Key] = m
+	}
+	return indexes, nil
 }
 
 func (m *Manager) GetAllTags() ([]string, error) {
@@ -131,17 +173,22 @@ func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		id, err := cid.Cast(j.Entry.Value)
+		meta := &Metatag{}
+		err = json.Unmarshal(j.Entry.Value, meta)
 		if err != nil {
 			continue
 		}
-		cids = append(cids, id)
+		cids = append(cids, meta.Hash)
 	}
 	return cids, nil
 }
 
 func (m *Manager) Put(key datastore.Key, v []byte) error {
 	return m.crdt.Put(key, v)
+}
+
+func (m *Manager) Delete(key datastore.Key) error {
+	return m.crdt.Delete(key)
 }
 
 func (m *Manager) Get(key datastore.Key) ([]byte, error) {
