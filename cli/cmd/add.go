@@ -13,17 +13,19 @@ import (
 )
 
 func InitAddCmd(comm *common.Common) *cobra.Command {
-	return &cobra.Command{
+	addCommand := &cobra.Command{
 		Use:   "add",
 		Short: "Add content into datahop network",
-		Long:  `Add Long Description`,
-		Args:  cobra.MinimumNArgs(1),
+		Long: `
+This command is used to add a file/content in the 
+datahop network addressable by a given tag.
+		`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if comm.LitePeer == nil || !comm.LitePeer.IsOnline() {
 				return errors.New("daemon not running")
 			}
 			filePath := args[0]
-			log.Debug(filePath)
 			fileinfo, err := os.Lstat(filePath)
 			if err != nil {
 				log.Errorf("Failed executing share command Err:%s", err.Error())
@@ -57,7 +59,11 @@ func InitAddCmd(comm *common.Common) *cobra.Command {
 				Timestamp: time.Now().Unix(),
 				Owner:     comm.LitePeer.Host.ID(),
 			}
-			err = comm.LitePeer.Manager.Tag(f.Name(), meta)
+			tag, _ := cmd.Flags().GetString("tag")
+			if tag == "" {
+				tag = f.Name()
+			}
+			err = comm.LitePeer.Manager.Tag(tag, meta)
 			if err != nil {
 				return err
 			}
@@ -65,4 +71,7 @@ func InitAddCmd(comm *common.Common) *cobra.Command {
 			return nil
 		},
 	}
+	addCommand.Flags().StringP("tag", "t", "",
+		"Tag for the file/content")
+	return addCommand
 }

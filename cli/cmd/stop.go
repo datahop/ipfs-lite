@@ -9,7 +9,9 @@ func InitStopCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
 		Short: "Stop datahop daemon",
-		Long:  `Add Long Description`,
+		Long: `
+"The commend is used to stop datahop daemon"
+		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Printf("Daemon Stopped")
 			comm.Cancel()
