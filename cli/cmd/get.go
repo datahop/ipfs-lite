@@ -16,6 +16,9 @@ datahop network by a simple tag"
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			// TODO get command
+			// Git command will have an --l or -location flag to save
+			// the file at a specific location , else it will stream
+			// the content into stdout
 			cmd.Printf("Get Placeholder")
 		},
 	}
