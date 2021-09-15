@@ -173,8 +173,8 @@ func (b *discoveryService) AdvertiserPeerSameStatus() {
 	b.advertiser.NotifyEmptyValue()
 }
 
-func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []byte) {
-	log.Debug("advertising new peer device different status", string(value))
+func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []byte, peerinfo string) {
+	log.Debug("advertising new peer device different status", string(value), peerinfo)
 	//hop.advertisingDriver.NotifyNetworkInformation("topic1",GetPeerInfo())
 	//b.advertisingInfo[topic] = value
 	b.discovery.Stop()

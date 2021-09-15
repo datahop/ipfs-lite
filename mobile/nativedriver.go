@@ -25,5 +25,5 @@ type DiscoveryNotifier interface {
 
 type AdvertisementNotifier interface {
 	AdvertiserPeerSameStatus()
-	AdvertiserPeerDifferentStatus(topic string, value []byte)
+	AdvertiserPeerDifferentStatus(topic string, value []byte, peerinfo string)
 }
