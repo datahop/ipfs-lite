@@ -12,10 +12,11 @@ import (
 	"sync"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
+
+	ipfslite "github.com/datahop/ipfs-lite"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
@@ -50,11 +51,15 @@ type Notifier struct{}
 func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *Notifier) Connected(net network.Network, c network.Conn) {
+	// NodeMatrix management
+	hop.peer.Repo.Matrix().NodeConnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerConnected(c.RemotePeer().String())
 	}
 }
 func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
+	// NodeMatrix management
+	hop.peer.Repo.Matrix().NodeDisconnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
 	}
@@ -74,7 +79,11 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	if err != nil {
 		return
 	}
-	hop.peer.HandlePeerFound(peerInfo)
+	err = hop.peer.HandlePeerFoundWithError(peerInfo)
+	if err != nil {
+		hop.peer.Repo.Matrix().NodeConnectionFailed(peerInfo.ID.String())
+		return
+	}
 }
 
 /*type connectionNotifier struct{}
@@ -116,6 +125,7 @@ type datahop struct {
 func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -444,6 +454,7 @@ func Add(tag string, content []byte) error {
 			Name:      tag,
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
+			Owner:     hop.peer.Host.ID(),
 		}
 		err = hop.peer.Manager.Tag(tag, meta)
 		if err != nil {
@@ -511,6 +522,7 @@ func Version() string {
 
 // Stop the node
 func Stop() {
+	hop.peer.Repo.Matrix().Flush()
 	hop.peer.Cancel()
 	select {
 	case <-hop.peer.Stopped:
@@ -527,6 +539,25 @@ func Close() {
 func UpdateTopicStatus(topic string, value string) {
 	hop.discService.AddAdvertisingInfo(topic, value)
 }
+// Matrix returns matrix measurements
+func Matrix() (string, error) {
+	if hop != nil && hop.peer != nil {
+		nodeMatrixSnapshot := hop.peer.Repo.Matrix().NodeMatrixSnapshot()
+		contentMatrixSnapshot := hop.peer.Repo.Matrix().ContentMatrixSnapshot()
+		uptime := hop.peer.Repo.Matrix().GetTotalUptime()
+		matrix := map[string]interface{}{}
+		matrix["TotalUptime"] = uptime
+		matrix["NodeMatrix"] = nodeMatrixSnapshot
+		matrix["ContentMatrix"] = contentMatrixSnapshot
+		b, err := json.Marshal(matrix)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	return "", errors.New("datahop ipfs-lite node is not running")
+}
+
 
 func GetDiscoveryNotifier() DiscoveryNotifier {
 	return hop.discService

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/replication"
-
 	"github.com/datahop/ipfs-lite/internal/repo"
+
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
@@ -22,7 +22,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
-	provider "github.com/ipfs/go-ipfs-provider"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
@@ -73,7 +72,6 @@ type Peer struct {
 	Store           datastore.Batching
 	DHT             routing.Routing
 	Repo            repo.Repo
-	Provider        provider.System
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
@@ -202,6 +200,8 @@ func New(
 	}
 	p.Manager.StartContentWatcher()
 
+	p.Repo.Matrix().StartTicker()
+
 	p.mtx.Lock()
 	p.online = true
 	p.mtx.Unlock()
@@ -253,6 +253,29 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	p.Manager = manager
 	p.CrdtTopic = opts.crdtTopic
 	return nil
+}
+
+func (p *Peer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
+	providerAddresses := []peer.ID{}
+	providers := p.DHT.FindProvidersAsync(ctx, id, 0)
+FindProvider:
+	for {
+		select {
+		case provider := <-providers:
+			if provider.ID == p.Host.ID() {
+				continue
+			}
+			if provider.ID.String() == "" {
+				break FindProvider
+			}
+			providerAddresses = append(providerAddresses, provider.ID)
+		case <-time.After(time.Second):
+			break FindProvider
+		case <-ctx.Done():
+			break FindProvider
+		}
+	}
+	return providerAddresses
 }
 
 func (p *Peer) autoclose() {
@@ -521,6 +544,18 @@ func (p *Peer) HandlePeerFound(pi peer.AddrInfo) {
 	if err != nil {
 		log.Errorf("Connect failed with peer %s for %s", pi.ID, err.Error())
 	}*/
+}
+
+// HandlePeerFoundWithError tries to connect to a given peerinfo, returns error if failed
+func (p *Peer) HandlePeerFoundWithError(pi peer.AddrInfo) error {
+	log.Debug("Discovered Peer : ", pi)
+	<-time.After(time.Second)
+	err := p.Connect(p.Ctx, pi)
+	if err != nil {
+		log.Errorf("Connect failed with peer %s for %s", pi.ID, err.Error())
+		return err
+	}
+	return nil
 }
 
 func (p *Peer) IsOnline() bool {

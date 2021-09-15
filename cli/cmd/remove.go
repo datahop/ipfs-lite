@@ -12,8 +12,11 @@ func InitRemoveCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",
 		Short: "Remove content from datahop network",
-		Long:  `Add Long Description`,
-		Args:  cobra.MinimumNArgs(1),
+		Long: `
+"The commend is used to remove file/content from the
+datahop network by a simple tag"
+		`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if comm.LitePeer == nil || !comm.LitePeer.IsOnline() {
 				return errors.New("daemon not running")

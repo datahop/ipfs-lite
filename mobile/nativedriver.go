@@ -2,16 +2,16 @@ package datahop
 
 type AdvertisingDriver interface {
 	// Start the native driver
-	Start(localPID string)
+	Start(localPID, peerinfo string)
 	AddAdvertisingInfo(topic string, info string)
 	// Stop the native driver
 	Stop()
-	NotifyNetworkInformation(network string, pass string, info string)
+	NotifyNetworkInformation(network string, pass string)
 	NotifyEmptyValue()
 }
 type DiscoveryDriver interface {
 	// Start the native driver
-	Start(localPID string, scanTime int, interval int)
+	Start(localPID, peerinfo string, scanTime int, interval int)
 	AddAdvertisingInfo(topic string, info string)
 	// Stop the native driver
 	Stop()

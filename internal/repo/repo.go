@@ -11,6 +11,7 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/facebookgo/atomicfile"
 	"github.com/ipfs/go-datastore"
 	ds "github.com/ipfs/go-datastore"
@@ -43,6 +44,7 @@ type Repo interface {
 	Close() error
 	State() *bloom.BloomFilter
 	SetState() error
+	Matrix() *matrix.MatrixKeeper
 }
 
 // Datastore is the interface required from a datastore to be
@@ -62,6 +64,7 @@ type FSRepo struct {
 	config   *config.Config
 	ds       Datastore
 	state    *bloom.BloomFilter
+	mKeeper  *matrix.MatrixKeeper
 	io.Closer
 }
 
@@ -126,7 +129,11 @@ func (r *FSRepo) Close() error {
 }
 
 func (r *FSRepo) close() error {
-	err := r.ds.Close()
+	err := r.Matrix().Close()
+	if err != nil {
+		return err
+	}
+	err = r.ds.Close()
 	if err != nil {
 		return err
 	}
@@ -196,9 +203,14 @@ func open(repoPath string) (Repo, error) {
 		r.close()
 		return nil, err
 	}
+	r.mKeeper = matrix.NewMatrixKeeper(r.ds)
 	keepLocked = true
 	r.closed = false
 	return r, nil
+}
+
+func (r *FSRepo) Matrix() *matrix.MatrixKeeper {
+	return r.mKeeper
 }
 
 func (r *FSRepo) openDatastore() error {

@@ -3,6 +3,8 @@ package datahop
 import (
 	"io"
 	"sync"
+
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 const ServiceTag = "_datahop-discovery._ble"
@@ -37,7 +39,7 @@ type discoveryService struct {
 	interval        int
 	stopSignal      chan struct{}
 	advertisingInfo map[string]string
-	connected		bool
+	connected		bool //wifi connection status connected/disconnected
 	numConnected	int
 	service			ServiceType
 	// handleConnectionRequest will take care of the incoming connection request.
@@ -68,6 +70,7 @@ func NewDiscoveryService(
 		wifiCon:         con,
 		scan:            scanTime,
 		interval:        interval,
+		connected:		 false,
 		stopSignal:      make(chan struct{}),
 		advertisingInfo: make(map[string]string),
 	}
@@ -76,22 +79,22 @@ func NewDiscoveryService(
 
 func (b *discoveryService) Start() {
 	log.Debug("discoveryService Start")
-	b.discovery.Start(b.tag, b.scan, b.interval)
-	b.advertiser.Start(b.tag)
+	b.discovery.Start(b.tag,PeerInfo(), b.scan, b.interval)
+	b.advertiser.Start(b.tag,PeerInfo())
 	b.service = "Both"
 }
 
 func (b *discoveryService) StartOnlyAdvertising() {
 	log.Debug("discoveryService Start advertising only")
 	//b.discovery.Start(b.tag, b.scan, b.interval)
-	b.advertiser.Start(b.tag)
+	b.advertiser.Start(b.tag,PeerInfo())
 	b.service = "OnlyAdv"
 
 }
 
 func (b *discoveryService) StartOnlyScanning() {
 	log.Debug("discoveryService Start scanning only")
-	b.discovery.Start(b.tag, b.scan, b.interval)
+	b.discovery.Start(b.tag,PeerInfo(), b.scan, b.interval)
 	b.service = "OnlyScan"
 	//b.advertiser.Start(b.tag)
 }
@@ -103,9 +106,9 @@ func (b *discoveryService) AddAdvertisingInfo(topic string, info string) {
 		b.discovery.AddAdvertisingInfo(topic, info)
 		b.advertiser.AddAdvertisingInfo(topic, info)
 		b.advertisingInfo[topic] = info
-	} else if b.connected {
+	} /*else if b.connected {
 		b.wifiCon.Disconnect()
-	}
+	}*/
 	//b.advertiser.Stop()
 	//b.advertiser.Start(b.tag)
 }
@@ -161,8 +164,17 @@ func (b *discoveryService) DiscoveryPeerSameStatus(device string, topic string) 
 
 func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic string, network string, pass string, peerinfo string) {
 	log.Debug("discovery new peer device different status", device, topic, network, pass, peerinfo)
-	b.discovery.Stop()
-	hop.wifiCon.Connect(network, pass, "192.168.49.2")
+
+	/*b.discovery.Stop()
+	hop.wifiCon.Connect(network, pass, "192.168.49.2")*/
+
+	var peerInfo peer.AddrInfo
+	err := peerInfo.UnmarshalJSON([]byte(peerinfo))
+	if err != nil {
+		return
+	}
+	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
+	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)
 	}
@@ -181,13 +193,14 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 	b.wifiHS.Start()
 }
 
-func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int){
+func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int) {
 	log.Debug("Connection success")
+	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.handleConnectionRequest()
 	b.connected = true
 }
 
-func (b *discoveryService) OnConnectionFailure(code int,started int64, failed int64) {
+func (b *discoveryService) OnConnectionFailure(code int, started int64, failed int64) {
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 	b.connected = false
@@ -197,7 +210,7 @@ func (b *discoveryService) OnDisconnect() {
 	log.Debug("OnDisconnect")
 	b.connected = false
 	if b.service != "OnlyAdv" {
-		b.discovery.Start(b.tag, b.scan, b.interval)
+		b.discovery.Start(b.tag, PeerInfo(),b.scan, b.interval)
 	}
 }
 
@@ -219,13 +232,13 @@ func (b *discoveryService) StopOnFailure(code int) {
 
 func (b *discoveryService) NetworkInfo(network string, password string) {
 	log.Debug("hotspot info ", network, password)
-	b.advertiser.NotifyNetworkInformation(network, password, PeerInfo())
+	b.advertiser.NotifyNetworkInformation(network, password)
 }
 
 func (b *discoveryService) ClientsConnected(num int) {
 	log.Debug("hotspot clients connected ", num)
 	if b.numConnected>0 && num == 0 && b.service != "onlyAdv"{
-		b.discovery.Start(b.tag, b.scan, b.interval)
+		b.discovery.Start(b.tag,PeerInfo(), b.scan, b.interval)
 	}
 	b.numConnected = num
 }
