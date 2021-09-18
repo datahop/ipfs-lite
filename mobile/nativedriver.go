@@ -18,7 +18,6 @@ type DiscoveryDriver interface {
 }
 
 type DiscoveryNotifier interface {
-	//PeerDiscovered(device string)
 	DiscoveryPeerSameStatus(device string, topic string)
 	DiscoveryPeerDifferentStatus(device string, topic string, network string, pass string, info string)
 }

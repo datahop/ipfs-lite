@@ -10,13 +10,12 @@ import (
 	"testing"
 	"time"
 
-	ma "github.com/multiformats/go-multiaddr"
-
 	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/h2non/filetype"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type MockConnManager struct{}
@@ -31,11 +30,11 @@ func (m MockConnManager) PeerDisconnected(s string) {
 
 type MockDisDriver struct{}
 
-func (m MockDisDriver) Start(localPID string, scanTime int, interval int) {
+func (m MockDisDriver) Start(localPID, peerInfo string, scanTime int, interval int) {
 	// do nothing
 }
 
-func (m MockDisDriver) AddAdvertisingInfo(topic string, info []byte) {
+func (m MockDisDriver) AddAdvertisingInfo(topic string, info string) {
 	// do nothing
 }
 
@@ -45,11 +44,11 @@ func (m MockDisDriver) Stop() {
 
 type MockAdvDriver struct{}
 
-func (m MockAdvDriver) Start(localPID string) {
+func (m MockAdvDriver) Start(localPID, peerInfo string) {
 	// do nothing
 }
 
-func (m MockAdvDriver) AddAdvertisingInfo(topic string, info []byte) {
+func (m MockAdvDriver) AddAdvertisingInfo(topic string, info string) {
 	// do nothing
 }
 
@@ -57,7 +56,7 @@ func (m MockAdvDriver) Stop() {
 	// do nothing
 }
 
-func (m MockAdvDriver) NotifyNetworkInformation(network string, pass string, info string) {
+func (m MockAdvDriver) NotifyNetworkInformation(network string, pass string) {
 	// do nothing
 }
 
@@ -199,7 +198,7 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = StartDiscovery(true,true,true)
+	err = StartDiscovery(true, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
