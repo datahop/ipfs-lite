@@ -38,10 +38,9 @@ func InitDaemonCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "daemon",
 		Short: "Start datahop daemon",
-		Long:  `Add Long Description`,
-		PreRun: func(cmd *cobra.Command, args []string) {
-
-		},
+		Long: `
+This command is used to start the Datahop Daemon.
+		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo)
 			if err != nil {
@@ -56,6 +55,21 @@ func InitDaemonCmd(comm *common.Common) *cobra.Command {
 				log.Error(err)
 				os.Exit(1)
 			}
+			datahopCli := `
+       __              __                __                                              __  __ 
+      /  |            /  |              /  |                                            /  |/  |
+  ____$$ |  ______   _$$ |_     ______  $$ |____    ______    ______            _______ $$ |$$/ 
+ /    $$ | /      \ / $$   |   /      \ $$      \  /      \  /      \  ______  /       |$$ |/  |
+/$$$$$$$ | $$$$$$  |$$$$$$/    $$$$$$  |$$$$$$$  |/$$$$$$  |/$$$$$$  |/      |/$$$$$$$/ $$ |$$ |
+$$ |  $$ | /    $$ |  $$ | __  /    $$ |$$ |  $$ |$$ |  $$ |$$ |  $$ |$$$$$$/ $$ |      $$ |$$ |
+$$ \__$$ |/$$$$$$$ |  $$ |/  |/$$$$$$$ |$$ |  $$ |$$ \__$$ |$$ |__$$ |        $$ \_____ $$ |$$ |
+$$    $$ |$$    $$ |  $$  $$/ $$    $$ |$$ |  $$ |$$    $$/ $$    $$/         $$       |$$ |$$ |
+ $$$$$$$/  $$$$$$$/    $$$$/   $$$$$$$/ $$/   $$/  $$$$$$/  $$$$$$$/           $$$$$$$/ $$/ $$/ 
+                                                            $$ |                                
+                                                            $$ |                                
+                                                            $$/                                 
+`
+			fmt.Println(datahopCli)
 			fmt.Println("Datahop daemon running on port", cfg.SwarmPort)
 			var sigChan chan os.Signal
 			sigChan = make(chan os.Signal, 1)

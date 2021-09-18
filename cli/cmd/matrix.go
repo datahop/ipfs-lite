@@ -9,8 +9,11 @@ import (
 func InitMatrixCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "matrix",
-		Short: "Get node connectivity and content matirx",
-		Long:  `Add Long Description`,
+		Short: "Get node connectivity and content matrix",
+		Long: `
+"The commend is used to get connectivity and 
+content matrix"
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if comm.LitePeer != nil {
 				nodeMatrixSnapshot := comm.LitePeer.Repo.Matrix().NodeMatrixSnapshot()

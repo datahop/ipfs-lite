@@ -24,17 +24,16 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info",
 		Short: "Get datahop node information",
-		Long:  `Add Long Description`,
+		Long: `
+"The commend is used to get the local node information"
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			info := &Info{}
-
 			if comm.LitePeer != nil {
 				// is daemon running
 				info.IsDaemonRunning = comm.LitePeer.IsOnline()
-
 				// peers
 				info.Peers = comm.LitePeer.Peers()
-
 				// addresses
 				addrs := []string{}
 				if comm.LitePeer != nil {
@@ -45,7 +44,6 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 					}
 					info.Addresses = addrs
 				}
-
 				// disk usage
 				du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
 				if err != nil {
@@ -56,11 +54,7 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 			} else {
 				info.IsDaemonRunning = false
 			}
-			// config
-			// id
-			// address
-			// public key
-			// port
+
 			cfg, err := comm.Repo.Config()
 			if err != nil {
 				log.Error("Unable to get config ", err)

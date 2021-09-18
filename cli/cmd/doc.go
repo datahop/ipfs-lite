@@ -12,9 +12,10 @@ import (
 func InitializeDocCommand(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doc",
-		Short: "Use to generate Document",
+		Short: "Use to generate documentation",
 		Long: ` 
-This command is used to generate documentation for the CLI.
+This command is used to generate documentation
+for the CLI.
          `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

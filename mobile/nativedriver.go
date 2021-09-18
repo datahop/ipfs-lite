@@ -2,28 +2,27 @@ package datahop
 
 type AdvertisingDriver interface {
 	// Start the native driver
-	Start(localPID string)
-	AddAdvertisingInfo(topic string, info []byte)
+	Start(localPID, peerinfo string)
+	AddAdvertisingInfo(topic string, info string)
 	// Stop the native driver
 	Stop()
-	NotifyNetworkInformation(network string, pass string, info string)
+	NotifyNetworkInformation(network string, pass string)
 	NotifyEmptyValue()
 }
 type DiscoveryDriver interface {
 	// Start the native driver
-	Start(localPID string, scanTime int, interval int)
-	AddAdvertisingInfo(topic string, info []byte)
+	Start(localPID, peerinfo string, scanTime int, interval int)
+	AddAdvertisingInfo(topic string, info string)
 	// Stop the native driver
 	Stop()
 }
 
 type DiscoveryNotifier interface {
-	PeerDiscovered(device string)
-	PeerSameStatusDiscovered(device string, topic string)
-	PeerDifferentStatusDiscovered(device string, topic string, network string, pass string, info string)
+	DiscoveryPeerSameStatus(device string, topic string)
+	DiscoveryPeerDifferentStatus(device string, topic string, network string, pass string, info string)
 }
 
 type AdvertisementNotifier interface {
-	SameStatusDiscovered()
-	DifferentStatusDiscovered(topic string, value []byte)
+	AdvertiserPeerSameStatus()
+	AdvertiserPeerDifferentStatus(topic string, value []byte, peerinfo string)
 }
