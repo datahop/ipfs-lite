@@ -39,6 +39,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.15
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
-	golang.org/x/tools v0.1.0 // indirect
+	golang.org/x/mobile v0.0.0-20210902104108-5d9a33257ab5 // indirect
 	google.golang.org/protobuf v1.26.0
 )
