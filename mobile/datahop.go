@@ -566,15 +566,3 @@ func GetWifiHotspotNotifier() WifiHotspotNotifier {
 func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
 }
-
-func HistoryArray() {
-	go func() {
-		for i := 0; i < 10; i++ {
-			Add(time.Now().String(), []byte(time.Now().String()))
-			<-time.After(time.Minute * 2)
-			Stop()
-			<-time.After(time.Second * 15)
-			Start(false)
-		}
-	}()
-}
