@@ -176,7 +176,7 @@ func TestDatastore(t *testing.T) {
 	defer r.Close()
 	ds := r.Datastore()
 	if ds == nil {
-		t.Fatal(err)
+		t.Fatal("datastore is null")
 	}
 }
 

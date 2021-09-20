@@ -22,11 +22,11 @@ func (m MockConnManager) PeerDisconnected(s string) {
 
 type MockDisDriver struct{}
 
-func (m MockDisDriver) Start(localPID string, scanTime int, interval int) {
+func (m MockDisDriver) Start(localPID, peerInfo string, scanTime int, interval int) {
 	// do nothing
 }
 
-func (m MockDisDriver) AddAdvertisingInfo(topic string, info []byte) {
+func (m MockDisDriver) AddAdvertisingInfo(topic string, info string) {
 	// do nothing
 }
 
@@ -36,11 +36,11 @@ func (m MockDisDriver) Stop() {
 
 type MockAdvDriver struct{}
 
-func (m MockAdvDriver) Start(localPID string) {
+func (m MockAdvDriver) Start(localPID, peerInfo string) {
 	// do nothing
 }
 
-func (m MockAdvDriver) AddAdvertisingInfo(topic string, info []byte) {
+func (m MockAdvDriver) AddAdvertisingInfo(topic string, info string) {
 	// do nothing
 }
 
@@ -48,7 +48,7 @@ func (m MockAdvDriver) Stop() {
 	// do nothing
 }
 
-func (m MockAdvDriver) NotifyNetworkInformation(network string, pass string, info string) {
+func (m MockAdvDriver) NotifyNetworkInformation(network string, pass string) {
 	// do nothing
 }
 
@@ -58,12 +58,16 @@ func (m MockAdvDriver) NotifyEmptyValue() {
 
 type MockWifiConn struct{}
 
-func (m MockWifiConn) Connect(network string, pass string, ip string) {
+func (m MockWifiConn) Connect(network, pass, ip, host string) {
 	// do nothing
 }
 
 func (m MockWifiConn) Disconnect() {
 	// do nothing
+}
+
+func (m MockWifiConn) Host() string {
+	return ""
 }
 
 type MockWifiHotspot struct{}

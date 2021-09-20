@@ -13,6 +13,7 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
@@ -26,6 +27,7 @@ type Metatag struct {
 	Name      string
 	Hash      cid.Cid
 	Timestamp int64
+	Owner     peer.ID
 }
 
 type Manager struct {
@@ -34,16 +36,18 @@ type Manager struct {
 	crdt        *crdt.Datastore
 	contentChan chan cid.Cid
 	syncer      Syncer
+	repo        repo.Repo
 }
 
 type Syncer interface {
 	GetFile(context.Context, cid.Cid) (ufsio.ReadSeekCloser, error)
+	FindProviders(context.Context, cid.Cid) []peer.ID
 }
 
 func New(
 	ctx context.Context,
 	cancel context.CancelFunc,
-	repo repo.Repo,
+	r repo.Repo,
 	h host.Host,
 	dagSyncer crdt.DAGSyncer,
 	st datastore.Batching,
@@ -74,18 +78,19 @@ func New(
 			return
 		}
 		contentChan <- m.Hash
-		state := repo.State().Add([]byte(k.Name()))
+		state := r.State().Add([]byte(k.Name()))
 		log.Debugf("New State: %d\n", state)
-		err = repo.SetState()
+		err = r.SetState()
 		if err != nil {
 			log.Errorf("SetState failed %s\n", err.Error())
 		}
+		r.Matrix().ContentDownloadStarted(m.Hash.String(), m.Size)
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("Removed: [%s]\n", k)
-		state := repo.State().Add([]byte("removed " + k.Name()))
+		state := r.State().Add([]byte("removed " + k.Name()))
 		log.Debugf("New State: %d\n", state)
-		err = repo.SetState()
+		err = r.SetState()
 		if err != nil {
 			log.Errorf("SetState failed %s\n", err.Error())
 		}
@@ -101,6 +106,7 @@ func New(
 		contentChan: contentChan,
 		syncer:      syncer,
 		cancel:      cancel,
+		repo:        r,
 	}, nil
 }
 
@@ -207,10 +213,18 @@ func (m *Manager) StartContentWatcher() {
 				return
 			case id := <-m.contentChan:
 				log.Debugf("got %s\n", id.String())
-				_, err := m.syncer.GetFile(m.ctx, id)
-				if err != nil {
-					log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
-				}
+				go func() {
+					providers := m.syncer.FindProviders(m.ctx, id)
+					for _, provider := range providers {
+						m.repo.Matrix().ContentAddProvider(id.String(), provider)
+					}
+					_, err := m.syncer.GetFile(m.ctx, id)
+					if err != nil {
+						log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
+						return
+					}
+					m.repo.Matrix().ContentDownloadFinished(id.String())
+				}()
 			}
 		}
 	}()

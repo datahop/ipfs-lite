@@ -363,6 +363,7 @@ func TestState(t *testing.T) {
 		Name:      "tag",
 		Hash:      n.Cid(),
 		Timestamp: time.Now().Unix(),
+		Owner:     p1.Host.ID(),
 	}
 	err = p1.Manager.Tag("tag", meta)
 	if err != nil {
@@ -382,6 +383,7 @@ func TestState(t *testing.T) {
 			Name:      fmt.Sprintf("tag%d", i),
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
+			Owner:     p1.Host.ID(),
 		}
 		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 		if err != nil {
@@ -418,6 +420,7 @@ func TestStateDualPeer(t *testing.T) {
 		Name:      "tag",
 		Hash:      n.Cid(),
 		Timestamp: time.Now().Unix(),
+		Owner:     p1.Host.ID(),
 	}
 	err = p1.Manager.Tag("tag", meta)
 	if err != nil {
@@ -437,6 +440,7 @@ func TestStateDualPeer(t *testing.T) {
 			Name:      "tag",
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
+			Owner:     p1.Host.ID(),
 		}
 		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 		if err != nil {

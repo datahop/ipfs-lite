@@ -9,6 +9,7 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-cid"
@@ -18,6 +19,7 @@ import (
 	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 type mockDAGSyncer struct{}
@@ -64,6 +66,11 @@ func (m mockSyncer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekClose
 	return nil, nil
 }
 
+func (m mockSyncer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
+	// do something
+	return []peer.ID{}
+}
+
 type mockRepo struct {
 	path  string
 	state *bloom.BloomFilter
@@ -76,6 +83,16 @@ func (m *mockRepo) Path() string {
 
 func (m *mockRepo) Config() (*config.Config, error) {
 	return nil, nil
+}
+
+func (m *mockRepo) Matrix() *matrix.MatrixKeeper {
+	return &matrix.MatrixKeeper{
+		NodeMatrix: &matrix.NodeMatrix{
+			TotalUptime:     0,
+			NodesDiscovered: map[string]*matrix.DiscoveredNodeMatrix{},
+		},
+		ContentMatrix: map[string]*matrix.ContentMatrix{},
+	}
 }
 
 func (m *mockRepo) Datastore() repo.Datastore {
@@ -144,6 +161,7 @@ func TestNewManager(t *testing.T) {
 		Name:      "some content",
 		Hash:      id,
 		Timestamp: time.Now().Unix(),
+		Owner:     h.ID(),
 	}
 	err = m.Tag("mtag", meta)
 	if err != nil {
@@ -217,6 +235,7 @@ func TestGetAllCids(t *testing.T) {
 		Name:      "mtag1",
 		Hash:      id,
 		Timestamp: time.Now().Unix(),
+		Owner:     h.ID(),
 	}
 	meta2 := &Metatag{
 		Size:      0,
@@ -224,6 +243,7 @@ func TestGetAllCids(t *testing.T) {
 		Name:      "mtag2",
 		Hash:      id2,
 		Timestamp: time.Now().Unix(),
+		Owner:     h.ID(),
 	}
 	err = m.Tag("mtag1", meta1)
 	if err != nil {

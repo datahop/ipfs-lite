@@ -26,9 +26,23 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-var DefaultBootstrapAddresses = []string{
-	"/ip4/52.66.216.67/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
-}
+var (
+	DefaultBootstrapAddresses = []string{
+		"/ip4/52.66.216.67/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
+	}
+
+	// libp2pOptionsExtra provides some useful libp2p options
+	// to create a fully featured libp2p host. It can be used with
+	// SetupLibp2p.
+	libp2pOptionsExtra = []libp2p.Option{
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.DisableRelay(),
+		libp2p.NATPortMap(),
+		libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
+		libp2p.EnableNATService(),
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+	}
+)
 
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
 // with NewLibp2pHost.
@@ -39,18 +53,6 @@ func DefaultBootstrapPeers() []peer.AddrInfo {
 	}
 	defaults, _ := peer.AddrInfosFromP2pAddrs(maddrs...)
 	return defaults
-}
-
-// libp2pOptionsExtra provides some useful libp2p options
-// to create a fully featured libp2p host. It can be used with
-// SetupLibp2p.
-var libp2pOptionsExtra = []libp2p.Option{
-	libp2p.Transport(tcp.NewTCPTransport),
-	libp2p.DisableRelay(),
-	libp2p.NATPortMap(),
-	libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
-	libp2p.EnableNATService(),
-	libp2p.Security(libp2ptls.ID, libp2ptls.New),
 }
 
 // SetupLibp2p returns a routed host and DHT instances that can be used to
@@ -68,10 +70,8 @@ func SetupLibp2p(
 	ds datastore.Batching,
 	opts ...libp2p.Option,
 ) (host.Host, *dualdht.DHT, error) {
-
 	var ddht *dualdht.DHT
 	var err error
-
 	finalOpts := []libp2p.Option{
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
@@ -81,7 +81,6 @@ func SetupLibp2p(
 		}),
 	}
 	finalOpts = append(finalOpts, opts...)
-
 	h, err := libp2p.New(
 		ctx,
 		finalOpts...,
@@ -89,7 +88,6 @@ func SetupLibp2p(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return h, ddht, nil
 }
 
@@ -118,7 +116,6 @@ func descendants(ctx context.Context, getLinks dag.GetLinks, set *cid.Set, roots
 
 		return getLinks(ctx, c)
 	}
-
 	verboseCidError := func(err error) error {
 		if strings.Contains(err.Error(), verifcid.ErrBelowMinimumHashLength.Error()) ||
 			strings.Contains(err.Error(), verifcid.ErrPossiblyInsecureHashFunction.Error()) {
@@ -129,7 +126,6 @@ func descendants(ctx context.Context, getLinks dag.GetLinks, set *cid.Set, roots
 		}
 		return err
 	}
-
 	for _, c := range roots {
 		// Walk recursively walks the dag and adds the keys to the given set
 		err := dag.Walk(ctx, verifyGetLinks, c, set.Visit, dag.Concurrent())
@@ -139,6 +135,5 @@ func descendants(ctx context.Context, getLinks dag.GetLinks, set *cid.Set, roots
 			return err
 		}
 	}
-
 	return nil
 }

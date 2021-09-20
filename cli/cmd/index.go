@@ -12,7 +12,9 @@ func InitIndexCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "index",
 		Short: "Index datahop node content",
-		Long:  `Add Long Description`,
+		Long: `
+"The commend is used to get the index of tag-content"
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if comm.LitePeer == nil || !comm.LitePeer.IsOnline() {
 				return errors.New("daemon not running")
@@ -23,20 +25,7 @@ func InitIndexCmd(comm *common.Common) *cobra.Command {
 			}
 
 			// output
-			pFlag, _ := cmd.Flags().GetBool("pretty")
-			jFlag, _ := cmd.Flags().GetBool("json")
-			log.Debug(pFlag, jFlag)
-			var f out.Format
-			if jFlag {
-				f = out.Json
-			}
-			if pFlag {
-				f = out.PrettyJson
-			}
-			if !pFlag && !jFlag {
-				f = out.NoStyle
-			}
-			err = out.Print(cmd, tags, f)
+			err = out.Print(cmd, tags, parseFormat(cmd))
 			if err != nil {
 				log.Error("Unable to get config ", err)
 				return err

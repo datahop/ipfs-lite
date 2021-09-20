@@ -1,12 +1,13 @@
 package datahop
 
 type WifiConnection interface {
-	Connect(network string, pass string, ip string)
+	Connect(network, pass, ip, host string)
 	Disconnect()
+	Host() string
 }
 
 type WifiConnectionNotifier interface {
-	OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int)
-	OnConnectionFailure(code int,started int64, failed int64)
+	OnConnectionSuccess(started, completed int64, rssi, speed, freq int)
+	OnConnectionFailure(code int, started, failed int64)
 	OnDisconnect()
 }
