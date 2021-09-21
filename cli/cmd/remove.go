@@ -13,8 +13,8 @@ func InitRemoveCmd(comm *common.Common) *cobra.Command {
 		Use:   "remove",
 		Short: "Remove content from datahop network",
 		Long: `
-"The commend is used to remove file/content from the
-datahop network by a simple tag"
+This command is used to remove file/content from the
+datahop network by a simple tag
 		`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

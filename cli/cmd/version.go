@@ -11,7 +11,7 @@ func InitVersionCmd(comm *common.Common) *cobra.Command {
 		Use:   "version",
 		Short: "Datahop cli version",
 		Long: `
-"The commend is used to get cli version"
+This command is used to get cli version
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Println(version.CliVersion)

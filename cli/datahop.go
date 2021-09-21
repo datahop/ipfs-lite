@@ -76,6 +76,7 @@ func main() {
 		cmd.InitVersionCmd(comm),
 		cmd.InitMatrixCmd(comm),
 		cmd.InitializeDocCommand(comm),
+		cmd.InitGetCmd(comm),
 	)
 
 	for _, i := range allCommands {

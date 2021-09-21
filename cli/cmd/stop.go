@@ -10,7 +10,7 @@ func InitStopCmd(comm *common.Common) *cobra.Command {
 		Use:   "stop",
 		Short: "Stop datahop daemon",
 		Long: `
-"The commend is used to stop datahop daemon"
+This command is used to stop datahop daemon
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Printf("Daemon Stopped")

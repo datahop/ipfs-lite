@@ -27,7 +27,6 @@ for the CLI.
 			}
 			err = out.Print(cmd, fmt.Sprintf("Documentation generated at %s", dir), parseFormat(cmd))
 			if err != nil {
-				log.Error("Unable to get config ", err)
 				return err
 			}
 			return nil

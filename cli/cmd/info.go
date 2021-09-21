@@ -25,7 +25,40 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 		Use:   "info",
 		Short: "Get datahop node information",
 		Long: `
-"The commend is used to get the local node information"
+This command is used to get the local node information
+
+Example:
+
+	To pretty print the node info in json format
+
+	$ datahop info -j -p
+
+	{
+		"IsDaemonRunning": true,
+		"Config": {
+			"Identity": {
+				"PeerID": "QmXpiaCz3M7bRz47ZRUP3uq1WUfquqTNrfzi3j24eNXpe5"
+			},
+			"Addresses": {
+				"Swarm": [
+					"/ip4/0.0.0.0/tcp/4501"
+				]
+			},
+			"Bootstrap": [],
+			"SwarmPort": "4501"
+		},
+		"Peers": [],
+		"CRDTStatus": {
+			"m": 2000,
+			"k": 5,
+			"b": "AAAAAAAAB9AAAAAAAAAAIAAABAAAAAEAAAAAAAAABAAAAAABAAIAAAAAAAAAAAAQAAAAAIAAAAAAAAAAAAAAAAAQAAAAAAAAAAgAAAAAAAAAEAAAAAAAAAAAAAAAAAEgAAAAAAAAAAABAAAAAAAIAAAAAAAAAAAAAAAAAAAAEBAEAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAgAEAAAAAAAAAAAAEAAgAAAAAAAAAAAAAAABDAAAAAAAAAAAAAQAhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		},
+		"DiskUsage": 135071757,
+		"Addresses": [
+			"/ip4/192.168.29.24/tcp/4501/p2p/QmXpiaCz3M7bRz47ZRUP3uq1WUfquqTNrfzi3j24eNXpe5",
+			"/ip4/127.0.0.1/tcp/4501/p2p/QmXpiaCz3M7bRz47ZRUP3uq1WUfquqTNrfzi3j24eNXpe5"
+		]
+	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			info := &Info{}

@@ -6,7 +6,7 @@ to have necessary config options cashed. It uses a global "datahop" object to ru
 and maintain the ipfslite node.
 
 As this package is built keeping the mobile platform in mind (using gomobile),
-all of the functions deals with string or byte array to support gomobile datatype.
+all the functions deals with string or byte array to support gomobile datatype.
 
 To create the global "datahop" object and a persistent repository the client has
 to call "Init". It takes the location to create the repository and an "ConnectionManager".
