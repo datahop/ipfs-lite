@@ -29,10 +29,14 @@ import (
 )
 
 var (
-	log                 = logger.Logger("datahop")
-	hop                 *datahop
+	log = logger.Logger("datahop")
+	hop *datahop
+
+	// ErrNoPeersConnected is returned if there is no peer connected
 	ErrNoPeersConnected = errors.New("no Peers connected")
-	ErrNoPeerAddress    = errors.New("could not get peer address")
+
+	// ErrNoPeerAddress re returned if peer address is not available
+	ErrNoPeerAddress = errors.New("could not get peer address")
 )
 
 const (
@@ -46,28 +50,28 @@ type ConnectionManager interface {
 	PeerDisconnected(string)
 }
 
-type Notifier struct{}
+type notifier struct{}
 
-func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
-func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
-func (n *Notifier) Connected(net network.Network, c network.Conn) {
+func (n *notifier) Listen(network.Network, ma.Multiaddr)      {}
+func (n *notifier) ListenClose(network.Network, ma.Multiaddr) {}
+func (n *notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
 	hop.peer.Repo.Matrix().NodeConnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerConnected(c.RemotePeer().String())
 	}
 }
-func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
+func (n *notifier) Disconnected(net network.Network, c network.Conn) {
 	// NodeMatrix management
 	hop.peer.Repo.Matrix().NodeDisconnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
 	}
 }
-func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {
+func (n *notifier) OpenedStream(net network.Network, s network.Stream) {
 	//log.Debug("Opened stream")
 }
-func (n *Notifier) ClosedStream(network.Network, network.Stream) {
+func (n *notifier) ClosedStream(network.Network, network.Stream) {
 	//log.Debug("Closed stream")
 }
 
@@ -123,7 +127,7 @@ func Init(
 	if err != nil {
 		return err
 	}
-	n := &Notifier{}
+	n := &notifier{}
 	r, err := repo.Open(root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
@@ -167,6 +171,7 @@ func State() ([]byte, error) {
 	return hop.repo.State().MarshalJSON()
 }
 
+// FilterFromState returns the bloom filter from state
 func FilterFromState() (string, error) {
 	byt, err := State()
 	var dat map[string]interface{}
@@ -217,6 +222,7 @@ func Start(shouldBootstrap bool) error {
 	return nil
 }
 
+// StartDiscovery starts BLE discovery
 func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error {
 	if hop != nil {
 		if hop.discService != nil {
@@ -260,6 +266,7 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 	}
 }
 
+// StopDiscovery stops BLE discovery
 func StopDiscovery() error {
 	log.Debug("Stopping discovery")
 	if hop.discService != nil {
@@ -267,9 +274,8 @@ func StopDiscovery() error {
 			hop.discService.stopSignal <- struct{}{}
 		}()
 		return hop.discService.Close()
-	} else {
-		return errors.New("discovery service is not initialised")
 	}
+	return errors.New("discovery service is not initialised")
 }
 
 // ConnectWithAddress Connects to a given peer address
@@ -383,10 +389,10 @@ func Addrs() ([]byte, error) {
 					addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
 				}
 			}
-			addrs := &types.StringSlice{
+			addrsOP := &types.StringSlice{
 				Output: addrs,
 			}
-			return proto.Marshal(addrs)
+			return proto.Marshal(addrsOP)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
@@ -408,10 +414,10 @@ func InterfaceAddrs() ([]byte, error) {
 					}
 				}
 			}
-			addrs := &types.StringSlice{
+			addrsOP := &types.StringSlice{
 				Output: addrs,
 			}
-			return proto.Marshal(addrs)
+			return proto.Marshal(addrsOP)
 		}
 		<-time.After(time.Millisecond * 200)
 	}
@@ -528,6 +534,7 @@ func Close() {
 	hop.cancel()
 }
 
+// UpdateTopicStatus adds BLE advertising info
 func UpdateTopicStatus(topic string, value string) {
 	hop.discService.AddAdvertisingInfo(topic, value)
 }
@@ -551,18 +558,22 @@ func Matrix() (string, error) {
 	return "", errors.New("datahop ipfs-lite node is not running")
 }
 
+// GetDiscoveryNotifier returns discovery notifier
 func GetDiscoveryNotifier() DiscoveryNotifier {
 	return hop.discService
 }
 
+// GetAdvertisementNotifier returns advertisement notifier
 func GetAdvertisementNotifier() AdvertisementNotifier {
 	return hop.discService
 }
 
+// GetWifiHotspotNotifier returns wifi hotspot notifier
 func GetWifiHotspotNotifier() WifiHotspotNotifier {
 	return hop.discService
 }
 
+// GetWifiConnectionNotifier returns wifi connection notifier
 func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
 }

@@ -17,23 +17,24 @@ import (
 
 var log = logging.Logger("cmd")
 
-type Notifier struct {
+type notifier struct {
 	matrix *matrix.MatrixKeeper
 }
 
-func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
-func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
-func (n *Notifier) Connected(net network.Network, c network.Conn) {
+func (n *notifier) Listen(network.Network, ma.Multiaddr)      {}
+func (n *notifier) ListenClose(network.Network, ma.Multiaddr) {}
+func (n *notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
 	n.matrix.NodeConnected(c.RemotePeer().String())
 }
-func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
+func (n *notifier) Disconnected(net network.Network, c network.Conn) {
 	// NodeMatrix management
 	n.matrix.NodeDisconnected(c.RemotePeer().String())
 }
-func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
-func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
+func (n *notifier) OpenedStream(net network.Network, s network.Stream) {}
+func (n *notifier) ClosedStream(network.Network, network.Stream)       {}
 
+// InitDaemonCmd creates the daemon command
 func InitDaemonCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "daemon",
@@ -48,7 +49,7 @@ This command is used to start the Datahop Daemon.
 				os.Exit(1)
 			}
 			comm.LitePeer = litePeer
-			networkNotifier := Notifier{litePeer.Repo.Matrix()}
+			networkNotifier := notifier{litePeer.Repo.Matrix()}
 			litePeer.Host.Network().Notify(&networkNotifier)
 			cfg, err := comm.Repo.Config()
 			if err != nil {

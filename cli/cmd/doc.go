@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
+// InitializeDocCommand creates the doc command
 func InitializeDocCommand(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doc",
