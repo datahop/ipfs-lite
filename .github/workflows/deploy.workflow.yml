@@ -48,6 +48,8 @@ jobs:
 
       - name: Build
         run: cd mobile && gomobile init && go generate
+
+      - name: Deploy
         uses: actions/upload-artifact@v2
         with:
           name: dthp
