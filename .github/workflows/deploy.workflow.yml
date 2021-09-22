@@ -52,5 +52,5 @@ jobs:
       - name: PWD
         run: pwd
 
-    - name: LS
+      - name: LS
         run: ls
