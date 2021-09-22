@@ -46,11 +46,11 @@ jobs:
 #          flags: unittests
 #          name: codecov-umbrella
 
-#      - name: Build
-#        run: cd mobile && gomobile init && go generate
+      - name: Build
+        run: cd mobile && gomobile init && go generate
 
-      - name: PWD
-        run: pwd
-
-      - name: LS
-        run: ls
+      - name: Deploy
+        uses: actions/upload-artifact@v2
+        with:
+          name: dthp
+          path: ./mobile/datahop.aar
