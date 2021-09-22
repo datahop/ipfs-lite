@@ -1,14 +1,12 @@
-name: Go
+name: Dev Workflow - Test and check things
 
 on:
-  push:
-    branches: [ master, alpha.0 ]
   pull_request:
-    branches: [ master, alpha.0 ]
+    branches: [ master ]
 
 jobs:
 
-  build:
+  test:
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -47,6 +45,3 @@ jobs:
           file: ./coverage.out
           flags: unittests
           name: codecov-umbrella
-
-      - name: Build
-        run: cd mobile && gomobile init && go generate

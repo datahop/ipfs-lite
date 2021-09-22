@@ -1,0 +1,54 @@
+name: Master Workflow - Test, build and deploy
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2.1.3
+        with:
+          go-version: 1.16
+
+      - name: Install deps
+        run: go mod tidy
+
+      - name: Install gomobile
+        run: go get golang.org/x/mobile/cmd/gomobile
+
+      - name: Install charset
+        run: go get golang.org/x/net/html/charset
+
+      - name: Install ipv4
+        run: go get golang.org/x/net/ipv4
+
+      - name: Install ipv6
+        run: go get golang.org/x/net/ipv6
+
+      - name: Test
+        run: go test -p 1 -v ./... -race -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Build
+        run: cd mobile && gomobile init && go generate
+        uses: actions/upload-artifact@v2
+        with:
+          name: dthp
+          path: ./datahop.aar
