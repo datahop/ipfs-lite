@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v0.0.11] - 2021-09-22
 
 ### Added
 
