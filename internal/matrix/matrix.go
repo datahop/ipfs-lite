@@ -17,6 +17,7 @@ var (
 	contentMatrixKey = datastore.NewKey("/content-matrix")
 )
 
+// ContentMatrix keeps record for each hash
 type ContentMatrix struct {
 	Size               int64
 	AvgSpeed           float32
@@ -25,11 +26,13 @@ type ContentMatrix struct {
 	ProvidedBy         []peer.ID
 }
 
+// NodeMatrix keeps track of uptime and connectivity matrix of a node
 type NodeMatrix struct {
 	TotalUptime     int64                            // total time node has been inline (seconds)
 	NodesDiscovered map[string]*DiscoveredNodeMatrix // Nodes discovered this session
 }
 
+// DiscoveredNodeMatrix keeps record for each discovered node
 type DiscoveredNodeMatrix struct {
 	ConnectionAlive                  bool
 	ConnectionSuccessCount           int
@@ -45,6 +48,7 @@ type DiscoveredNodeMatrix struct {
 	ConnectionHistory                []ConnectionInfo
 }
 
+// ConnectionInfo keeps d2d connection info
 type ConnectionInfo struct {
 	BLEDiscoveredAt int64
 	WifiConnectedAt int64
@@ -55,6 +59,7 @@ type ConnectionInfo struct {
 	DisconnectedAt  int64
 }
 
+// MatrixKeeper takes care of entire node matrix
 type MatrixKeeper struct {
 	mtx             sync.Mutex
 	stop            chan struct{}
@@ -64,6 +69,7 @@ type MatrixKeeper struct {
 	ContentMatrix   map[string]*ContentMatrix
 }
 
+// NewMatrixKeeper creates a new matrix keeper
 func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 	mKeeper := &MatrixKeeper{
 		stop: make(chan struct{}),
@@ -94,6 +100,7 @@ func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 	return mKeeper
 }
 
+// StartTicker starts a ticker to flush matrix information into datastore after certain interval
 func (mKeeper *MatrixKeeper) StartTicker() {
 	if mKeeper.isTickerRunning {
 		return
@@ -116,6 +123,7 @@ func (mKeeper *MatrixKeeper) StartTicker() {
 	}()
 }
 
+// Flush matrix info into datastore
 func (mKeeper *MatrixKeeper) Flush() error {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -148,6 +156,7 @@ func (mKeeper *MatrixKeeper) flush() error {
 	return nil
 }
 
+// Close stops the ticker job and flushes matrix
 func (mKeeper *MatrixKeeper) Close() error {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -163,6 +172,7 @@ func (mKeeper *MatrixKeeper) Close() error {
 	return nil
 }
 
+// GetNodeStat returns node connectivity info of a given node
 func (mKeeper *MatrixKeeper) GetNodeStat(address string) DiscoveredNodeMatrix {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -170,6 +180,7 @@ func (mKeeper *MatrixKeeper) GetNodeStat(address string) DiscoveredNodeMatrix {
 	return *mKeeper.NodeMatrix.NodesDiscovered[address]
 }
 
+// GetContentStat returns content info of a given hash
 func (mKeeper *MatrixKeeper) GetContentStat(hash string) ContentMatrix {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -177,6 +188,7 @@ func (mKeeper *MatrixKeeper) GetContentStat(hash string) ContentMatrix {
 	return *mKeeper.ContentMatrix[hash]
 }
 
+// GetTotalUptime returns the total time the node has been running
 func (mKeeper *MatrixKeeper) GetTotalUptime() int64 {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -184,6 +196,7 @@ func (mKeeper *MatrixKeeper) GetTotalUptime() int64 {
 	return mKeeper.NodeMatrix.TotalUptime
 }
 
+// BLEDiscovered updates BLE connectivity info with another node
 func (mKeeper *MatrixKeeper) BLEDiscovered(address string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -201,6 +214,7 @@ func (mKeeper *MatrixKeeper) BLEDiscovered(address string) {
 	nodeMatrix.BLEDiscoveredAt = time.Now().Unix()
 }
 
+// WifiConnected updates wifi connectivity info with another node
 func (mKeeper *MatrixKeeper) WifiConnected(address string, rssi, speed, freq int) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -221,6 +235,7 @@ func (mKeeper *MatrixKeeper) WifiConnected(address string, rssi, speed, freq int
 	nodeMatrix.Frequency = freq
 }
 
+// NodeConnected updates connectivity time info with another node
 func (mKeeper *MatrixKeeper) NodeConnected(address string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -244,6 +259,7 @@ func (mKeeper *MatrixKeeper) NodeConnected(address string) {
 	}
 }
 
+// NodeConnectionFailed updates connectivity fail time info with another node
 func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -261,6 +277,7 @@ func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
 	nodeMatrix.BLEDiscoveredAt = 0
 }
 
+// NodeDisconnected updates connectivity disconnection time info with another node
 func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -290,6 +307,7 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 	nodeMatrix.Frequency = 0
 }
 
+// ContentDownloadStarted updates content download start time of a hash
 func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -305,6 +323,7 @@ func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
 	log.Debug("ContentDownloadStarted : ", contentMatrix)
 }
 
+// ContentDownloadFinished updates content download finished time of a hash
 func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -324,6 +343,7 @@ func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 	log.Debug("ContentDownloadFinished : ", contentMatrix)
 }
 
+// ContentAddProvider updates content providers of a hash
 func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -337,6 +357,7 @@ func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
 	contentMatrix.ProvidedBy = append(contentMatrix.ProvidedBy, provider)
 }
 
+// NodeMatrixSnapshot returns a snapshot of the node connectivity matrix
 func (mKeeper *MatrixKeeper) NodeMatrixSnapshot() map[string]interface{} {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
@@ -349,6 +370,7 @@ func (mKeeper *MatrixKeeper) NodeMatrixSnapshot() map[string]interface{} {
 	return retMap
 }
 
+// ContentMatrixSnapshot returns a snapshot of the content distribution matrix
 func (mKeeper *MatrixKeeper) ContentMatrixSnapshot() map[string]interface{} {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()

@@ -31,7 +31,7 @@ The Datahop CLI client gives access to datahop
 network through a CLI Interface.
 		`,
 	}
-	SockPath = "uds.sock"
+	sockPath = "uds.sock"
 	log      = logging.Logger("cmd")
 )
 
@@ -76,6 +76,7 @@ func main() {
 		cmd.InitVersionCmd(comm),
 		cmd.InitMatrixCmd(comm),
 		cmd.InitializeDocCommand(comm),
+		cmd.InitGetCmd(comm),
 	)
 
 	for _, i := range allCommands {
@@ -91,7 +92,7 @@ func main() {
 		}
 	}
 
-	socketPath := filepath.Join("/tmp", SockPath)
+	socketPath := filepath.Join("/tmp", sockPath)
 	if !uds.IsIPCListening(socketPath) {
 		r, err := repo.Open(root)
 		if err != nil {
@@ -104,7 +105,7 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
-				SocketPath: filepath.Join("/tmp", SockPath),
+				SocketPath: filepath.Join("/tmp", sockPath),
 			}
 			r, w, c, err := uds.Dialer(opts)
 			if err != nil {
@@ -131,16 +132,16 @@ func main() {
 				fmt.Println("Datahop daemon is already running")
 				return
 			}
-			_, err := os.Stat(filepath.Join("/tmp", SockPath))
+			_, err := os.Stat(filepath.Join("/tmp", sockPath))
 			if !os.IsNotExist(err) {
-				err := os.Remove(filepath.Join("/tmp", SockPath))
+				err := os.Remove(filepath.Join("/tmp", sockPath))
 				if err != nil {
 					log.Error(err)
 					os.Exit(1)
 				}
 			}
 			opts := uds.Options{
-				SocketPath: filepath.Join("/tmp", SockPath),
+				SocketPath: filepath.Join("/tmp", sockPath),
 			}
 			in, err := uds.Listener(context.Background(), opts)
 			if err != nil {

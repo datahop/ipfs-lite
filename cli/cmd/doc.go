@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
+// InitializeDocCommand creates the doc command
 func InitializeDocCommand(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doc",
@@ -27,7 +28,6 @@ for the CLI.
 			}
 			err = out.Print(cmd, fmt.Sprintf("Documentation generated at %s", dir), parseFormat(cmd))
 			if err != nil {
-				log.Error("Unable to get config ", err)
 				return err
 			}
 			return nil

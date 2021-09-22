@@ -1,5 +1,3 @@
-// Package ipfslite is a lightweight IPFS peer which runs the minimal setup to
-// provide an `ipld.DAGService`, "Add" and "Get" UnixFS files from IPFS.
 package ipfslite
 
 import (
@@ -82,6 +80,7 @@ type Peer struct {
 	CrdtTopic       string
 }
 
+// Option is interface for setting up the datahop ipfslite node
 type Option func(*Options)
 
 // WithmDNSInterval changes default mDNS rebroadcast interval
@@ -105,18 +104,21 @@ func WithmDNS(withmDNS bool) Option {
 	}
 }
 
+// WithCrdtTopic sets the replication crdt listen topic
 func WithCrdtTopic(topic string) Option {
 	return func(h *Options) {
 		h.crdtTopic = topic
 	}
 }
 
+// WithCrdtNamespace sets the replication crdt namespace
 func WithCrdtNamespace(ns string) Option {
 	return func(h *Options) {
 		h.crdtPrefix = ns
 	}
 }
 
+// Options for setting up the datahop ipfslite node
 type Options struct {
 	mDNSInterval            time.Duration
 	crdtRebroadcastInterval time.Duration
@@ -255,6 +257,7 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	return nil
 }
 
+// FindProviders check dht to check for providers of a given cid
 func (p *Peer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
 	providerAddresses := []peer.ID{}
 	providers := p.DHT.FindProvidersAsync(ctx, id, 0)
@@ -548,6 +551,7 @@ func (p *Peer) HandlePeerFoundWithError(pi peer.AddrInfo) error {
 	return nil
 }
 
+// IsOnline returns if the node ios online
 func (p *Peer) IsOnline() bool {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()

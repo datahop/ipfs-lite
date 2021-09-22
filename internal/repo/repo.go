@@ -23,12 +23,13 @@ import (
 )
 
 const (
+	// Root location of the repository
 	Root                       = ".datahop"
-	LockFile                   = "repo.lock"
-	DefaultDatastoreFolderName = "datastore"
-	// DefaultConfigFile is the filename of the configuration file
-	DefaultConfigFile = "config"
-	DefaultStateFile  = "state"
+	lockFile                   = "repo.lock"
+	defaultDatastoreFolderName = "datastore"
+	// defaultConfigFile is the filename of the configuration file
+	defaultConfigFile = "config"
+	defaultStateFile  = "state"
 )
 
 var (
@@ -37,6 +38,7 @@ var (
 	ErrorRepoClosed = errors.New("cannot access config, repo not open")
 )
 
+// Repo exposes basic repo operations
 type Repo interface {
 	Path() string
 	Config() (*config.Config, error)
@@ -53,6 +55,7 @@ type Datastore interface {
 	ds.Batching // must be thread-safe
 }
 
+// FSRepo implements Repo
 type FSRepo struct {
 	// has Close been called already
 	closed bool
@@ -68,6 +71,7 @@ type FSRepo struct {
 	io.Closer
 }
 
+// Config returns repository config
 func (r *FSRepo) Config() (*config.Config, error) {
 	// It is not necessary to hold the package lock since the repo is in an
 	// opened state. The package lock is _not_ meant to ensure that the repo is
@@ -83,10 +87,12 @@ func (r *FSRepo) Config() (*config.Config, error) {
 	return r.config, nil
 }
 
+// Path of the repository
 func (r *FSRepo) Path() string {
 	return r.path
 }
 
+// Datastore returns datastore of the node
 func (r *FSRepo) Datastore() Datastore {
 	packageLock.Lock()
 	defer packageLock.Unlock()
@@ -94,6 +100,7 @@ func (r *FSRepo) Datastore() Datastore {
 	return r.ds
 }
 
+// State returns nodes crdt bloom filter state
 func (r *FSRepo) State() *bloom.BloomFilter {
 	packageLock.Lock()
 	defer packageLock.Unlock()
@@ -101,11 +108,12 @@ func (r *FSRepo) State() *bloom.BloomFilter {
 	return r.state
 }
 
+// SetState updates local state file with bloom filter
 func (r *FSRepo) SetState() error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
 
-	f, err := os.OpenFile(filepath.Join(r.path, DefaultStateFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(filepath.Join(r.path, defaultStateFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -121,6 +129,7 @@ func (r *FSRepo) SetState() error {
 	return nil
 }
 
+// Close repo
 func (r *FSRepo) Close() error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
@@ -181,7 +190,7 @@ func open(repoPath string) (Repo, error) {
 		return nil, err
 	}
 
-	r.lockfile, err = lockfile.Lock(r.path, LockFile)
+	r.lockfile, err = lockfile.Lock(r.path, lockFile)
 	if err != nil {
 		return nil, err
 	}
@@ -209,12 +218,13 @@ func open(repoPath string) (Repo, error) {
 	return r, nil
 }
 
+// Matrix returns nodes matrix
 func (r *FSRepo) Matrix() *matrix.MatrixKeeper {
 	return r.mKeeper
 }
 
 func (r *FSRepo) openDatastore() error {
-	d, err := levelDatastore(filepath.Join(r.Path(), DefaultDatastoreFolderName))
+	d, err := levelDatastore(filepath.Join(r.Path(), defaultDatastoreFolderName))
 	if err != nil {
 		return err
 	}
@@ -257,7 +267,7 @@ func initConfig(path string, cfg *config.Config) error {
 }
 
 func initState(path string) error {
-	f, err := os.Create(filepath.Join(path, DefaultStateFile))
+	f, err := os.Create(filepath.Join(path, defaultStateFile))
 	if err != nil {
 		return err
 	}
@@ -274,7 +284,7 @@ func initState(path string) error {
 // ConfigFilename returns the configuration file path given a configuration root
 // directory. If the configuration root directory is empty, use the default one
 func ConfigFilename(configroot string) (string, error) {
-	return filepath.Join(configroot, DefaultConfigFile), nil
+	return filepath.Join(configroot, defaultConfigFile), nil
 }
 
 // encode configuration with JSON
@@ -300,13 +310,13 @@ func (r *FSRepo) openConfig() error {
 
 // openState returns an error if the state file is not present.
 func (r *FSRepo) openState() error {
-	f, err := os.Open(filepath.Join(r.path, DefaultStateFile))
+	f, err := os.Open(filepath.Join(r.path, defaultStateFile))
 	if os.IsNotExist(err) {
 		err = initState(r.path)
 		if err != nil {
 			return err
 		}
-		f, err = os.Open(filepath.Join(r.path, DefaultStateFile))
+		f, err = os.Open(filepath.Join(r.path, defaultStateFile))
 		if err != nil {
 			return err
 		}
@@ -319,8 +329,7 @@ func (r *FSRepo) openState() error {
 		return err
 	}
 	r.state = bloom.New(uint(2000), 5)
-	err = r.state.UnmarshalJSON(buf)
-	return nil
+	return r.state.UnmarshalJSON(buf)
 }
 
 func openConfig(path string) (conf *config.Config, err error) {

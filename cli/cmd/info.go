@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Info struct {
+type info struct {
 	IsDaemonRunning bool
 	Config          config.Config
 	Peers           []string
@@ -20,20 +20,54 @@ type Info struct {
 	Addresses       []string
 }
 
+// InitInfoCmd creates the info command
 func InitInfoCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info",
 		Short: "Get datahop node information",
 		Long: `
-"The commend is used to get the local node information"
+This command is used to get the local node information
+
+Example:
+
+	To pretty print the node info in json format
+
+	$ datahop info -j -p
+
+	{
+		"IsDaemonRunning": true,
+		"Config": {
+			"Identity": {
+				"PeerID": "QmXpiaCz3M7bRz47ZRUP3uq1WUfquqTNrfzi3j24eNXpe5"
+			},
+			"Addresses": {
+				"Swarm": [
+					"/ip4/0.0.0.0/tcp/4501"
+				]
+			},
+			"Bootstrap": [],
+			"SwarmPort": "4501"
+		},
+		"Peers": [],
+		"CRDTStatus": {
+			"m": 2000,
+			"k": 5,
+			"b": "AAAAAAAAB9AAAAAAAAAAIAAABAAAAAEAAAAAAAAABAAAAAABAAIAAAAAAAAAAAAQAAAAAIAAAAAAAAAAAAAAAAAQAAAAAAAAAAgAAAAAAAAAEAAAAAAAAAAAAAAAAAEgAAAAAAAAAAABAAAAAAAIAAAAAAAAAAAAAAAAAAAAEBAEAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAgAEAAAAAAAAAAAAEAAgAAAAAAAAAAAAAAABDAAAAAAAAAAAAAQAhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		},
+		"DiskUsage": 135071757,
+		"Addresses": [
+			"/ip4/192.168.29.24/tcp/4501/p2p/QmXpiaCz3M7bRz47ZRUP3uq1WUfquqTNrfzi3j24eNXpe5",
+			"/ip4/127.0.0.1/tcp/4501/p2p/QmXpiaCz3M7bRz47ZRUP3uq1WUfquqTNrfzi3j24eNXpe5"
+		]
+	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			info := &Info{}
+			inf := &info{}
 			if comm.LitePeer != nil {
 				// is daemon running
-				info.IsDaemonRunning = comm.LitePeer.IsOnline()
+				inf.IsDaemonRunning = comm.LitePeer.IsOnline()
 				// peers
-				info.Peers = comm.LitePeer.Peers()
+				inf.Peers = comm.LitePeer.Peers()
 				// addresses
 				addrs := []string{}
 				if comm.LitePeer != nil {
@@ -42,7 +76,7 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 							addrs = append(addrs, v.String()+"/p2p/"+comm.LitePeer.Host.ID().String())
 						}
 					}
-					info.Addresses = addrs
+					inf.Addresses = addrs
 				}
 				// disk usage
 				du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
@@ -50,9 +84,9 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 					log.Error("Unable to get datastore usage ", err)
 					return err
 				}
-				info.DiskUsage = int64(du)
+				inf.DiskUsage = int64(du)
 			} else {
-				info.IsDaemonRunning = false
+				inf.IsDaemonRunning = false
 			}
 
 			cfg, err := comm.Repo.Config()
@@ -60,14 +94,14 @@ func InitInfoCmd(comm *common.Common) *cobra.Command {
 				log.Error("Unable to get config ", err)
 				return err
 			}
-			info.Config = *cfg
-			info.Config.Identity.PrivKey = ""
+			inf.Config = *cfg
+			inf.Config.Identity.PrivKey = ""
 
 			// crdt status
-			info.CRDTStatus = comm.Repo.State()
+			inf.CRDTStatus = comm.Repo.State()
 
 			// output
-			err = out.Print(cmd, info, parseFormat(cmd))
+			err = out.Print(cmd, inf, parseFormat(cmd))
 			if err != nil {
 				log.Error("Unable to get config ", err)
 				return err

@@ -7,6 +7,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/repo"
 )
 
+// Common features for cli commands
 type Common struct {
 	Root     string
 	Repo     repo.Repo
