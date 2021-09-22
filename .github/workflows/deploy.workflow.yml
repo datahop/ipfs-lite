@@ -35,22 +35,22 @@ jobs:
       - name: Install ipv6
         run: go get golang.org/x/net/ipv6
 
-      - name: Test
-        run: go test -p 1 -v ./... -race -coverprofile=coverage.out -covermode=atomic
+#      - name: Test
+#        run: go test -p 1 -v ./... -race -coverprofile=coverage.out -covermode=atomic
+#
+#      - name: Upload coverage report
+#        uses: codecov/codecov-action@v1.0.2
+#        with:
+#          token: ${{ secrets.CODECOV_TOKEN }}
+#          file: ./coverage.out
+#          flags: unittests
+#          name: codecov-umbrella
 
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+#      - name: Build
+#        run: cd mobile && gomobile init && go generate
 
-      - name: Build
-        run: cd mobile && gomobile init && go generate
+      - name: PWD
+        run: pwd
 
-      - name: Deploy
-        uses: actions/upload-artifact@v2
-        with:
-          name: dthp
-          path: ./datahop.aar
+    - name: LS
+        run: ls
