@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitIndexCmd creates the index command
 func InitIndexCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "index",

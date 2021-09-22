@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitAddCmd creates the add command
 func InitAddCmd(comm *common.Common) *cobra.Command {
 	addCommand := &cobra.Command{
 		Use:   "add",

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitMatrixCmd creates the matrix command
 func InitMatrixCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "matrix",

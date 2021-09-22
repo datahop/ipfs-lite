@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitVersionCmd creates the version command
 func InitVersionCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

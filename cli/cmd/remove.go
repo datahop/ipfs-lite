@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitRemoveCmd creates the remove command
 func InitRemoveCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",

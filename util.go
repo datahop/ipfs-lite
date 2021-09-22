@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	DefaultBootstrapAddresses = []string{
+	defaultBootstrapAddresses = []string{
 		"/ip4/52.66.216.67/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
 	}
 
@@ -47,8 +47,8 @@ var (
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
 // with NewLibp2pHost.
 func DefaultBootstrapPeers() []peer.AddrInfo {
-	maddrs := make([]multiaddr.Multiaddr, len(DefaultBootstrapAddresses))
-	for i, addr := range DefaultBootstrapAddresses {
+	maddrs := make([]multiaddr.Multiaddr, len(defaultBootstrapAddresses))
+	for i, addr := range defaultBootstrapAddresses {
 		maddrs[i], _ = multiaddr.NewMultiaddr(addr)
 	}
 	defaults, _ := peer.AddrInfosFromP2pAddrs(maddrs...)

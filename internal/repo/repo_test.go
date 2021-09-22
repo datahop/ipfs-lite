@@ -20,11 +20,14 @@ func TestInit(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfgFName, err := ConfigFilename(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = os.Stat(cfgFName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = os.Stat(filepath.Join(root, DefaultStateFile))
+	_, err = os.Stat(filepath.Join(root, defaultStateFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +46,7 @@ func TestOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Close()
-	_, err = os.Stat(filepath.Join(root, DefaultDatastoreFolderName))
+	_, err = os.Stat(filepath.Join(root, defaultDatastoreFolderName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +60,7 @@ func TestStateWithNoStateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	e := os.Remove(filepath.Join(root, DefaultStateFile))
+	e := os.Remove(filepath.Join(root, defaultStateFile))
 	if e != nil {
 		log.Fatal(e)
 	}

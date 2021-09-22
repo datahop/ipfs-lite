@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Info struct {
+type info struct {
 	IsDaemonRunning bool
 	Config          config.Config
 	Peers           []string
@@ -20,6 +20,7 @@ type Info struct {
 	Addresses       []string
 }
 
+// InitInfoCmd creates the info command
 func InitInfoCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info",
@@ -61,12 +62,12 @@ Example:
 	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			info := &Info{}
+			inf := &info{}
 			if comm.LitePeer != nil {
 				// is daemon running
-				info.IsDaemonRunning = comm.LitePeer.IsOnline()
+				inf.IsDaemonRunning = comm.LitePeer.IsOnline()
 				// peers
-				info.Peers = comm.LitePeer.Peers()
+				inf.Peers = comm.LitePeer.Peers()
 				// addresses
 				addrs := []string{}
 				if comm.LitePeer != nil {
@@ -75,7 +76,7 @@ Example:
 							addrs = append(addrs, v.String()+"/p2p/"+comm.LitePeer.Host.ID().String())
 						}
 					}
-					info.Addresses = addrs
+					inf.Addresses = addrs
 				}
 				// disk usage
 				du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
@@ -83,9 +84,9 @@ Example:
 					log.Error("Unable to get datastore usage ", err)
 					return err
 				}
-				info.DiskUsage = int64(du)
+				inf.DiskUsage = int64(du)
 			} else {
-				info.IsDaemonRunning = false
+				inf.IsDaemonRunning = false
 			}
 
 			cfg, err := comm.Repo.Config()
@@ -93,14 +94,14 @@ Example:
 				log.Error("Unable to get config ", err)
 				return err
 			}
-			info.Config = *cfg
-			info.Config.Identity.PrivKey = ""
+			inf.Config = *cfg
+			inf.Config.Identity.PrivKey = ""
 
 			// crdt status
-			info.CRDTStatus = comm.Repo.State()
+			inf.CRDTStatus = comm.Repo.State()
 
 			// output
-			err = out.Print(cmd, info, parseFormat(cmd))
+			err = out.Print(cmd, inf, parseFormat(cmd))
 			if err != nil {
 				log.Error("Unable to get config ", err)
 				return err

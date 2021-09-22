@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitGetCmd creates the get command
 func InitGetCmd(comm *common.Common) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "get",

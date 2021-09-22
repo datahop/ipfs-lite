@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitStopCmd creates the stop command
 func InitStopCmd(comm *common.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",

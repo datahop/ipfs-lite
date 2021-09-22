@@ -8,7 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-const ServiceTag = "_datahop-discovery._ble"
+const DiscoveryServiceTag = "_datahop-discovery._ble"
 
 type ServiceType string
 
@@ -61,7 +61,7 @@ func NewDiscoveryService(
 	serviceTag string,
 ) (Service, error) {
 	if serviceTag == "" {
-		serviceTag = ServiceTag
+		serviceTag = serviceTag
 	}
 	discovery := &discoveryService{
 		discovery:       discDriver,

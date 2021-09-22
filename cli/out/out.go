@@ -13,14 +13,17 @@ type Printer interface {
 	Println(...interface{})
 }
 
+// Format of the printer
 type Format int
 
 const (
+	// PrettyJson prints indented json
 	PrettyJson Format = iota
 	Json
 	NoStyle
 )
 
+// Print data
 func Print(p Printer, data interface{}, f Format) error {
 	switch f {
 	case PrettyJson:

@@ -12,6 +12,7 @@ import (
 var log = logging.Logger("config")
 
 const (
+	// SwarmPort will be used to listen on the swarm
 	SwarmPort = "4501"
 
 	DefaultPrivKeyBitSize = 2048
@@ -36,6 +37,7 @@ type Config struct {
 	SwarmPort string
 }
 
+// NewConfig creates an identity and config for the node
 func NewConfig(swarmPort string) (*Config, error) {
 	identity, err := identityConfig(DefaultPrivKeyBitSize)
 	if err != nil {
