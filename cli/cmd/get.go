@@ -24,7 +24,7 @@ datahop network by a simple tag
 
 Example:
 
-	// To save at default "Download" location
+	// To save at default "download" location
 
 	$ datahop get /test.txt
 

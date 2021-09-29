@@ -77,12 +77,12 @@ func main() {
 		cmd.InitMatrixCmd(comm),
 		cmd.InitializeDocCommand(comm),
 		cmd.InitGetCmd(comm),
+		cmd.InitCompletionCmd(comm),
 	)
 
 	for _, i := range allCommands {
 		rootCmd.AddCommand(i)
 	}
-
 	// check help flag
 	for _, v := range os.Args {
 		if v == "-h" || v == "--help" {

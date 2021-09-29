@@ -19,6 +19,7 @@ var (
 
 // ContentMatrix keeps record for each hash
 type ContentMatrix struct {
+	Tag                string
 	Size               int64
 	AvgSpeed           float32
 	DownloadStartedAt  int64
@@ -308,7 +309,7 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 }
 
 // ContentDownloadStarted updates content download start time of a hash
-func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
+func (mKeeper *MatrixKeeper) ContentDownloadStarted(tag, hash string, size int64) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
@@ -318,6 +319,7 @@ func (mKeeper *MatrixKeeper) ContentDownloadStarted(hash string, size int64) {
 		}
 	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
+	contentMatrix.Tag = tag
 	contentMatrix.DownloadStartedAt = time.Now().Unix()
 	contentMatrix.Size = size
 	log.Debug("ContentDownloadStarted : ", contentMatrix)

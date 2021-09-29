@@ -2,6 +2,7 @@ package replication
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -111,6 +112,19 @@ func (m mockRepo) SetState() error {
 	return nil
 }
 
+type mockDownload struct {
+	mockName string
+}
+
+func (m *mockDownload) Execute(ctx context.Context) error {
+	<-time.After(time.Second * 2)
+	return nil
+}
+
+func (m *mockDownload) Name() string {
+	return m.mockName
+}
+
 func TestNewManager(t *testing.T) {
 	<-time.After(time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -173,6 +187,59 @@ func TestNewManager(t *testing.T) {
 	}
 	if id != metaFound.Hash {
 		t.Fatal("cid mismatch")
+	}
+}
+
+func TestDownloadManager(t *testing.T) {
+	<-time.After(time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	root := filepath.Join("../../test", "root1")
+	d, err := leveldb.NewDatastore(root, &leveldb.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	r := &mockRepo{
+		path:  root,
+		state: bloom.New(uint(2000), 5),
+		ds:    syncds.MutexWrap(d),
+	}
+	defer r.Close()
+	defer removeRepo(root, t)
+	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := []libp2p.Option{
+		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/4832"),
+		libp2p.Identity(priv),
+		libp2p.DisableRelay(),
+	}
+	h, err := libp2p.New(ctx, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	ds := &mockDAGSyncer{}
+	sy := &mockSyncer{}
+	childCtx, childCancel := context.WithCancel(ctx)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+	taskCount := 10
+	for i := 0; i < taskCount; i++ {
+		dt := &mockDownload{mockName: fmt.Sprintf("some content %d", i)}
+		m.dlManager.Go(dt)
+	}
+	if len(m.DownloadManagerStatus()) != taskCount {
+		t.Fatalf("taskCount should be %d got %d", taskCount, len(m.DownloadManagerStatus()))
+	}
+	<-time.After(time.Second * 3)
+	if len(m.DownloadManagerStatus()) != 0 {
+		t.Fatalf("taskCount should be 0 got %d", len(m.DownloadManagerStatus()))
 	}
 }
 

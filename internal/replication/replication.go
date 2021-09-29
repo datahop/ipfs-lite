@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/plexsysio/taskmanager"
 )
 
 var (
@@ -23,6 +24,7 @@ var (
 
 // Metatag keeps meta information of a content in the crdt store
 type Metatag struct {
+	Tag       string
 	Size      int64
 	Type      string
 	Name      string
@@ -33,12 +35,14 @@ type Metatag struct {
 
 // Manager handles replication
 type Manager struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	crdt        *crdt.Datastore
-	contentChan chan cid.Cid
-	syncer      Syncer
-	repo        repo.Repo
+	ctx    context.Context
+	cancel context.CancelFunc
+	crdt   *crdt.Datastore
+	syncer Syncer
+	repo   repo.Repo
+
+	dlManager *taskmanager.TaskManager
+	download  chan Metatag
 }
 
 // Syncer gets the file and finds file provider from the network
@@ -69,7 +73,7 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	contentChan := make(chan cid.Cid)
+	contentChan := make(chan Metatag)
 	crdtOpts := crdt.DefaultOptions()
 	crdtOpts.Logger = log
 	crdtOpts.RebroadcastInterval = broadcastInterval
@@ -81,14 +85,7 @@ func New(
 			log.Error(err.Error())
 			return
 		}
-		contentChan <- m.Hash
-		state := r.State().Add([]byte(k.Name()))
-		log.Debugf("New State: %d\n", state)
-		err = r.SetState()
-		if err != nil {
-			log.Errorf("SetState failed %s\n", err.Error())
-		}
-		r.Matrix().ContentDownloadStarted(m.Hash.String(), m.Size)
+		contentChan <- *m
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("Removed: [%s]\n", k)
@@ -105,17 +102,19 @@ func New(
 	}
 
 	return &Manager{
-		ctx:         ctx,
-		crdt:        crdtStore,
-		contentChan: contentChan,
-		syncer:      syncer,
-		cancel:      cancel,
-		repo:        r,
+		ctx:       ctx,
+		crdt:      crdtStore,
+		download:  contentChan,
+		syncer:    syncer,
+		cancel:    cancel,
+		repo:      r,
+		dlManager: taskmanager.New(1, 100, time.Second*15),
 	}, nil
 }
 
 // Close the crdt store
 func (m *Manager) Close() error {
+	m.dlManager.Stop(m.ctx)
 	m.cancel()
 	return m.crdt.Close()
 }
@@ -199,6 +198,29 @@ func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	return cids, nil
 }
 
+// DownloadManagerStatus returns taskmanager status for handling downloads
+func (m *Manager) DownloadManagerStatus() (res map[string]taskmanager.TaskStatus) {
+	return m.dlManager.TaskStatus()
+}
+
+// StartUnfinishedDownload starts unfinished downloads once peer comes back
+func (m *Manager) StartUnfinishedDownload(pid peer.ID) {
+	cm := m.repo.Matrix().ContentMatrix
+	for _, v := range cm {
+		if v.DownloadFinishedAt == 0 {
+			for _, provider := range v.ProvidedBy {
+				if provider == pid {
+					meta, err := m.FindTag(v.Tag)
+					if err != nil {
+						continue
+					}
+					m.download <- *meta
+				}
+			}
+		}
+	}
+}
+
 // Put stores the object `value` named by `key`.
 func (m *Manager) Put(key datastore.Key, v []byte) error {
 	return m.crdt.Put(key, v)
@@ -230,21 +252,71 @@ func (m *Manager) StartContentWatcher() {
 			select {
 			case <-m.ctx.Done():
 				return
-			case id := <-m.contentChan:
+			case meta := <-m.download:
+				id := meta.Hash
 				log.Debugf("got %s\n", id.String())
 				go func() {
 					providers := m.syncer.FindProviders(m.ctx, id)
 					for _, provider := range providers {
 						m.repo.Matrix().ContentAddProvider(id.String(), provider)
 					}
-					_, err := m.syncer.GetFile(m.ctx, id)
+					//_, err := m.syncer.GetFile(m.ctx, id)
+					//if err != nil {
+					//	log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
+					//	return
+					//}
+					ctx, cancel := context.WithCancel(m.ctx)
+					t := newDownloaderTask(ctx, cancel, meta, m.syncer)
+					done, err := m.dlManager.Go(t)
 					if err != nil {
-						log.Errorf("replication sync failed for %s, Err : %s", id.String(), err.Error())
+						log.Errorf("content watcher: unable to start downloader task for %s : %s", meta.Name, err.Error())
 						return
 					}
-					m.repo.Matrix().ContentDownloadFinished(id.String())
+					m.repo.Matrix().ContentDownloadStarted(meta.Tag, id.String(), meta.Size)
+					select {
+					case <-ctx.Done():
+						return
+					case <-done:
+						m.repo.Matrix().ContentDownloadFinished(id.String())
+						state := m.repo.State().Add([]byte(meta.Tag))
+						log.Debugf("New State: %d\n", state)
+						err = m.repo.SetState()
+						if err != nil {
+							log.Errorf("SetState failed %s\n", err.Error())
+						}
+					}
 				}()
 			}
 		}
 	}()
+}
+
+type DownloaderTask struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	metatag Metatag
+	syncer  Syncer
+}
+
+func newDownloaderTask(ctx context.Context, cancel context.CancelFunc, metatag Metatag, syncer Syncer) *DownloaderTask {
+	return &DownloaderTask{
+		ctx:     ctx,
+		cancel:  cancel,
+		metatag: metatag,
+		syncer:  syncer,
+	}
+}
+
+func (d *DownloaderTask) Execute(ctx context.Context) error {
+	<-time.After(time.Second)
+	_, err := d.syncer.GetFile(d.ctx, d.metatag.Hash)
+	if err != nil {
+		log.Errorf("replication sync failed for %s, Err : %s", d.metatag.Hash.String(), err.Error())
+		return err
+	}
+	return nil
+}
+
+func (d *DownloaderTask) Name() string {
+	return d.metatag.Name
 }

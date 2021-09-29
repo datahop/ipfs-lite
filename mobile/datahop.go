@@ -12,11 +12,10 @@ import (
 	"sync"
 	"time"
 
+	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
-
-	ipfslite "github.com/datahop/ipfs-lite"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
@@ -25,6 +24,8 @@ import (
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -57,6 +58,8 @@ func (n *notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
 	hop.peer.Repo.Matrix().NodeConnected(c.RemotePeer().String())
+	hop.peer.Manager.StartUnfinishedDownload(c.RemotePeer())
+
 	if hop.hook != nil {
 		hop.hook.PeerConnected(c.RemotePeer().String())
 	}
@@ -222,6 +225,11 @@ func Start(shouldBootstrap bool) error {
 	return nil
 }
 
+const (
+	FloodSubID = protocol.ID("/hopfloodsub/1.0.0")
+	TopicCRDT  = "CRDTStateLine"
+)
+
 // StartDiscovery starts BLE discovery
 func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error {
 	if hop != nil {
@@ -243,6 +251,14 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 					}
 				}
 			}()
+			log.Debug("autoDisconnect : ", autoDisconnect)
+			if autoDisconnect {
+				err := startCRDTStateWatcher()
+				if err != nil {
+					log.Error("StartDiscovery: autoDisconnect: startCRDTStateWatcher failed ", err.Error())
+					return err
+				}
+			}
 			if advertising && scanning {
 				hop.discService.Start()
 				log.Debug("Stated discovery")
@@ -255,15 +271,89 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 				hop.discService.StartOnlyScanning()
 				log.Debug("Started discovery only scanning")
 				return nil
-			} else {
-				return errors.New("no advertising and no scanning enabled")
 			}
-		} else {
-			return errors.New("discovery service is not initialised")
+			return errors.New("no advertising and no scanning enabled")
 		}
-	} else {
-		return errors.New("Datahop service is not initialised")
+		return errors.New("discovery service is not initialised")
 	}
+	return errors.New("datahop service is not initialised")
+}
+
+func startCRDTStateWatcher() error {
+	log.Debug("startCRDTStateWatcher")
+	var pubsubOptions []pubsub.Option
+	ps, err := pubsub.NewFloodsubWithProtocols(context.Background(), hop.peer.Host,
+		[]protocol.ID{FloodSubID}, pubsubOptions...)
+	if err != nil {
+		return err
+	}
+	topic, err := ps.Join(TopicCRDT)
+	if err != nil {
+		return err
+	}
+	ctx, cancle := context.WithCancel(hop.ctx)
+	hop.discService.stateInformer = &stateInformer{
+		ctx:    ctx,
+		cancel: cancle,
+		Topic:  topic,
+	}
+	sub, err := hop.discService.stateInformer.Subscribe()
+	if err != nil {
+		return err
+	}
+	go func() {
+		for {
+			state, err := FilterFromState()
+			if err != nil {
+				return
+			}
+			msg := &Message{
+				Id:        ID(),
+				CRDTState: state,
+			}
+			msgBytes, err := msg.Marshal()
+			if err != nil {
+				return
+			}
+			select {
+			case <-hop.discService.stateInformer.ctx.Done():
+				log.Debug("Stop stateInformer Publisher")
+				return
+			case <-time.After(time.Second * 10):
+				err := hop.discService.stateInformer.Publish(hop.ctx, msgBytes)
+				if err != nil {
+					log.Error("startCRDTStateWatcher : message publish error ", err.Error())
+					continue
+				}
+				log.Debugf("startCRDTStateWatcher : sent message %+v\n", msg)
+			}
+		}
+	}()
+	go func() {
+		for {
+			got, err := sub.Next(hop.ctx)
+			if err != nil {
+				return
+			}
+			msg := Message{}
+			err = msg.Unmarshal(got.GetData())
+			if err != nil {
+				return
+			}
+			log.Debugf("startCRDTStateWatcher : got message %+v\n", msg)
+			if msg.Id != ID() {
+				state, err := FilterFromState()
+				if err != nil {
+					continue
+				}
+				if msg.CRDTState == state && !hop.discService.isHost {
+					hop.wifiCon.Disconnect()
+					hop.discService.connected = false
+				}
+			}
+		}
+	}()
+	return nil
 }
 
 // StopDiscovery stops BLE discovery
@@ -459,6 +549,7 @@ func Add(tag string, content []byte) error {
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
 			Owner:     hop.peer.Host.ID(),
+			Tag:       tag,
 		}
 		err = hop.peer.Manager.Tag(tag, meta)
 		if err != nil {
@@ -556,6 +647,10 @@ func Matrix() (string, error) {
 		return string(b), nil
 	}
 	return "", errors.New("datahop ipfs-lite node is not running")
+}
+
+func DownloadsInProgress() int {
+	return len(hop.peer.Manager.DownloadManagerStatus())
 }
 
 // GetDiscoveryNotifier returns discovery notifier

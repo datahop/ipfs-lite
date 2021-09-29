@@ -87,6 +87,10 @@ Example:
 				return err
 			}
 			kind, _ := filetype.Match(head)
+			tag, _ := cmd.Flags().GetString("tag")
+			if tag == "" {
+				tag = filepath.Base(f.Name())
+			}
 			meta := &replication.Metatag{
 				Size:      fileinfo.Size(),
 				Type:      kind.MIME.Value,
@@ -94,10 +98,7 @@ Example:
 				Hash:      n.Cid(),
 				Timestamp: time.Now().Unix(),
 				Owner:     comm.LitePeer.Host.ID(),
-			}
-			tag, _ := cmd.Flags().GetString("tag")
-			if tag == "" {
-				tag = filepath.Base(f.Name())
+				Tag:       tag,
 			}
 			err = comm.LitePeer.Manager.Tag(tag, meta)
 			if err != nil {
