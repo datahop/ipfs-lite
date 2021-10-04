@@ -282,12 +282,12 @@ func (m *Manager) StartContentWatcher() {
 						m.repo.Matrix().ContentDownloadFinished(id.String())
 						m.syncMtx.Lock()
 						state := m.repo.State().Add([]byte(meta.Tag))
-						m.syncMtx.Unlock()
 						log.Debugf("New State: %d\n", state)
 						err = m.repo.SetState()
 						if err != nil {
 							log.Errorf("SetState failed %s\n", err.Error())
 						}
+						m.syncMtx.Unlock()
 					}
 				}()
 			}
