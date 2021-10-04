@@ -113,6 +113,7 @@ type datahop struct {
 func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("replication", "Debug")
 	logger.SetLogLevel("matrix", "Debug")
 }
 

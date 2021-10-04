@@ -3,6 +3,7 @@ package replication
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/repo"
@@ -35,11 +36,12 @@ type Metatag struct {
 
 // Manager handles replication
 type Manager struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	crdt   *crdt.Datastore
-	syncer Syncer
-	repo   repo.Repo
+	ctx     context.Context
+	cancel  context.CancelFunc
+	crdt    *crdt.Datastore
+	syncer  Syncer
+	repo    repo.Repo
+	syncMtx sync.Mutex
 
 	dlManager *taskmanager.TaskManager
 	download  chan Metatag
@@ -78,7 +80,7 @@ func New(
 	crdtOpts.Logger = log
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
-		log.Debugf("Added: [%s] -> %s\n", k, string(v))
+		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
 		m := &Metatag{}
 		err := json.Unmarshal(v, m)
 		if err != nil {
@@ -88,7 +90,7 @@ func New(
 		contentChan <- *m
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
-		log.Debugf("Removed: [%s]\n", k)
+		log.Debugf("CRDT Replication :: Removed: [%s]\n", k)
 		state := r.State().Add([]byte("removed " + k.Name()))
 		log.Debugf("New State: %d\n", state)
 		err = r.SetState()
@@ -278,7 +280,9 @@ func (m *Manager) StartContentWatcher() {
 						return
 					case <-done:
 						m.repo.Matrix().ContentDownloadFinished(id.String())
+						m.syncMtx.Lock()
 						state := m.repo.State().Add([]byte(meta.Tag))
+						m.syncMtx.Unlock()
 						log.Debugf("New State: %d\n", state)
 						err = m.repo.SetState()
 						if err != nil {
