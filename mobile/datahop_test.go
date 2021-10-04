@@ -198,7 +198,7 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = StartDiscovery(true, true, true)
+	err = StartDiscovery(true, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
