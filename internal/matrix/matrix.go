@@ -276,6 +276,10 @@ func (mKeeper *MatrixKeeper) NodeConnectionFailed(address string) {
 	nodeMatrix.ConnectionFailureCount++
 
 	nodeMatrix.BLEDiscoveredAt = 0
+	nodeMatrix.WifiConnectedAt = 0
+	nodeMatrix.RSSI = 0
+	nodeMatrix.Speed = 0
+	nodeMatrix.Frequency = 0
 }
 
 // NodeDisconnected updates connectivity disconnection time info with another node

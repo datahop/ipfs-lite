@@ -9,6 +9,7 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 var root = filepath.Join("./test", "root1")
@@ -114,6 +115,69 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 
 	if mKeeper.ContentMatrix["contentOne"].AvgSpeed != mKeeper2.ContentMatrix["contentOne"].AvgSpeed {
 		t.Fatal("contentOne avgSpeed mismatch")
+	}
+}
+
+func TestMatrixKeeperNodeMatrixOps(t *testing.T) {
+	<-time.After(time.Second)
+	defer removeRepo(t)
+	mKeeper := NewMatrixKeeper(initDatastore(t))
+	if mKeeper.NodeMatrix == nil {
+		t.Fatal("NodeMatrix keeper should not be null")
+	}
+	defer mKeeper.db.Close()
+	address := "discoveredNodeOne"
+	mKeeper.BLEDiscovered(address)
+	if mKeeper.GetNodeStat(address).BLEDiscoveredAt == 0 {
+		t.Fatal("BLEDiscoveredAt not updated")
+	}
+	mKeeper.WifiConnected(address, 5, 5, 5)
+	if mKeeper.GetNodeStat(address).WifiConnectedAt == 0 {
+		t.Fatal("WifiConnectedAt not updated")
+	}
+	mKeeper.NodeConnectionFailed(address)
+	if mKeeper.GetNodeStat(address).ConnectionFailureCount != 1 {
+		t.Fatal("ConnectionFailureCount not updated")
+	}
+
+	mKeeper.BLEDiscovered(address)
+	mKeeper.WifiConnected(address, 5, 5, 5)
+	mKeeper.NodeConnected(address)
+	if mKeeper.GetNodeStat(address).ConnectionSuccessCount != 1 {
+		t.Fatal("ConnectionFailureCount not updated")
+	}
+
+	mKeeper.NodeDisconnected(address)
+	if len(mKeeper.GetNodeStat(address).ConnectionHistory) != 1 {
+		t.Fatal("ConnectionHistory not updated")
+	}
+}
+
+func TestMatrixKeeperContentMatrixOps(t *testing.T) {
+	<-time.After(time.Second)
+	defer removeRepo(t)
+	mKeeper := NewMatrixKeeper(initDatastore(t))
+	if mKeeper.NodeMatrix == nil {
+		t.Fatal("NodeMatrix keeper should not be null")
+	}
+	defer mKeeper.db.Close()
+	hash := "Hash"
+	address := "discoveredNodeOne"
+	tag := "Tag"
+	var size int64 = 256
+	mKeeper.ContentDownloadStarted(tag, hash, size)
+	cs := mKeeper.GetContentStat(hash)
+	if cs.Tag != tag && cs.DownloadStartedAt == 0 {
+		t.Fatal("ContentDownloadStart failed")
+	}
+	mKeeper.ContentDownloadFinished(hash)
+	cs = mKeeper.GetContentStat(hash)
+	if cs.AvgSpeed == 0 && cs.DownloadFinishedAt == 0 {
+		t.Fatal("ContentDownloadFinished failed")
+	}
+	mKeeper.ContentAddProvider(hash, peer.ID(address))
+	if len(mKeeper.GetContentStat(hash).ProvidedBy) != 1 {
+		t.Fatal("ContentAddProvider not updated")
 	}
 }
 
