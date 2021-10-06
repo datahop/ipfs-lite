@@ -1,11 +1,14 @@
 package datahop
 
 import (
+	"context"
+	"encoding/json"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
 const DiscoveryServiceTag = "_datahop-discovery._ble"
@@ -28,6 +31,25 @@ type Notifee interface {
 	HandlePeerFound(string)
 }
 
+type stateInformer struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	*pubsub.Topic
+}
+
+type Message struct {
+	Id        string
+	CRDTState string
+}
+
+func (m *Message) Marshal() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+func (m *Message) Unmarshal(val []byte) error {
+	return json.Unmarshal(val, m)
+}
+
 type discoveryService struct {
 	discovery       DiscoveryDriver
 	advertiser      AdvertisingDriver
@@ -43,6 +65,9 @@ type discoveryService struct {
 	connected       bool //wifi connection status connected/disconnected
 	numConnected    int
 	service         ServiceType
+
+	isHost        bool
+	stateInformer *stateInformer
 	// handleConnectionRequest will take care of the incoming connection request.
 	// but it is not safe to use this approach, as in case of multiple back to
 	// back connection requests we might loose some connection request as
@@ -124,6 +149,7 @@ func (b *discoveryService) Close() error {
 	b.advertiser.Stop()
 	hop.wifiCon.Disconnect()
 	hop.wifiHS.Stop()
+	b.isHost = false
 	return nil
 }
 func (b *discoveryService) RegisterNotifee(n Notifee) {
@@ -181,6 +207,7 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 	hop.peer.Repo.Matrix().BLEDiscovered(id)
 	b.discovery.Stop()
 	b.wifiHS.Start()
+	b.isHost = true
 }
 
 func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int) {

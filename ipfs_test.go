@@ -384,6 +384,7 @@ func TestState(t *testing.T) {
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
 			Owner:     p1.Host.ID(),
+			Tag:       fmt.Sprintf("tag%d", i),
 		}
 		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 		if err != nil {
@@ -437,10 +438,11 @@ func TestStateDualPeer(t *testing.T) {
 		meta := &replication.Metatag{
 			Size:      int64(len(content)),
 			Type:      filetype.Unknown.Extension,
-			Name:      "tag",
+			Name:      fmt.Sprintf("tag%d", i),
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
 			Owner:     p1.Host.ID(),
+			Tag:       fmt.Sprintf("tag%d", i),
 		}
 		err = p1.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 		if err != nil {

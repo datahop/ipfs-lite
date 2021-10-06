@@ -37,8 +37,11 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.3.2
 	github.com/multiformats/go-multihash v0.0.15
+	github.com/plexsysio/taskmanager v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
-	golang.org/x/mobile v0.0.0-20210902104108-5d9a33257ab5 // indirect
+	golang.org/x/tools v0.1.2 // indirect
 	google.golang.org/protobuf v1.26.0
 )
+
+replace github.com/plexsysio/taskmanager => github.com/asabya/taskmanager v0.1.0

@@ -198,7 +198,7 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = StartDiscovery(true, true, true)
+	err = StartDiscovery(true, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -419,6 +419,7 @@ func TestReplicationOut(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	<-time.After(time.Second * 5)
 	bf2, err := State()
 	if err != nil {
 		t.Fatal(err)
@@ -426,7 +427,6 @@ func TestReplicationOut(t *testing.T) {
 	if bytes.Compare(bf1, bf2) == 0 {
 		t.Fatal("bloom filter is same after addition")
 	}
-	<-time.After(time.Second * 5)
 	bf3, err := p.Repo.State().MarshalJSON()
 	if err != nil {
 		t.Fatal(err)
@@ -564,6 +564,7 @@ func TestReplicationIn(t *testing.T) {
 		}
 		p.Manager.Tag(fmt.Sprintf("tag%d", i), meta)
 	}
+	<-time.After(time.Second * 5)
 	bf2, err := p.Repo.State().MarshalJSON()
 	if err != nil {
 		t.Fatal(err)
@@ -571,7 +572,6 @@ func TestReplicationIn(t *testing.T) {
 	if bytes.Compare(bf1, bf2) == 0 {
 		t.Fatal("bloom filter are same")
 	}
-	<-time.After(time.Second * 5)
 	bf3, err := State()
 	if err != nil {
 		t.Fatal(err)
