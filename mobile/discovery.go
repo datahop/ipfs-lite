@@ -192,6 +192,7 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 
 	conn := hop.peer.Host.Network().Connectedness(peerInfo.ID)
 	if conn == p2pnet.Connected {
+		log.Debug("Peer already connected")
 		return
 	}
 
@@ -213,6 +214,7 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 
 	conn := hop.peer.Host.Network().Connectedness(peer.ID(id))
 	if conn == p2pnet.Connected {
+		log.Debug("Peer already connected")
 		return
 	}
 
