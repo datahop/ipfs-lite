@@ -3,7 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/datahop/ipfs-lite.svg)](https://pkg.go.dev/github.com/datahop/ipfs-lite)
 [![Go Report Card](https://goreportcard.com/badge/github.com/datahop/ipfs-lite)](https://goreportcard.com/report/github.com/datahop/ipfs-lite)
 [![Actions Status](https://github.com/datahop/ipfs-lite/workflows/Go/badge.svg)](https://github.com/datahop/ipfs-lite/actions)
-[![codecov](https://codecov.io/gh/datahop/ipfs-lite/branch/alpha.0/graph/badge.svg)](https://codecov.io/gh/datahop/ipfs-lite)
+[![codecov](https://codecov.io/gh/datahop/ipfs-lite/branch/master/graph/badge.svg)](https://codecov.io/gh/datahop/ipfs-lite)
 
 IPFS-Lite is an embeddable, lightweight IPFS peer. This fork started
 from [ipfs-lite](https://github.com/hsanjuan/ipfs-lite).
