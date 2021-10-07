@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	p2pnet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
@@ -188,6 +189,13 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 		log.Errorf("failed parsing peerinfo %s", err.Error())
 		return
 	}
+
+	conn := hop.peer.Host.Network().Connectedness(peerInfo.ID)
+	if conn == p2pnet.Connected {
+		log.Debug("Peer already connected")
+		return
+	}
+
 	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
 	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
 	b.handleConnectionRequest = func() {
@@ -203,6 +211,12 @@ func (b *discoveryService) AdvertiserPeerSameStatus() {
 func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []byte, id string) {
 	log.Debugf("advertising new peer device different status : %s", string(value))
 	log.Debugf("peerinfo: %s", id)
+
+	conn := hop.peer.Host.Network().Connectedness(peer.ID(id))
+	if conn == p2pnet.Connected {
+		log.Debug("Peer already connected")
+		return
+	}
 
 	hop.peer.Repo.Matrix().BLEDiscovered(id)
 	b.discovery.Stop()

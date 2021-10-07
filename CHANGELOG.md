@@ -1,6 +1,16 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## ## [v0.0.12] - 2021-10-07
+
+### Added
+
+- [655b263](https://github.com/datahop/ipfs-lite/commit/655b263) Auto Disconnect after content replication for D2D discovery
+
+### Changed
+
+- [84b7b42](https://github.com/datahop/ipfs-lite/commit/84b7b42) Do not initiate D2D Discovery in nodes are pre-connected 
+
 ## [v0.0.11] - 2021-09-22
 
 ### Added
