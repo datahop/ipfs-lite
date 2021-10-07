@@ -64,6 +64,7 @@ type discoveryService struct {
 	stopSignal      chan struct{}
 	advertisingInfo map[string]string
 	connected       bool //wifi connection status connected/disconnected
+	stopping		bool
 	numConnected    int
 	service         ServiceType
 
@@ -98,6 +99,7 @@ func NewDiscoveryService(
 		scan:            scanTime,
 		interval:        interval,
 		connected:       false,
+		stopping: 		 false,
 		stopSignal:      make(chan struct{}),
 		advertisingInfo: make(map[string]string),
 	}
@@ -196,6 +198,8 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 		return
 	}
 
+	b.discovery.Stop()
+
 	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
 	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
 	b.handleConnectionRequest = func() {
@@ -269,8 +273,11 @@ func (b *discoveryService) NetworkInfo(network string, password string) {
 
 func (b *discoveryService) ClientsConnected(num int) {
 	log.Debug("hotspot clients connected ", num)
-	if b.numConnected > 0 && num == 0 && b.service != "onlyAdv" {
+	if b.numConnected > 0 && num == 0 && b.service != "onlyAdv" && !b.stopping {
+		b.stopping=true
 		b.discovery.Start(b.tag, ID(), b.scan, b.interval)
+		b.wifiHS.Stop()
 	}
 	b.numConnected = num
+	b.stopping = false
 }
