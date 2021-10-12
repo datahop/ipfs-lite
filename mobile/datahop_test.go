@@ -119,7 +119,6 @@ func TestInit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(pInfo)
 	var peerInfo peer.AddrInfo
 	err = peerInfo.UnmarshalJSON([]byte(pInfo))
 	if err != nil {
