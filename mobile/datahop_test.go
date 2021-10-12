@@ -100,18 +100,26 @@ func TestInit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer Stop()
-	if ID() != hop.identity.PeerID {
+	id, err := ID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != hop.identity.PeerID {
 		t.Fatal("ID() returns different id than config identity")
 	}
-	pInfo := PeerInfo()
+	pInfo, err := PeerInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(pInfo)
 	var peerInfo peer.AddrInfo
 	err = peerInfo.UnmarshalJSON([]byte(pInfo))
 	if err != nil {
@@ -134,8 +142,8 @@ func TestAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
 
 	if _, err := Addrs(); err == ErrNoPeerAddress {
@@ -145,7 +153,7 @@ func TestAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,10 +178,10 @@ func TestNoPeerConnected(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,6 +189,44 @@ func TestNoPeerConnected(t *testing.T) {
 	if _, err := Peers(); err != ErrNoPeersConnected {
 		t.Fatal(err)
 	}
+}
+
+func TestStartDiscoveryWithoutInit(t *testing.T) {
+	err := Start(false, false)
+	if err == nil {
+		t.Fatal("Start should fail here")
+	}
+
+	err = StartDiscovery(true, true)
+	if err == nil {
+		t.Fatal("StartDiscovery should fail here")
+	}
+}
+
+func TestStartDiscoveryWithoutStart(t *testing.T) {
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Close()
+		removeRepo(root, t)
+	}()
+	err = StartDiscovery(true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = StopDiscovery()
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 2)
 }
 
 func TestStartStopDiscovery(t *testing.T) {
@@ -195,13 +241,14 @@ func TestStartStopDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
-	err = StartDiscovery(true, true, false)
+	err = StartDiscovery(true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	<-time.After(time.Second)
 	err = StopDiscovery()
 	if err != nil {
 		t.Fatal(err)
@@ -220,8 +267,8 @@ func TestContentLength(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
 	_, err = DiskUsage()
 	if err != nil {
@@ -242,11 +289,11 @@ func TestMultipleStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
 	for i := 0; i < 10; i++ {
-		err = Start(false)
+		err = Start(false, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -272,14 +319,16 @@ func TestBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer removeRepo(root, t)
-	err = Start(false)
+	defer func() {
+		Close()
+		removeRepo(root, t)
+	}()
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
 		Stop()
-		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, "5000", t)
@@ -319,7 +368,7 @@ func TestConnectWithAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +400,10 @@ func TestConnectWithAddress(t *testing.T) {
 	if nodeStatSnapshot.ConnectionSuccessCount != 1 {
 		t.Fatal("ConnectionSuccessCount is not 1")
 	}
-	pi := PeerInfo()
+	pi, err := PeerInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var peerInfo peer.AddrInfo
 	err = peerInfo.UnmarshalJSON([]byte(pi))
 	if err != nil {
@@ -382,7 +434,7 @@ func TestReplicationOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,6 +442,11 @@ func TestReplicationOut(t *testing.T) {
 		Stop()
 		Close()
 	}()
+	err = StartDiscovery(true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer StopDiscovery()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, "5000", t)
 	defer func() {
@@ -449,7 +506,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +574,7 @@ func TestReplicationIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -594,7 +651,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -640,7 +697,7 @@ func TestContentOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -648,6 +705,11 @@ func TestContentOwner(t *testing.T) {
 		Stop()
 		Close()
 	}()
+	err = StartDiscovery(true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer StopDiscovery()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, "5000", t)
 	defer func() {
@@ -698,7 +760,7 @@ func TestContentMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -706,6 +768,11 @@ func TestContentMatrix(t *testing.T) {
 		Stop()
 		Close()
 	}()
+	err = StartDiscovery(true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer StopDiscovery()
 	secondNode := filepath.Join("./test", "root1")
 	p := startAnotherNode(secondNode, "5000", t)
 	defer func() {
@@ -752,15 +819,20 @@ func TestContentDistribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		Stop()
-		Close()
+		if hop != nil {
+			Stop()
+			Close()
+		}
 	}()
-
+	err = StartDiscovery(true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	secondNode := filepath.Join("./test", "root1")
 	p2 := startAnotherNode(secondNode, "5000", t)
 	defer func() {
@@ -791,6 +863,7 @@ func TestContentDistribution(t *testing.T) {
 		}
 	}
 	Stop()
+	StopDiscovery()
 	Close()
 	thirdNode := filepath.Join("./test", "root2")
 	p3 := startAnotherNode(thirdNode, "5001", t)
@@ -831,7 +904,6 @@ func TestContentDistribution(t *testing.T) {
 		if !strings.HasPrefix(v.String(), "127") {
 			addr, _ := ma.NewMultiaddr(v.String() + "/p2p/" + p4.Host.ID().String())
 			peerInfo, _ := peer.AddrInfosFromP2pAddrs(addr)
-
 			for _, v := range peerInfo {
 				err := p3.Host.Connect(context.Background(), v)
 				if err != nil {

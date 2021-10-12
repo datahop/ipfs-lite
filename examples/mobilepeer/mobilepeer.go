@@ -95,7 +95,7 @@ func main() {
 		panic(err)
 	}
 	defer datahop.Close()
-	err = datahop.Start(true)
+	err = datahop.Start(true, true)
 	if err != nil {
 		panic(err)
 	}
