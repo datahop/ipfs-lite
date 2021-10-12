@@ -158,6 +158,13 @@ func init() {
 	logger.SetLogLevel("datahop", "Debug")
 }
 
+func h() *datahop {
+	packageLock.Lock()
+	defer packageLock.Unlock()
+
+	return hop
+}
+
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
 // Default swarm port is 4501
 func Init(
@@ -200,29 +207,30 @@ func Init(
 		advDriver:       advDriver,
 	}
 	service := NewDiscoveryService(
-		hop.discDriver,
-		hop.advDriver,
+		h().discDriver,
+		h().advDriver,
 		1000,
 		20000,
-		hop.wifiHS,
-		hop.wifiCon,
+		h().wifiHS,
+		h().wifiCon,
 		DiscoveryServiceTag,
 		&connectednessChecker{},
-		hop.repo.Matrix(),
+		h().repo.Matrix(),
 		&identityInformer{},
 	)
 	res, ok := service.(*discoveryService)
 	if !ok {
 		return errors.New("discovery service is not initialised")
 	}
-	hop.discService = res
-	hop.discService.RegisterNotifee(hop.notifier)
+	h().discService = res
+	h().discService.RegisterNotifee(dn)
 	return nil
 }
 
 // State returns number of keys in crdt store
 func State() ([]byte, error) {
-	return hop.repo.State().MarshalJSON()
+	st := h().repo.State()
+	return st.MarshalJSON()
 }
 
 // FilterFromState returns the bloom filter from state
@@ -238,7 +246,7 @@ func FilterFromState() (string, error) {
 
 // DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
-	du, err := datastore.DiskUsage(hop.repo.Datastore())
+	du, err := datastore.DiskUsage(h().repo.Datastore())
 	if err != nil {
 		return 0, err
 	}
@@ -250,20 +258,20 @@ func Start(shouldBootstrap, autoDisconnectFromHost bool) error {
 	if hop == nil {
 		return ErrClientNotInit
 	}
-	ctx, cancel := context.WithCancel(hop.ctx)
+	ctx, cancel := context.WithCancel(h().ctx)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		p, err := ipfslite.New(ctx, cancel, hop.repo)
+		p, err := ipfslite.New(ctx, cancel, h().repo)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			wg.Done()
 			return
 		}
-		hop.peer = p
-		hop.peer.Host.Network().Notify(hop.networkNotifier)
+		h().peer = p
+		h().peer.Host.Network().Notify(h().networkNotifier)
 		if shouldBootstrap {
-			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+			h().peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
 		}
 		log.Debug("autoDisconnect : ", autoDisconnectFromHost)
 		if autoDisconnectFromHost {
@@ -276,7 +284,7 @@ func Start(shouldBootstrap, autoDisconnectFromHost bool) error {
 		}
 		wg.Done()
 		select {
-		case <-hop.peer.Ctx.Done():
+		case <-h().peer.Ctx.Done():
 			log.Debug("Context Closed ")
 		}
 	}()
@@ -293,7 +301,7 @@ const (
 // StartDiscovery starts BLE discovery
 func StartDiscovery(advertising bool, scanning bool) error {
 	if hop != nil {
-		if hop.discService == nil {
+		if h().discService == nil {
 			return errors.New("discovery service is not initialised")
 		}
 		go func() {
@@ -304,9 +312,9 @@ func StartDiscovery(advertising bool, scanning bool) error {
 					return
 				}
 				log.Debug("Filter state ", bf)
-				hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+				h().discService.AddAdvertisingInfo(CRDTStatus, bf)
 				select {
-				case <-hop.discService.stopSignal:
+				case <-h().discService.stopSignal:
 					log.Error("Stop AddAdvertisingInfo Routine")
 					return
 				case <-time.After(time.Second * 10):
@@ -314,15 +322,15 @@ func StartDiscovery(advertising bool, scanning bool) error {
 			}
 		}()
 		if advertising && scanning {
-			hop.discService.Start()
+			h().discService.Start()
 			log.Debug("Started discovery")
 			return nil
 		} else if advertising {
-			hop.discService.StartOnlyAdvertising()
+			h().discService.StartOnlyAdvertising()
 			log.Debug("Started discovery only advertising")
 			return nil
 		} else if scanning {
-			hop.discService.StartOnlyScanning()
+			h().discService.StartOnlyScanning()
 			log.Debug("Started discovery only scanning")
 			return nil
 		}
@@ -334,7 +342,7 @@ func StartDiscovery(advertising bool, scanning bool) error {
 func startCRDTStateWatcher() error {
 	log.Debug("startCRDTStateWatcher")
 	var pubsubOptions []pubsub.Option
-	ps, err := pubsub.NewFloodsubWithProtocols(context.Background(), hop.peer.Host,
+	ps, err := pubsub.NewFloodsubWithProtocols(context.Background(), h().peer.Host,
 		[]protocol.ID{FloodSubID}, pubsubOptions...)
 	if err != nil {
 		return err
@@ -343,13 +351,13 @@ func startCRDTStateWatcher() error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithCancel(hop.peer.Ctx)
-	hop.stateInformer = &stateInformer{
+	ctx, cancel := context.WithCancel(h().peer.Ctx)
+	h().stateInformer = &stateInformer{
 		ctx:    ctx,
 		cancel: cancel,
 		Topic:  topic,
 	}
-	sub, err := hop.stateInformer.Subscribe()
+	sub, err := h().stateInformer.Subscribe()
 	if err != nil {
 		return err
 	}
@@ -372,11 +380,11 @@ func startCRDTStateWatcher() error {
 				return
 			}
 			select {
-			case <-hop.stateInformer.ctx.Done():
+			case <-h().stateInformer.ctx.Done():
 				log.Debug("Stop stateInformer Publisher")
 				return
 			case <-time.After(time.Second * 10):
-				err := hop.stateInformer.Publish(hop.stateInformer.ctx, msgBytes)
+				err := h().stateInformer.Publish(h().stateInformer.ctx, msgBytes)
 				if err != nil {
 					log.Error("startCRDTStateWatcher : message publish error ", err.Error())
 					continue
@@ -387,7 +395,7 @@ func startCRDTStateWatcher() error {
 	}()
 	go func() {
 		for {
-			got, err := sub.Next(hop.stateInformer.ctx)
+			got, err := sub.Next(h().stateInformer.ctx)
 			if err != nil {
 				return
 			}
@@ -406,9 +414,9 @@ func startCRDTStateWatcher() error {
 				if err != nil {
 					continue
 				}
-				if msg.CRDTState == state && hop.discService != nil && !hop.discService.isHost {
-					hop.wifiCon.Disconnect()
-					hop.discService.connected = false
+				if msg.CRDTState == state && h().discService != nil && !h().discService.isHost {
+					h().wifiCon.Disconnect()
+					h().discService.connected = false
 				}
 			}
 		}
@@ -422,11 +430,11 @@ func StopDiscovery() error {
 		return ErrClientNotInit
 	}
 	log.Debug("Stopping discovery")
-	if hop.discService != nil {
+	if h().discService != nil {
 		go func() {
-			hop.discService.stopSignal <- struct{}{}
+			h().discService.stopSignal <- struct{}{}
 		}()
-		return hop.discService.Close()
+		return h().discService.Close()
 	}
 	return errors.New("discovery service is not initialised")
 }
@@ -440,7 +448,7 @@ func ConnectWithAddress(address string) error {
 	peerInfo, _ := peer.AddrInfosFromP2pAddrs(addr)
 
 	for _, v := range peerInfo {
-		err := hop.peer.Connect(context.Background(), v)
+		err := h().peer.Connect(context.Background(), v)
 		if err != nil {
 			return err
 		}
@@ -458,7 +466,7 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	if err != nil {
 		return err
 	}
-	err = hop.peer.Connect(context.Background(), peerInfo)
+	err = h().peer.Connect(context.Background(), peerInfo)
 	if err != nil {
 		return err
 	}
@@ -475,7 +483,7 @@ func Bootstrap(peerInfoByteString string) error {
 	if err != nil {
 		return err
 	}
-	hop.peer.Bootstrap([]peer.AddrInfo{peerInfo})
+	h().peer.Bootstrap([]peer.AddrInfo{peerInfo})
 	return nil
 }
 
@@ -483,21 +491,21 @@ func interfacePeerInfo() (string, error) {
 	if hop == nil {
 		return "", ErrClientNotInit
 	}
-	id, err := peer.Decode(hop.identity.PeerID)
+	id, err := peer.Decode(h().identity.PeerID)
 	if err != nil {
 		return "", err
 	}
 	pr := peer.AddrInfo{
 		ID: id,
 	}
-	if hop.peer != nil && hop.peer.IsOnline() {
-		if hop.peer != nil {
-			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+	if h().peer != nil && h().peer.IsOnline() {
+		if h().peer != nil {
+			interfaceAddrs, err := h().peer.Host.Network().InterfaceListenAddresses()
 			if err != nil {
 				return "", err
 			}
 			pr.Addrs = interfaceAddrs
-			log.Debugf("Peer %s : %v", hop.peer.Host.ID(), pr)
+			log.Debugf("Peer %s : %v", h().peer.Host.ID(), pr)
 		}
 	}
 	prb, _ := pr.MarshalJSON()
@@ -509,22 +517,22 @@ func PeerInfo() (string, error) {
 	if hop == nil {
 		return "", ErrClientNotInit
 	}
-	id, err := peer.Decode(hop.identity.PeerID)
+	id, err := peer.Decode(h().identity.PeerID)
 	if err != nil {
 		return "", err
 	}
 	pr := peer.AddrInfo{
 		ID: id,
 	}
-	if hop.peer != nil && hop.peer.IsOnline() {
-		if hop.peer != nil {
-			addrs := hop.peer.Host.Addrs()
-			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+	if h().peer != nil && h().peer.IsOnline() {
+		if h().peer != nil {
+			addrs := h().peer.Host.Addrs()
+			interfaceAddrs, err := h().peer.Host.Network().InterfaceListenAddresses()
 			if err == nil {
 				addrs = append(addrs, interfaceAddrs...)
 			}
 			pr.Addrs = unique(addrs)
-			log.Debugf("Peer %s : %v", hop.peer.Host.ID(), pr)
+			log.Debugf("Peer %s : %v", h().peer.Host.ID(), pr)
 		}
 	}
 	prb, _ := pr.MarshalJSON()
@@ -567,7 +575,7 @@ func ID() (string, error) {
 	if hop == nil {
 		return "", ErrClientNotInit
 	}
-	return hop.identity.PeerID, nil
+	return h().identity.PeerID, nil
 }
 
 // Addrs Returns a comma(,) separated string of all the possible addresses of a node
@@ -577,10 +585,10 @@ func Addrs() ([]byte, error) {
 	}
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
-		if hop.peer != nil && hop.peer.IsOnline() {
-			for _, v := range hop.peer.Host.Addrs() {
+		if h().peer != nil && h().peer.IsOnline() {
+			for _, v := range h().peer.Host.Addrs() {
 				if !strings.HasPrefix(v.String(), "127") {
-					addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+					addrs = append(addrs, v.String()+"/p2p/"+h().peer.Host.ID().String())
 				}
 			}
 			addrsOP := &types.StringSlice{
@@ -602,12 +610,12 @@ func InterfaceAddrs() ([]byte, error) {
 	}
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
-		if hop.peer != nil && hop.peer.IsOnline() {
-			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
+		if h().peer != nil && h().peer.IsOnline() {
+			interfaceAddrs, err := h().peer.Host.Network().InterfaceListenAddresses()
 			if err == nil {
 				for _, v := range interfaceAddrs {
 					if !strings.HasPrefix(v.String(), "127") {
-						addrs = append(addrs, v.String()+"/p2p/"+hop.peer.Host.ID().String())
+						addrs = append(addrs, v.String()+"/p2p/"+h().peer.Host.ID().String())
 					}
 				}
 			}
@@ -623,8 +631,8 @@ func InterfaceAddrs() ([]byte, error) {
 
 // IsNodeOnline Checks if the node is running
 func IsNodeOnline() bool {
-	if hop != nil && hop.peer != nil {
-		return hop.peer.IsOnline()
+	if hop != nil && h().peer != nil {
+		return h().peer.IsOnline()
 	}
 	return false
 }
@@ -634,9 +642,9 @@ func Peers() ([]byte, error) {
 	if hop == nil {
 		return nil, ErrClientNotInit
 	}
-	if hop.peer != nil && len(hop.peer.Peers()) > 0 {
+	if h().peer != nil && len(h().peer.Peers()) > 0 {
 		peers := &types.StringSlice{
-			Output: hop.peer.Peers(),
+			Output: h().peer.Peers(),
 		}
 		return proto.Marshal(peers)
 	}
@@ -648,9 +656,9 @@ func Add(tag string, content []byte) error {
 	if hop == nil {
 		return ErrClientNotInit
 	}
-	if hop.peer != nil && hop.peer.IsOnline() {
+	if h().peer != nil && h().peer.IsOnline() {
 		buf := bytes.NewReader(content)
-		n, err := hop.peer.AddFile(context.Background(), buf, nil)
+		n, err := h().peer.AddFile(context.Background(), buf, nil)
 		if err != nil {
 			return err
 		}
@@ -661,10 +669,10 @@ func Add(tag string, content []byte) error {
 			Name:      tag,
 			Hash:      n.Cid(),
 			Timestamp: time.Now().Unix(),
-			Owner:     hop.peer.Host.ID(),
+			Owner:     h().peer.Host.ID(),
 			Tag:       tag,
 		}
-		err = hop.peer.Manager.Tag(tag, meta)
+		err = h().peer.Manager.Tag(tag, meta)
 		if err != nil {
 			return err
 		}
@@ -675,7 +683,7 @@ func Add(tag string, content []byte) error {
 			log.Error("Unable to filter state")
 			return err
 		}
-		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+		h().discService.AddAdvertisingInfo(CRDTStatus, bf)
 		return nil
 	}
 	return errors.New("datahop ipfs-lite node is not running")
@@ -686,13 +694,13 @@ func Get(tag string) ([]byte, error) {
 	if hop == nil {
 		return nil, ErrClientNotInit
 	}
-	if hop.peer != nil && hop.peer.IsOnline() {
-		meta, err := hop.peer.Manager.FindTag(tag)
+	if h().peer != nil && h().peer.IsOnline() {
+		meta, err := h().peer.Manager.FindTag(tag)
 		if err != nil {
 			return nil, err
 		}
 		log.Debugf("%s => %+v", tag, meta)
-		r, err := hop.peer.GetFile(context.Background(), meta.Hash)
+		r, err := h().peer.GetFile(context.Background(), meta.Hash)
 		if err != nil {
 			return nil, err
 		}
@@ -710,8 +718,8 @@ func GetTags() ([]byte, error) {
 	if hop == nil {
 		return nil, ErrClientNotInit
 	}
-	if hop.peer != nil && hop.peer.IsOnline() {
-		tags, err := hop.peer.Manager.GetAllTags()
+	if h().peer != nil && h().peer.IsOnline() {
+		tags, err := h().peer.Manager.GetAllTags()
 		if err != nil {
 			return nil, err
 		}
@@ -733,11 +741,11 @@ func Stop() {
 	if hop == nil {
 		return
 	}
-	hop.peer.Repo.Matrix().Flush()
-	hop.peer.Cancel()
+	h().peer.Repo.Matrix().Flush()
+	h().peer.Cancel()
 
 	select {
-	case <-hop.peer.Stopped:
+	case <-h().peer.Stopped:
 	case <-time.After(time.Second * 5):
 	}
 }
@@ -747,8 +755,8 @@ func Close() {
 	if hop == nil {
 		return
 	}
-	hop.repo.Close()
-	hop.cancel()
+	h().repo.Close()
+	h().cancel()
 	packageLock.Lock()
 	defer packageLock.Unlock()
 	hop = nil
@@ -756,7 +764,7 @@ func Close() {
 
 // UpdateTopicStatus adds BLE advertising info
 func UpdateTopicStatus(topic string, value string) {
-	hop.discService.AddAdvertisingInfo(topic, value)
+	h().discService.AddAdvertisingInfo(topic, value)
 }
 
 // Matrix returns matrix measurements
@@ -764,10 +772,10 @@ func Matrix() (string, error) {
 	if hop == nil {
 		return "", ErrClientNotInit
 	}
-	if hop.peer != nil && hop.peer.IsOnline() {
-		nodeMatrixSnapshot := hop.peer.Repo.Matrix().NodeMatrixSnapshot()
-		contentMatrixSnapshot := hop.peer.Repo.Matrix().ContentMatrixSnapshot()
-		uptime := hop.peer.Repo.Matrix().GetTotalUptime()
+	if h().peer != nil && h().peer.IsOnline() {
+		nodeMatrixSnapshot := h().peer.Repo.Matrix().NodeMatrixSnapshot()
+		contentMatrixSnapshot := h().peer.Repo.Matrix().ContentMatrixSnapshot()
+		uptime := h().peer.Repo.Matrix().GetTotalUptime()
 		matrix := map[string]interface{}{}
 		matrix["TotalUptime"] = uptime
 		matrix["NodeMatrix"] = nodeMatrixSnapshot
@@ -785,7 +793,7 @@ func DownloadsInProgress() int {
 	if hop == nil {
 		return 0
 	}
-	return len(hop.peer.Manager.DownloadManagerStatus())
+	return len(h().peer.Manager.DownloadManagerStatus())
 }
 
 // GetDiscoveryNotifier returns discovery notifier
@@ -793,7 +801,7 @@ func GetDiscoveryNotifier() DiscoveryNotifier {
 	if hop == nil {
 		return nil
 	}
-	return hop.discService
+	return h().discService
 }
 
 // GetAdvertisementNotifier returns advertisement notifier
@@ -801,7 +809,7 @@ func GetAdvertisementNotifier() AdvertisementNotifier {
 	if hop == nil {
 		return nil
 	}
-	return hop.discService
+	return h().discService
 }
 
 // GetWifiHotspotNotifier returns wifi hotspot notifier
@@ -809,7 +817,7 @@ func GetWifiHotspotNotifier() WifiHotspotNotifier {
 	if hop == nil {
 		return nil
 	}
-	return hop.discService
+	return h().discService
 }
 
 // GetWifiConnectionNotifier returns wifi connection notifier
@@ -817,5 +825,5 @@ func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	if hop == nil {
 		return nil
 	}
-	return hop.discService
+	return h().discService
 }

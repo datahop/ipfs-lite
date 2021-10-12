@@ -111,9 +111,9 @@ func (r *FSRepo) State() *bloom.BloomFilter {
 
 // SetState updates local state file with bloom filter
 func (r *FSRepo) SetState(newState []byte) error {
-	packageLock.Lock()
-	defer packageLock.Unlock()
-	state := r.State().Add(newState)
+	stateLock.Lock()
+	defer stateLock.Unlock()
+	state := r.state.Add(newState)
 	log.Debugf("New State: %d\n", state)
 	f, err := os.OpenFile(filepath.Join(r.path, defaultStateFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
