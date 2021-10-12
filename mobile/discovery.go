@@ -151,6 +151,8 @@ func (b *discoveryService) StartOnlyScanning() {
 
 func (b *discoveryService) AddAdvertisingInfo(topic string, info string) {
 	log.Debug("discoveryService AddAdvertisingInfo :", topic, info)
+	b.lk.Lock()
+	defer b.lk.Unlock()
 	if b.advertisingInfo[topic] != info {
 		b.discovery.AddAdvertisingInfo(topic, info)
 		b.advertiser.AddAdvertisingInfo(topic, info)

@@ -392,8 +392,9 @@ func TestState(t *testing.T) {
 		}
 	}
 	<-time.After(time.Second)
+	st := p1.Repo.State()
 	for i := 0; i < 10; i++ {
-		if !p1.Repo.State().Test([]byte(fmt.Sprintf("tag%d", i))) {
+		if !st.Test([]byte(fmt.Sprintf("tag%d", i))) {
 			t.Fatal("tag should in bloom")
 		}
 	}
@@ -451,8 +452,9 @@ func TestStateDualPeer(t *testing.T) {
 		cids = append(cids, n.Cid())
 	}
 	<-time.After(time.Second * 5)
+	st := p2.Repo.State()
 	for i := 0; i < 10; i++ {
-		if !p2.Repo.State().Test([]byte(fmt.Sprintf("tag%d", i))) {
+		if !st.Test([]byte(fmt.Sprintf("tag%d", i))) {
 			t.Fatal("tag should in bloom")
 		}
 	}

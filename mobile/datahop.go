@@ -30,9 +30,9 @@ import (
 )
 
 var (
-	log = logger.Logger("datahop")
-	hop *datahop
-
+	log         = logger.Logger("datahop")
+	hop         *datahop
+	packageLock sync.Mutex
 	// ErrNoPeersConnected is returned if there is no peer connected
 	ErrNoPeersConnected = errors.New("no Peers connected")
 
@@ -749,6 +749,8 @@ func Close() {
 	}
 	hop.repo.Close()
 	hop.cancel()
+	packageLock.Lock()
+	defer packageLock.Unlock()
 	hop = nil
 }
 

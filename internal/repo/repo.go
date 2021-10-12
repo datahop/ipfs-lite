@@ -34,6 +34,7 @@ const (
 
 var (
 	packageLock     sync.Mutex
+	stateLock       sync.Mutex
 	log             = logging.Logger("repo")
 	ErrorRepoClosed = errors.New("cannot access config, repo not open")
 )
@@ -45,7 +46,7 @@ type Repo interface {
 	Datastore() Datastore
 	Close() error
 	State() *bloom.BloomFilter
-	SetState() error
+	SetState([]byte) error
 	Matrix() *matrix.MatrixKeeper
 }
 
@@ -102,17 +103,18 @@ func (r *FSRepo) Datastore() Datastore {
 
 // State returns nodes crdt bloom filter state
 func (r *FSRepo) State() *bloom.BloomFilter {
-	packageLock.Lock()
-	defer packageLock.Unlock()
+	stateLock.Lock()
+	defer stateLock.Unlock()
 
 	return r.state
 }
 
 // SetState updates local state file with bloom filter
-func (r *FSRepo) SetState() error {
+func (r *FSRepo) SetState(newState []byte) error {
 	packageLock.Lock()
 	defer packageLock.Unlock()
-
+	state := r.State().Add(newState)
+	log.Debugf("New State: %d\n", state)
 	f, err := os.OpenFile(filepath.Join(r.path, defaultStateFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err

@@ -108,7 +108,7 @@ func (m mockRepo) State() *bloom.BloomFilter {
 	return m.state
 }
 
-func (m mockRepo) SetState() error {
+func (m mockRepo) SetState(b []byte) error {
 	return nil
 }
 

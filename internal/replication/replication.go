@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	log = logging.Logger("replication")
+	log         = logging.Logger("replication")
+	packageLock sync.Mutex
 )
 
 // Metatag keeps meta information of a content in the crdt store
@@ -36,12 +37,11 @@ type Metatag struct {
 
 // Manager handles replication
 type Manager struct {
-	ctx     context.Context
-	cancel  context.CancelFunc
-	crdt    *crdt.Datastore
-	syncer  Syncer
-	repo    repo.Repo
-	syncMtx sync.Mutex
+	ctx    context.Context
+	cancel context.CancelFunc
+	crdt   *crdt.Datastore
+	syncer Syncer
+	repo   repo.Repo
 
 	dlManager *taskmanager.TaskManager
 	download  chan Metatag
@@ -91,9 +91,7 @@ func New(
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("CRDT Replication :: Removed: [%s]\n", k)
-		state := r.State().Add([]byte("removed " + k.Name()))
-		log.Debugf("New State: %d\n", state)
-		err = r.SetState()
+		err = r.SetState([]byte("removed " + k.Name()))
 		if err != nil {
 			log.Errorf("SetState failed %s\n", err.Error())
 		}
@@ -280,14 +278,10 @@ func (m *Manager) StartContentWatcher() {
 						return
 					case <-done:
 						m.repo.Matrix().ContentDownloadFinished(id.String())
-						m.syncMtx.Lock()
-						state := m.repo.State().Add([]byte(meta.Tag))
-						log.Debugf("New State: %d\n", state)
-						err = m.repo.SetState()
+						err = m.repo.SetState([]byte(meta.Tag))
 						if err != nil {
 							log.Errorf("SetState failed %s\n", err.Error())
 						}
-						m.syncMtx.Unlock()
 					}
 				}()
 			}
