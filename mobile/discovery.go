@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -200,10 +201,14 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 
 	b.discovery.Stop()
 
+	ip:="192.168.49.2"
 	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
-	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
+	hop.wifiCon.Connect(network, pass,ip , peerInfo.ID.String())
+	r:= strings.NewReplacer("127.0.0.1",ip)
+	newPeerInfo := r.Replace(peerinfo)
 	b.handleConnectionRequest = func() {
-		b.handleEntry(peerinfo)
+		//b.handleEntry(peerinfo)
+		b.handleEntry(newPeerInfo)
 	}
 }
 
