@@ -195,12 +195,16 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 		log.Debug("Peer already connected")
 		return
 	}
-
-	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
-	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
 	b.handleConnectionRequest = func() {
 		b.handleEntry(peerinfo)
 	}
+	if b.connected {
+		b.handleConnectionRequest()
+		return
+	}
+
+	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
+	hop.wifiCon.Connect(network, pass, "192.168.49.2", peerInfo.ID.String())
 }
 
 func (b *discoveryService) AdvertiserPeerSameStatus() {
