@@ -550,15 +550,15 @@ func (p *Peer) IsOnline() bool {
 }
 
 func (p *Peer) ZeroConfScan() {
-	log.Debug("ZeroConfScan")
+	log.Debug("zconf : ZeroConfScan")
 	connections := p.Host.Network().Conns()
 	for _, conn := range connections {
-		log.Debug("Closing connection :", conn.RemotePeer().Pretty())
+		log.Debug("zconf : Closing connection :", conn.RemotePeer().Pretty())
 		conn.Close()
 	}
 
 	action := func(entry *zeroconf.ServiceEntry) {
-		log.Debugf("Handle action : %+v\n", entry)
+		log.Debugf("zconf : Handle action : %+v\n", entry)
 		if entry.Instance == p.Host.ID().String() {
 			log.Debug("zconf : got own address")
 			return
@@ -574,7 +574,7 @@ func (p *Peer) ZeroConfScan() {
 		}
 		cNess := p.Host.Network().Connectedness(pi.ID)
 		if cNess != inet.Connected {
-			log.Debug("Connect from zconf : ", pi)
+			log.Debug("zconf : Connect from zconf : ", pi)
 			err = p.Connect(context.Background(), *pi)
 			if err != nil {
 				log.Error("zconf : Connecting failed : ", err.Error())
@@ -587,36 +587,36 @@ func (p *Peer) ZeroConfScan() {
 }
 
 func (p *Peer) RegisterZeroConf(instance string) error {
-	log.Debug("register service zconf")
+	log.Debug("zconf : register service zconf")
 	server, err := zeroconf.Register(instance, "_zconf-discovery._tcp", "local.", 42424, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
-		log.Error("RegisterZeroConf failed : ", err.Error())
+		log.Error("zconf : RegisterZeroConf failed : ", err.Error())
 		return err
 	}
 	defer server.Shutdown()
 	ctx, _ := context.WithTimeout(p.Ctx, time.Second*10)
 	<-ctx.Done()
-	log.Debug("Shutting down zeroconf server")
+	log.Debug("zconf : Shutting down zeroconf server")
 	return nil
 }
 
 func lookupAndConnect(ctx context.Context, action func(*zeroconf.ServiceEntry)) error {
-	log.Debug("lookupAndConnect service zconf")
+	log.Debug("zconf : lookupAndConnect service zconf")
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
-		log.Error("NewResolver Failed ", err.Error())
+		log.Error("zconf : NewResolver Failed ", err.Error())
 		return err
 	}
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
-			log.Debugf("Got Entry %+v\n", entry)
+			log.Debugf("zconf : Got Entry %+v\n", entry)
 			action(entry)
 		}
 	}(entries)
 	err = resolver.Browse(ctx, "_zconf-discovery._tcp", "local.", entries)
 	if err != nil {
-		log.Error("Unable to browse services ", err.Error())
+		log.Error("zconf : Unable to browse services ", err.Error())
 		return err
 	}
 	<-ctx.Done()
