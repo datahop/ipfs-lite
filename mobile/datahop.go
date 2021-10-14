@@ -88,6 +88,7 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	}
 	err = hop.peer.HandlePeerFoundWithError(peerInfo)
 	if err != nil {
+		log.Error("HandlePeerFoundWithError failed : ", err.Error())
 		hop.peer.Repo.Matrix().NodeConnectionFailed(peerInfo.ID.String())
 		return
 	}
@@ -113,8 +114,6 @@ type datahop struct {
 func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
-	logger.SetLogLevel("replication", "Debug")
-	logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -262,7 +261,7 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 			}
 			if advertising && scanning {
 				hop.discService.Start()
-				log.Debug("Stated discovery")
+				log.Debug("Started discovery")
 				return nil
 			} else if advertising {
 				hop.discService.StartOnlyAdvertising()
@@ -326,7 +325,6 @@ func startCRDTStateWatcher() error {
 					log.Error("startCRDTStateWatcher : message publish error ", err.Error())
 					continue
 				}
-				log.Debugf("startCRDTStateWatcher : sent message %+v\n", msg)
 			}
 		}
 	}()
@@ -341,7 +339,6 @@ func startCRDTStateWatcher() error {
 			if err != nil {
 				return
 			}
-			log.Debugf("startCRDTStateWatcher : got message %+v\n", msg)
 			if msg.Id != ID() {
 				state, err := FilterFromState()
 				if err != nil {
@@ -413,14 +410,9 @@ func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		log.Debugf("trying peerInfo %d", i)
 		if hop.peer != nil {
-			addrs := hop.peer.Host.Addrs()
-			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
-			if err == nil {
-				addrs = append(addrs, interfaceAddrs...)
-			}
 			pr := peer.AddrInfo{
 				ID:    hop.peer.Host.ID(),
-				Addrs: unique(addrs),
+				Addrs: hop.peer.Host.Addrs(),
 			}
 			log.Debugf("Peer %s : %v", hop.peer.Host.ID(), pr)
 			prb, err := pr.MarshalJSON()
@@ -432,37 +424,6 @@ func PeerInfo() string {
 		<-time.After(time.Millisecond * 200)
 	}
 	return "Could not get peerInfo"
-}
-
-var hostAddress = "/ip4/192.168.49.1"
-var nonHostAddress = "/ip4/192.168.49"
-
-func unique(e []ma.Multiaddr) []ma.Multiaddr {
-	r := []ma.Multiaddr{}
-	hostIndex, nonHostIndex := -1, -1
-	for _, s := range e {
-		if !contains(r[:], s) {
-			if strings.HasPrefix(s.String(), hostAddress) {
-				hostIndex = len(r)
-			} else if strings.HasPrefix(s.String(), nonHostAddress) {
-				nonHostIndex = len(r)
-			}
-			r = append(r, s)
-		}
-	}
-	if hostIndex != -1 && nonHostIndex != -1 {
-		r = append(r[:hostIndex], r[hostIndex+1:]...)
-	}
-	return r
-}
-
-func contains(e []ma.Multiaddr, c ma.Multiaddr) bool {
-	for _, s := range e {
-		if s.Equal(c) {
-			return true
-		}
-	}
-	return false
 }
 
 // ID Returns peerId of the node

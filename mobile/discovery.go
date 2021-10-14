@@ -233,6 +233,7 @@ func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, r
 	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.connected = true
 	<-time.After(time.Second * 2)
+	go hop.peer.RegisterZeroConf(hop.peer.Host.ID().String())
 	b.handleConnectionRequest()
 }
 
@@ -252,6 +253,7 @@ func (b *discoveryService) OnDisconnect() {
 
 func (b *discoveryService) OnSuccess() {
 	log.Debug("Network up")
+	go hop.peer.RegisterZeroConf(hop.peer.Host.ID().String())
 }
 
 func (b *discoveryService) OnFailure(code int) {

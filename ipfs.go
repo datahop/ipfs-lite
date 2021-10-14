@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
-
+	"github.com/grandcat/zeroconf"
 	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-blockservice"
@@ -34,7 +35,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	swarm "github.com/libp2p/go-libp2p-swarm"
-	"github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
@@ -43,8 +43,6 @@ func init() {
 	ipld.Register(cid.DagProtobuf, merkledag.DecodeProtobufBlock)
 	ipld.Register(cid.Raw, merkledag.DecodeRawBlock)
 	ipld.Register(cid.DagCBOR, cbor.DecodeBlock) // need to decode CBOR
-	logging.SetLogLevel("config", "Debug")
-	logging.SetLogLevel("repo", "Debug")
 }
 
 const (
@@ -209,16 +207,7 @@ func New(
 	p.mtx.Unlock()
 
 	go p.autoclose()
-	if options.withmDNS {
-		// Register mDNS
-		mDnsService, err := discovery.NewMdnsService(ctx, p.Host, options.mDNSInterval, ServiceTag)
-		if err != nil {
-			log.Error("mDns service failed")
-		} else {
-			mDnsService.RegisterNotifee(p)
-			log.Debug("mDNS service stared")
-		}
-	}
+	p.ZeroConfScan()
 
 	return p, nil
 }
@@ -285,6 +274,8 @@ func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
+
+	p.Repo.Matrix().Close()
 	p.online = false
 	p.Manager.Close()
 	p.Host.Close()
@@ -556,4 +547,78 @@ func (p *Peer) IsOnline() bool {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	return p.online
+}
+
+func (p *Peer) ZeroConfScan() {
+	log.Debug("ZeroConfScan")
+	connections := p.Host.Network().Conns()
+	for _, conn := range connections {
+		log.Debug("Closing connection :", conn.RemotePeer().Pretty())
+		conn.Close()
+	}
+
+	action := func(entry *zeroconf.ServiceEntry) {
+		log.Debugf("Handle action : %+v\n", entry)
+		if entry.Instance == p.Host.ID().String() {
+			log.Debug("zconf : got own address")
+			return
+		}
+		address := fmt.Sprintf("/ip4/%s/tcp/%s/p2p/%s", entry.AddrIPv4[0], config.SwarmPort, entry.Instance)
+		maddr, err := multiaddr.NewMultiaddr(address)
+		if err != nil {
+			return
+		}
+		pi, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			return
+		}
+		cNess := p.Host.Network().Connectedness(pi.ID)
+		if cNess != inet.Connected {
+			log.Debug("Connect from zconf : ", pi)
+			err = p.Connect(context.Background(), *pi)
+			if err != nil {
+				log.Error("zconf : Connecting failed : ", err.Error())
+				return
+			}
+		}
+	}
+
+	go lookupAndConnect(p.Ctx, action)
+}
+
+func (p *Peer) RegisterZeroConf(instance string) error {
+	log.Debug("register service zconf")
+	server, err := zeroconf.Register(instance, "_zconf-discovery._tcp", "local.", 42424, []string{"txtv=0", "lo=1", "la=2"}, nil)
+	if err != nil {
+		log.Error("RegisterZeroConf failed : ", err.Error())
+		return err
+	}
+	defer server.Shutdown()
+	ctx, _ := context.WithTimeout(p.Ctx, time.Second*10)
+	<-ctx.Done()
+	log.Debug("Shutting down zeroconf server")
+	return nil
+}
+
+func lookupAndConnect(ctx context.Context, action func(*zeroconf.ServiceEntry)) error {
+	log.Debug("lookupAndConnect service zconf")
+	resolver, err := zeroconf.NewResolver(nil)
+	if err != nil {
+		log.Error("NewResolver Failed ", err.Error())
+		return err
+	}
+	entries := make(chan *zeroconf.ServiceEntry)
+	go func(results <-chan *zeroconf.ServiceEntry) {
+		for entry := range results {
+			log.Debugf("Got Entry %+v\n", entry)
+			action(entry)
+		}
+	}(entries)
+	err = resolver.Browse(ctx, "_zconf-discovery._tcp", "local.", entries)
+	if err != nil {
+		log.Error("Unable to browse services ", err.Error())
+		return err
+	}
+	<-ctx.Done()
+	return nil
 }
