@@ -201,9 +201,9 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 
 	b.discovery.Stop()
 
-	ip:="192.168.49.2"
+	ip:="192.168.49.1"
 	hop.peer.Repo.Matrix().BLEDiscovered(peerInfo.ID.String())
-	hop.wifiCon.Connect(network, pass,ip , peerInfo.ID.String())
+	hop.wifiCon.Connect(network, pass,"192.168.49.2" , peerInfo.ID.String())
 	r:= strings.NewReplacer("127.0.0.1",ip)
 	newPeerInfo := r.Replace(peerinfo)
 	b.handleConnectionRequest = func() {
@@ -237,7 +237,7 @@ func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, r
 	log.Debug("Connection success")
 	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.connected = true
-	<-time.After(time.Second * 2)
+	<-time.After(time.Second * 10)
 	b.handleConnectionRequest()
 }
 
