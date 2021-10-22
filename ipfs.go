@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/config"
+
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/grandcat/zeroconf"
@@ -563,6 +564,10 @@ func (p *Peer) ZeroConfScan() {
 			log.Debug("zconf : got own address")
 			return
 		}
+		if len(entry.AddrIPv4) == 0 {
+			log.Warn("Discovered peer with no ipv4")
+			return
+		}
 		address := fmt.Sprintf("/ip4/%s/tcp/%s/p2p/%s", entry.AddrIPv4[0], config.SwarmPort, entry.Instance)
 		maddr, err := multiaddr.NewMultiaddr(address)
 		if err != nil {
@@ -575,7 +580,7 @@ func (p *Peer) ZeroConfScan() {
 		cNess := p.Host.Network().Connectedness(pi.ID)
 		if cNess != inet.Connected {
 			log.Debug("zconf : Connect from zconf : ", pi)
-			err = p.Connect(context.Background(), *pi)
+			err = p.Connect(p.Ctx, *pi)
 			if err != nil {
 				log.Error("zconf : Connecting failed : ", err.Error())
 				return
@@ -583,42 +588,56 @@ func (p *Peer) ZeroConfScan() {
 		}
 	}
 
-	go lookupAndConnect(p.Ctx, action)
+	lookupAndConnect(p.Ctx, action)
+	go p.registerZeroConf(p.Host.ID().String())
 }
 
-func (p *Peer) RegisterZeroConf(instance string) error {
+func (p *Peer) registerZeroConf(instance string) error {
 	log.Debug("zconf : register service zconf")
-	server, err := zeroconf.Register(instance, "_zconf-discovery._tcp", "local.", 42424, []string{"txtv=0", "lo=1", "la=2"}, nil)
-	if err != nil {
-		log.Error("zconf : RegisterZeroConf failed : ", err.Error())
-		return err
+	for {
+		select {
+		case <-p.Ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			log.Debug("zconf : register")
+			server, err := zeroconf.Register(instance, "_zconf-discovery._tcp", "local.", 42424, []string{"txtv=0", "lo=1", "la=2"}, nil)
+			if err != nil {
+				log.Error("zconf : RegisterZeroConf failed : ", err.Error())
+				continue
+			}
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				<-time.After(time.Second * 3)
+				log.Debug("zconf : Shutting down zeroconf server")
+				server.Shutdown()
+				wg.Done()
+			}()
+			wg.Wait()
+		}
 	}
-	defer server.Shutdown()
-	ctx, _ := context.WithTimeout(p.Ctx, time.Second*10)
-	<-ctx.Done()
-	log.Debug("zconf : Shutting down zeroconf server")
-	return nil
 }
 
 func lookupAndConnect(ctx context.Context, action func(*zeroconf.ServiceEntry)) error {
 	log.Debug("zconf : lookupAndConnect service zconf")
-	resolver, err := zeroconf.NewResolver(nil)
-	if err != nil {
-		log.Error("zconf : NewResolver Failed ", err.Error())
-		return err
-	}
 	entries := make(chan *zeroconf.ServiceEntry)
-	go func(results <-chan *zeroconf.ServiceEntry) {
-		for entry := range results {
+	go func() {
+		for entry := range entries {
 			log.Debugf("zconf : Got Entry %+v\n", entry)
 			action(entry)
 		}
-	}(entries)
-	err = resolver.Browse(ctx, "_zconf-discovery._tcp", "local.", entries)
-	if err != nil {
-		log.Error("zconf : Unable to browse services ", err.Error())
-		return err
-	}
-	<-ctx.Done()
+	}()
+	go func() {
+		resolver, err := zeroconf.NewResolver(nil)
+		if err != nil {
+			log.Error("zconf : NewResolver Failed ", err.Error())
+			return
+		}
+		err = resolver.Browse(ctx, "_zconf-discovery._tcp", "local.", entries)
+		if err != nil {
+			log.Error("zconf : Unable to browse services ", err.Error())
+			return
+		}
+	}()
 	return nil
 }

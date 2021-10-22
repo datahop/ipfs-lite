@@ -30,8 +30,9 @@ import (
 )
 
 var (
-	log = logger.Logger("datahop")
-	hop *datahop
+	log      = logger.Logger("datahop")
+	stepsLog = logger.Logger("step")
+	hop      *datahop
 
 	// ErrNoPeersConnected is returned if there is no peer connected
 	ErrNoPeersConnected = errors.New("no Peers connected")
@@ -114,6 +115,7 @@ type datahop struct {
 func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("step", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -157,7 +159,7 @@ func Init(
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
-	service, err := NewDiscoveryService(hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
 		return err
@@ -222,6 +224,7 @@ func Start(shouldBootstrap bool) error {
 	}()
 	wg.Wait()
 	log.Debug("Node Started")
+	stepsLog.Debug("ipfs started")
 	return nil
 }
 
@@ -262,6 +265,7 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 			if advertising && scanning {
 				hop.discService.Start()
 				log.Debug("Started discovery")
+				stepsLog.Debug("discoveryService started")
 				return nil
 			} else if advertising {
 				hop.discService.StartOnlyAdvertising()
@@ -329,6 +333,7 @@ func startCRDTStateWatcher() error {
 		}
 	}()
 	go func() {
+		var mtx sync.Mutex
 		for {
 			got, err := sub.Next(hop.ctx)
 			if err != nil {
@@ -344,9 +349,33 @@ func startCRDTStateWatcher() error {
 				if err != nil {
 					continue
 				}
-				if msg.CRDTState == state && !hop.discService.isHost {
-					hop.wifiCon.Disconnect()
-					hop.discService.connected = false
+				if msg.CRDTState == state {
+					mtx.Lock()
+					log.Debug("state watcher : same state")
+					// Publish state again
+					newMsg := &Message{
+						Id:        ID(),
+						CRDTState: state,
+					}
+					msgBytes, err := newMsg.Marshal()
+					err = hop.discService.stateInformer.Publish(hop.ctx, msgBytes)
+					if err != nil {
+						log.Error("startCRDTStateWatcher : message publish error ", err.Error())
+					}
+					if !hop.discService.isHost && hop.discService.connected {
+						log.Debug("state watcher : same state : not host")
+						hop.wifiCon.Disconnect()
+						stepsLog.Debug("wifi conn stopped")
+						hop.discService.connected = false
+					}
+					log.Debugf("state watcher : same state : host : %v : peers : %d\n", hop.discService.isHost, len(hop.peer.Peers()))
+					if hop.discService.isHost && len(hop.peer.Peers()) < 2 {
+						log.Debug("state watcher : same state : host")
+						hop.discService.isHost = false
+						hop.discService.wifiHS.Stop()
+						stepsLog.Debug("wifi hotspot stopped")
+					}
+					mtx.Unlock()
 				}
 			}
 		}
@@ -633,4 +662,23 @@ func GetWifiHotspotNotifier() WifiHotspotNotifier {
 // GetWifiConnectionNotifier returns wifi connection notifier
 func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
+}
+
+func StartMeasurements() {
+	go func() {
+		stepsLog.Debug("starting measurement loop")
+		for {
+			err := Add(time.Now().String(), []byte(time.Now().String()))
+			if err != nil {
+				stepsLog.Error("Measurement content addition failed : ", err.Error())
+				continue
+			}
+			stepsLog.Debug("content added in measurement loop")
+			select {
+			case <-hop.peer.Ctx.Done():
+				return
+			case <-time.After(time.Minute):
+			}
+		}
+	}()
 }
