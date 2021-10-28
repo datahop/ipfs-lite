@@ -351,24 +351,6 @@ func TestState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content := []byte("hola")
-	buf := bytes.NewReader(content)
-	n, err := p1.AddFile(context.Background(), buf, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	meta := &replication.Metatag{
-		Size:      int64(len(content)),
-		Type:      filetype.Unknown.Extension,
-		Name:      "tag",
-		Hash:      n.Cid(),
-		Timestamp: time.Now().Unix(),
-		Owner:     p1.Host.ID(),
-	}
-	err = p1.Manager.Tag("tag", meta)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
@@ -391,7 +373,7 @@ func TestState(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	<-time.After(time.Second)
+	<-time.After(time.Second * 2)
 	for i := 0; i < 10; i++ {
 		if !p1.Repo.State().Test([]byte(fmt.Sprintf("tag%d", i))) {
 			t.Fatal("tag should in bloom")

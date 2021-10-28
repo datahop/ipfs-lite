@@ -5,6 +5,7 @@ package datahop
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -116,6 +117,8 @@ func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
 	logger.SetLogLevel("step", "Debug")
+	logger.SetLogLevel("replication", "Debug")
+	logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -631,6 +634,7 @@ func Matrix() (string, error) {
 		matrix["TotalUptime"] = uptime
 		matrix["NodeMatrix"] = nodeMatrixSnapshot
 		matrix["ContentMatrix"] = contentMatrixSnapshot
+
 		b, err := json.Marshal(matrix)
 		if err != nil {
 			return "", err
@@ -664,11 +668,18 @@ func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
 }
 
-func StartMeasurements() {
+func StartMeasurements(length, delay int) {
 	go func() {
 		stepsLog.Debug("starting measurement loop")
+		contentLength := length
 		for {
-			err := Add(time.Now().String(), []byte(time.Now().String()))
+			content := make([]byte, contentLength)
+			_, err := rand.Read(content)
+			if err != nil {
+				stepsLog.Error("content creation failed :", err)
+				continue
+			}
+			err = Add(time.Now().String(), content)
 			if err != nil {
 				stepsLog.Error("Measurement content addition failed : ", err.Error())
 				continue
@@ -677,8 +688,27 @@ func StartMeasurements() {
 			select {
 			case <-hop.peer.Ctx.Done():
 				return
-			case <-time.After(time.Minute):
+			case <-time.After(time.Second * time.Duration(delay)):
 			}
 		}
+	}()
+}
+
+func AddAGB() {
+	go func() {
+		stepsLog.Debug("AddAGB: starting adding a gb content")
+		contentLength := 1000000000
+		content := make([]byte, contentLength)
+		_, err := rand.Read(content)
+		if err != nil {
+			stepsLog.Error("AddAGB: content creation failed :", err)
+			return
+		}
+		err = Add(time.Now().String(), content)
+		if err != nil {
+			stepsLog.Error("AddAGB: content addition failed : ", err.Error())
+			return
+		}
+		stepsLog.Debug("AddAGB: added a gb content")
 	}()
 }

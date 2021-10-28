@@ -201,7 +201,7 @@ func New(
 	}
 	p.Manager.StartContentWatcher()
 
-	p.Repo.Matrix().StartTicker()
+	p.Repo.Matrix().StartTicker(p.Ctx)
 
 	p.mtx.Lock()
 	p.online = true
@@ -409,6 +409,41 @@ func (p *Peer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekCloser, er
 		return nil, err
 	}
 	return ufsio.NewDagReader(ctx, n, p)
+}
+
+// Download will get the content by its root CID. Read it till the end.
+func (p *Peer) Download(ctx context.Context, c cid.Cid) error {
+	node, err := p.Get(ctx, c)
+	if err != nil {
+		return err
+	}
+	r, err := ufsio.NewDagReader(ctx, node, p)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	nr := int64(0)
+	buf := make([]byte, 0, 4*1024)
+	for {
+		n, err := r.Read(buf[:cap(buf)])
+		buf = buf[:n]
+		if n == 0 {
+			if err == nil {
+				continue
+			}
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		nr += int64(len(buf))
+		if err != nil && err != io.EOF {
+			return err
+		}
+	}
+	log.Debugf("%s downloaded. size read : %d\n", c.String(), nr)
+	buf = nil
+	return nil
 }
 
 // DeleteFile removes content from blockstore by its root CID. The file
