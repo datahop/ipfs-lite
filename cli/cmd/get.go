@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/cli/out"
+	"github.com/datahop/ipfs-lite/internal/security"
 	"github.com/spf13/cobra"
 )
 
@@ -78,21 +82,57 @@ Example:
 				log.Errorf("Unable to get file reader :%s", err.Error())
 				return err
 			}
-
-			output = destination + string(os.PathSeparator) + filename
-			file, err := os.Create(output)
-			if err != nil {
-				return err
+			defer r.Close()
+			if meta.IsEncrypted {
+				passphrase, _ := cmd.Flags().GetString("passphrase")
+				if passphrase == "" {
+					log.Error("passphrase is empty")
+					return errors.New("passphrase is empty")
+				}
+				buf := bytes.NewBuffer(nil)
+				_, err = io.Copy(buf, r)
+				if err != nil {
+					log.Errorf("Failed io.Copy file encryption:%s", err.Error())
+					return err
+				}
+				byteContent, err := security.Decrypt(buf.Bytes(), passphrase)
+				if err != nil {
+					log.Errorf("decryption failed :%s", err.Error())
+					return err
+				}
+				output = destination + string(os.PathSeparator) + filename
+				file, err := os.Create(output)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+				file.Write(byteContent)
+				if err != nil {
+					log.Errorf("Unable to save file :%s", err.Error())
+					return err
+				}
+			} else {
+				output = destination + string(os.PathSeparator) + filename
+				file, err := os.Create(output)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+				_, err = io.Copy(file, r)
+				if err != nil {
+					log.Errorf("Unable to save file :%s", err.Error())
+					return err
+				}
 			}
-			defer file.Close()
-			_, err = io.Copy(file, r)
+			err = out.Print(cmd, meta, parseFormat(cmd))
 			if err != nil {
-				log.Errorf("Unable to save file :%s", err.Error())
 				return err
 			}
 			return nil
 		},
 	}
 	command.Flags().StringP("location", "l", "", "File destination")
+	command.Flags().String("passphrase", "",
+		"Passphrase to decrypt content")
 	return command
 }

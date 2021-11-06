@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/internal/security"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/golang/protobuf/proto"
@@ -528,22 +530,37 @@ func Peers() ([]byte, error) {
 }
 
 // Add adds a record in the store
-func Add(tag string, content []byte) error {
+func Add(tag string, content []byte, passphrase string) error {
 	if hop != nil && hop.peer != nil {
-		buf := bytes.NewReader(content)
+		buf := bytes.NewReader(nil)
+		shouldEncrypt := true
+		if passphrase == "" {
+			shouldEncrypt = false
+		}
+		if shouldEncrypt {
+			byteContent, err := security.Encrypt(content, passphrase)
+			if err != nil {
+				log.Errorf("Encryption failed :%s", err.Error())
+				return err
+			}
+			buf = bytes.NewReader(byteContent)
+		} else {
+			buf = bytes.NewReader(content)
+		}
 		n, err := hop.peer.AddFile(context.Background(), buf, nil)
 		if err != nil {
 			return err
 		}
 		kind, _ := filetype.Match(content)
 		meta := &replication.Metatag{
-			Size:      int64(len(content)),
-			Type:      kind.MIME.Value,
-			Name:      tag,
-			Hash:      n.Cid(),
-			Timestamp: time.Now().Unix(),
-			Owner:     hop.peer.Host.ID(),
-			Tag:       tag,
+			Size:        int64(len(content)),
+			Type:        kind.MIME.Value,
+			Name:        tag,
+			Hash:        n.Cid(),
+			Timestamp:   time.Now().Unix(),
+			Owner:       hop.peer.Host.ID(),
+			Tag:         tag,
+			IsEncrypted: shouldEncrypt,
 		}
 		err = hop.peer.Manager.Tag(tag, meta)
 		if err != nil {
@@ -563,16 +580,37 @@ func Add(tag string, content []byte) error {
 }
 
 // Get gets a record from the store by given tag
-func Get(tag string) ([]byte, error) {
+func Get(tag string, passphrase string) ([]byte, error) {
 	if hop != nil && hop.peer != nil {
 		meta, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
 			return nil, err
 		}
 		log.Debugf("%s => %+v", tag, meta)
+		if meta.IsEncrypted {
+			if passphrase == "" {
+				log.Error("passphrase is empty")
+				return nil, errors.New("passphrase is empty")
+			}
+		}
 		r, err := hop.peer.GetFile(context.Background(), meta.Hash)
 		if err != nil {
 			return nil, err
+		}
+		defer r.Close()
+		if meta.IsEncrypted {
+			buf := bytes.NewBuffer(nil)
+			_, err = io.Copy(buf, r)
+			if err != nil {
+				log.Errorf("Failed io.Copy file encryption:%s", err.Error())
+				return nil, err
+			}
+			byteContent, err := security.Decrypt(buf.Bytes(), passphrase)
+			if err != nil {
+				log.Errorf("decryption failed :%s", err.Error())
+				return nil, err
+			}
+			return byteContent, nil
 		}
 		content, err := ioutil.ReadAll(r)
 		if err != nil {
@@ -679,16 +717,21 @@ func StartMeasurements(length, delay int) {
 				stepsLog.Error("content creation failed :", err)
 				continue
 			}
-			err = Add(time.Now().String(), content)
+			err = Add(time.Now().String(), content, "")
 			if err != nil {
 				stepsLog.Error("Measurement content addition failed : ", err.Error())
 				continue
 			}
 			stepsLog.Debug("content added in measurement loop")
 			select {
-			case <-hop.peer.Ctx.Done():
+			case <-hop.ctx.Done():
 				return
 			case <-time.After(time.Second * time.Duration(delay)):
+				StopDiscovery()
+				Stop()
+				<-time.After(time.Second * 5)
+				Start(false)
+				StartDiscovery(true, true, true)
 			}
 		}
 	}()
@@ -704,7 +747,7 @@ func AddAGB() {
 			stepsLog.Error("AddAGB: content creation failed :", err)
 			return
 		}
-		err = Add(time.Now().String(), content)
+		err = Add(time.Now().String(), content, "")
 		if err != nil {
 			stepsLog.Error("AddAGB: content addition failed : ", err.Error())
 			return

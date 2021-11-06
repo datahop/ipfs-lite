@@ -25,13 +25,14 @@ var (
 
 // Metatag keeps meta information of a content in the crdt store
 type Metatag struct {
-	Tag       string
-	Size      int64
-	Type      string
-	Name      string
-	Hash      cid.Cid
-	Timestamp int64
-	Owner     peer.ID
+	Tag         string
+	Size        int64
+	Type        string
+	Name        string
+	Hash        cid.Cid
+	Timestamp   int64
+	Owner       peer.ID
+	IsEncrypted bool
 }
 
 // Manager handles replication
