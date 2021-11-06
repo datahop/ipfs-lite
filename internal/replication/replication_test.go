@@ -17,7 +17,6 @@ import (
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	ipld "github.com/ipfs/go-ipld-format"
-	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -62,9 +61,9 @@ func (m mockDAGSyncer) HasBlock(c cid.Cid) (bool, error) {
 
 type mockSyncer struct{}
 
-func (m mockSyncer) GetFile(ctx context.Context, c cid.Cid) (ufsio.ReadSeekCloser, error) {
+func (m mockSyncer) Download(ctx context.Context, c cid.Cid) error {
 	// do something
-	return nil, nil
+	return nil
 }
 
 func (m mockSyncer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {

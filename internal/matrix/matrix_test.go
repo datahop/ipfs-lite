@@ -1,6 +1,7 @@
 package matrix
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -165,6 +166,7 @@ func TestMatrixKeeperContentMatrixOps(t *testing.T) {
 	address := "discoveredNodeOne"
 	tag := "Tag"
 	var size int64 = 256
+	mKeeper.NewContent(hash)
 	mKeeper.ContentDownloadStarted(tag, hash, size)
 	cs := mKeeper.GetContentStat(hash)
 	if cs.Tag != tag && cs.DownloadStartedAt == 0 {
@@ -189,12 +191,16 @@ func TestMatrixKeeperTicker(t *testing.T) {
 		t.Fatal("Matrix keeper should not be null")
 	}
 	defer mKeeper.db.Close()
-	mKeeper.StartTicker()
+	ctx, cancle := context.WithCancel(context.Background())
+	mKeeper.StartTicker(ctx)
 	<-time.After(time.Second * 31)
 	if mKeeper.GetTotalUptime() != 30 {
 		t.Fatal("TotalUptime should be 30")
 	}
-	defer mKeeper.Close()
+	defer func() {
+		cancle()
+		mKeeper.Close()
+	}()
 }
 
 func removeRepo(t *testing.T) {

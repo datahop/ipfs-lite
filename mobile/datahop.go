@@ -5,6 +5,7 @@ package datahop
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -30,8 +31,9 @@ import (
 )
 
 var (
-	log = logger.Logger("datahop")
-	hop *datahop
+	log      = logger.Logger("datahop")
+	stepsLog = logger.Logger("step")
+	hop      *datahop
 
 	// ErrNoPeersConnected is returned if there is no peer connected
 	ErrNoPeersConnected = errors.New("no Peers connected")
@@ -88,6 +90,7 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	}
 	err = hop.peer.HandlePeerFoundWithError(peerInfo)
 	if err != nil {
+		log.Error("HandlePeerFoundWithError failed : ", err.Error())
 		hop.peer.Repo.Matrix().NodeConnectionFailed(peerInfo.ID.String())
 		return
 	}
@@ -113,6 +116,7 @@ type datahop struct {
 func init() {
 	logger.SetLogLevel("ipfslite", "Debug")
 	logger.SetLogLevel("datahop", "Debug")
+	logger.SetLogLevel("step", "Debug")
 	logger.SetLogLevel("replication", "Debug")
 	logger.SetLogLevel("matrix", "Debug")
 }
@@ -158,7 +162,7 @@ func Init(
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
-	service, err := NewDiscoveryService(hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
 		return err
@@ -223,6 +227,7 @@ func Start(shouldBootstrap bool) error {
 	}()
 	wg.Wait()
 	log.Debug("Node Started")
+	stepsLog.Debug("ipfs started")
 	return nil
 }
 
@@ -262,7 +267,8 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 			}
 			if advertising && scanning {
 				hop.discService.Start()
-				log.Debug("Stated discovery")
+				log.Debug("Started discovery")
+				stepsLog.Debug("discoveryService started")
 				return nil
 			} else if advertising {
 				hop.discService.StartOnlyAdvertising()
@@ -326,11 +332,11 @@ func startCRDTStateWatcher() error {
 					log.Error("startCRDTStateWatcher : message publish error ", err.Error())
 					continue
 				}
-				log.Debugf("startCRDTStateWatcher : sent message %+v\n", msg)
 			}
 		}
 	}()
 	go func() {
+		var mtx sync.Mutex
 		for {
 			got, err := sub.Next(hop.ctx)
 			if err != nil {
@@ -341,15 +347,38 @@ func startCRDTStateWatcher() error {
 			if err != nil {
 				return
 			}
-			log.Debugf("startCRDTStateWatcher : got message %+v\n", msg)
 			if msg.Id != ID() {
 				state, err := FilterFromState()
 				if err != nil {
 					continue
 				}
-				if msg.CRDTState == state && !hop.discService.isHost {
-					hop.wifiCon.Disconnect()
-					hop.discService.connected = false
+				if msg.CRDTState == state {
+					mtx.Lock()
+					log.Debug("state watcher : same state")
+					// Publish state again
+					newMsg := &Message{
+						Id:        ID(),
+						CRDTState: state,
+					}
+					msgBytes, err := newMsg.Marshal()
+					err = hop.discService.stateInformer.Publish(hop.ctx, msgBytes)
+					if err != nil {
+						log.Error("startCRDTStateWatcher : message publish error ", err.Error())
+					}
+					if !hop.discService.isHost && hop.discService.connected {
+						log.Debug("state watcher : same state : not host")
+						hop.wifiCon.Disconnect()
+						stepsLog.Debug("wifi conn stopped")
+						hop.discService.connected = false
+					}
+					log.Debugf("state watcher : same state : host : %v : peers : %d\n", hop.discService.isHost, len(hop.peer.Peers()))
+					if hop.discService.isHost && len(hop.peer.Peers()) < 2 {
+						log.Debug("state watcher : same state : host")
+						hop.discService.isHost = false
+						hop.discService.wifiHS.Stop()
+						stepsLog.Debug("wifi hotspot stopped")
+					}
+					mtx.Unlock()
 				}
 			}
 		}
@@ -413,14 +442,9 @@ func PeerInfo() string {
 	for i := 0; i < 5; i++ {
 		log.Debugf("trying peerInfo %d", i)
 		if hop.peer != nil {
-			addrs := hop.peer.Host.Addrs()
-			interfaceAddrs, err := hop.peer.Host.Network().InterfaceListenAddresses()
-			if err == nil {
-				addrs = append(addrs, interfaceAddrs...)
-			}
 			pr := peer.AddrInfo{
 				ID:    hop.peer.Host.ID(),
-				Addrs: unique(addrs),
+				Addrs: hop.peer.Host.Addrs(),
 			}
 			log.Debugf("Peer %s : %v", hop.peer.Host.ID(), pr)
 			prb, err := pr.MarshalJSON()
@@ -432,37 +456,6 @@ func PeerInfo() string {
 		<-time.After(time.Millisecond * 200)
 	}
 	return "Could not get peerInfo"
-}
-
-var hostAddress = "/ip4/192.168.49.1"
-var nonHostAddress = "/ip4/192.168.49"
-
-func unique(e []ma.Multiaddr) []ma.Multiaddr {
-	r := []ma.Multiaddr{}
-	hostIndex, nonHostIndex := -1, -1
-	for _, s := range e {
-		if !contains(r[:], s) {
-			if strings.HasPrefix(s.String(), hostAddress) {
-				hostIndex = len(r)
-			} else if strings.HasPrefix(s.String(), nonHostAddress) {
-				nonHostIndex = len(r)
-			}
-			r = append(r, s)
-		}
-	}
-	if hostIndex != -1 && nonHostIndex != -1 {
-		r = append(r[:hostIndex], r[hostIndex+1:]...)
-	}
-	return r
-}
-
-func contains(e []ma.Multiaddr, c ma.Multiaddr) bool {
-	for _, s := range e {
-		if s.Equal(c) {
-			return true
-		}
-	}
-	return false
 }
 
 // ID Returns peerId of the node
@@ -641,6 +634,7 @@ func Matrix() (string, error) {
 		matrix["TotalUptime"] = uptime
 		matrix["NodeMatrix"] = nodeMatrixSnapshot
 		matrix["ContentMatrix"] = contentMatrixSnapshot
+
 		b, err := json.Marshal(matrix)
 		if err != nil {
 			return "", err
@@ -672,4 +666,49 @@ func GetWifiHotspotNotifier() WifiHotspotNotifier {
 // GetWifiConnectionNotifier returns wifi connection notifier
 func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
+}
+
+func StartMeasurements(length, delay int) {
+	go func() {
+		stepsLog.Debug("starting measurement loop")
+		contentLength := length
+		for {
+			content := make([]byte, contentLength)
+			_, err := rand.Read(content)
+			if err != nil {
+				stepsLog.Error("content creation failed :", err)
+				continue
+			}
+			err = Add(time.Now().String(), content)
+			if err != nil {
+				stepsLog.Error("Measurement content addition failed : ", err.Error())
+				continue
+			}
+			stepsLog.Debug("content added in measurement loop")
+			select {
+			case <-hop.peer.Ctx.Done():
+				return
+			case <-time.After(time.Second * time.Duration(delay)):
+			}
+		}
+	}()
+}
+
+func AddAGB() {
+	go func() {
+		stepsLog.Debug("AddAGB: starting adding a gb content")
+		contentLength := 1000000000
+		content := make([]byte, contentLength)
+		_, err := rand.Read(content)
+		if err != nil {
+			stepsLog.Error("AddAGB: content creation failed :", err)
+			return
+		}
+		err = Add(time.Now().String(), content)
+		if err != nil {
+			stepsLog.Error("AddAGB: content addition failed : ", err.Error())
+			return
+		}
+		stepsLog.Debug("AddAGB: added a gb content")
+	}()
 }

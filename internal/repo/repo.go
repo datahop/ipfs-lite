@@ -138,11 +138,7 @@ func (r *FSRepo) Close() error {
 }
 
 func (r *FSRepo) close() error {
-	err := r.Matrix().Close()
-	if err != nil {
-		return err
-	}
-	err = r.ds.Close()
+	err := r.ds.Close()
 	if err != nil {
 		return err
 	}

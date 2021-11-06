@@ -100,8 +100,8 @@ func TestInit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		removeRepo(root, t)
 		Close()
+		removeRepo(root, t)
 	}()
 	err = Start(false)
 	if err != nil {
@@ -356,16 +356,6 @@ func TestConnectWithAddress(t *testing.T) {
 	err = peerInfo.UnmarshalJSON([]byte(pi))
 	if err != nil {
 		t.Fatal(err)
-	}
-	<-time.After(time.Second * 5)
-	err = p.Disconnect(peerInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-time.After(time.Millisecond * 100)
-	nodeStatSnapshot = hop.peer.Repo.Matrix().GetNodeStat(p.Host.ID().String())
-	if nodeStatSnapshot.LastSuccessfulConnectionDuration != 5 {
-		t.Fatal("LastSuccessfulConnectionDuration should be 5 got ", nodeStatSnapshot.LastSuccessfulConnectionDuration)
 	}
 }
 

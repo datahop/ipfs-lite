@@ -1,6 +1,7 @@
 package matrix
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 	"time"
@@ -102,17 +103,11 @@ func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 }
 
 // StartTicker starts a ticker to flush matrix information into datastore after certain interval
-func (mKeeper *MatrixKeeper) StartTicker() {
-	if mKeeper.isTickerRunning {
-		return
-	}
-	mKeeper.mtx.Lock()
-	mKeeper.isTickerRunning = true
-	mKeeper.mtx.Unlock()
+func (mKeeper *MatrixKeeper) StartTicker(ctx context.Context) {
 	go func() {
 		for {
 			select {
-			case <-mKeeper.stop:
+			case <-ctx.Done():
 				return
 			case <-time.After(time.Second * 30):
 				mKeeper.mtx.Lock()
@@ -165,9 +160,6 @@ func (mKeeper *MatrixKeeper) Close() error {
 	if err != nil {
 		log.Error(err)
 		return err
-	}
-	if mKeeper.isTickerRunning {
-		mKeeper.stop <- struct{}{}
 	}
 	log.Debug("matrix closing")
 	return nil
@@ -312,8 +304,7 @@ func (mKeeper *MatrixKeeper) NodeDisconnected(address string) {
 	nodeMatrix.Frequency = 0
 }
 
-// ContentDownloadStarted updates content download start time of a hash
-func (mKeeper *MatrixKeeper) ContentDownloadStarted(tag, hash string, size int64) {
+func (mKeeper *MatrixKeeper) NewContent(hash string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
@@ -322,6 +313,12 @@ func (mKeeper *MatrixKeeper) ContentDownloadStarted(tag, hash string, size int64
 			ProvidedBy: []peer.ID{},
 		}
 	}
+}
+
+// ContentDownloadStarted updates content download start time of a hash
+func (mKeeper *MatrixKeeper) ContentDownloadStarted(tag, hash string, size int64) {
+	mKeeper.mtx.Lock()
+	defer mKeeper.mtx.Unlock()
 	contentMatrix := mKeeper.ContentMatrix[hash]
 	contentMatrix.Tag = tag
 	contentMatrix.DownloadStartedAt = time.Now().Unix()
@@ -334,11 +331,6 @@ func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 
-	if mKeeper.ContentMatrix[hash] == nil {
-		mKeeper.ContentMatrix[hash] = &ContentMatrix{
-			ProvidedBy: []peer.ID{},
-		}
-	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
 	contentMatrix.DownloadFinishedAt = time.Now().Unix()
 	timeConsumed := contentMatrix.DownloadFinishedAt - contentMatrix.DownloadStartedAt
@@ -353,12 +345,6 @@ func (mKeeper *MatrixKeeper) ContentDownloadFinished(hash string) {
 func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
-
-	if mKeeper.ContentMatrix[hash] == nil {
-		mKeeper.ContentMatrix[hash] = &ContentMatrix{
-			ProvidedBy: []peer.ID{},
-		}
-	}
 	contentMatrix := mKeeper.ContentMatrix[hash]
 	contentMatrix.ProvidedBy = append(contentMatrix.ProvidedBy, provider)
 }

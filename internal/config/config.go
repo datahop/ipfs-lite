@@ -62,7 +62,7 @@ func identityConfig(nbits int) (Identity, error) {
 	if err != nil {
 		return ident, err
 	}
-	skbytes, err := sk.Bytes()
+	skbytes, err := ci.MarshalPrivateKey(sk)
 	if err != nil {
 		return ident, err
 	}
