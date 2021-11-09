@@ -404,7 +404,7 @@ func TestReplicationOut(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
-		err := Add(fmt.Sprintf("tag%d", i), content)
+		err := Add(fmt.Sprintf("tag%d", i), content, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -485,7 +485,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-time.After(time.Second * 6)
-	c, err := Get(tag)
+	c, err := Get(tag, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -658,7 +658,7 @@ func TestContentOwner(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
-		err := Add(fmt.Sprintf("tag%d", i), content)
+		err := Add(fmt.Sprintf("tag%d", i), content, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -716,7 +716,7 @@ func TestContentMatrix(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
-		err := Add(fmt.Sprintf("tag%d", i), content)
+		err := Add(fmt.Sprintf("tag%d", i), content, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -770,7 +770,7 @@ func TestContentDistribution(t *testing.T) {
 		t.Fatal("Should be connected to at least one peer")
 	}
 	content := []byte("check_distribution")
-	err = Add("tag", content)
+	err = Add("tag", content, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -835,6 +835,52 @@ func TestContentDistribution(t *testing.T) {
 		if len(v.ProvidedBy) > 0 && v.ProvidedBy[0] != p3.Host.ID() {
 			t.Fatal("provider info is wrong")
 		}
+	}
+}
+
+func TestContentEncryption(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+
+	pass := "check_encryption"
+	content := []byte(pass)
+	tag := "tag"
+	err = Add(tag, content, pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 2)
+	ct, err := Get(tag, "")
+	if err == nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(content, ct) {
+		t.Fatal("encryption did not wor")
+	}
+	ct, err = Get(tag, pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(content, ct) {
+		t.Fatal("encryption did not wor")
 	}
 }
 

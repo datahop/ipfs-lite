@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -10,7 +11,9 @@ import (
 	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/replication"
+	"github.com/datahop/ipfs-lite/internal/security"
 	"github.com/h2non/filetype"
+	format "github.com/ipfs/go-ipld-format"
 	"github.com/spf13/cobra"
 )
 
@@ -73,10 +76,35 @@ Example:
 				return err
 			}
 			defer f.Close()
-			n, err := comm.LitePeer.AddFile(comm.Context, f, nil)
-			if err != nil {
-				return err
+			shouldEncrypt := true
+			passphrase, _ := cmd.Flags().GetString("passphrase")
+			if passphrase == "" {
+				shouldEncrypt = false
 			}
+			var n format.Node
+			if shouldEncrypt {
+				buf := bytes.NewBuffer(nil)
+				_, err = io.Copy(buf, f)
+				if err != nil {
+					log.Errorf("Failed io.Copy file encryption:%s", err.Error())
+					return err
+				}
+				byteContent, err := security.Encrypt(buf.Bytes(), passphrase)
+				if err != nil {
+					log.Errorf("Encryption failed :%s", err.Error())
+					return err
+				}
+				n, err = comm.LitePeer.AddFile(comm.Context, bytes.NewReader(byteContent), nil)
+				if err != nil {
+					return err
+				}
+			} else {
+				n, err = comm.LitePeer.AddFile(comm.Context, f, nil)
+				if err != nil {
+					return err
+				}
+			}
+
 			_, err = f.Seek(0, io.SeekStart)
 			if err != nil {
 				return err
@@ -92,13 +120,14 @@ Example:
 				tag = filepath.Base(f.Name())
 			}
 			meta := &replication.Metatag{
-				Size:      fileinfo.Size(),
-				Type:      kind.MIME.Value,
-				Name:      filepath.Base(f.Name()),
-				Hash:      n.Cid(),
-				Timestamp: time.Now().Unix(),
-				Owner:     comm.LitePeer.Host.ID(),
-				Tag:       tag,
+				Size:        fileinfo.Size(),
+				Type:        kind.MIME.Value,
+				Name:        filepath.Base(f.Name()),
+				Hash:        n.Cid(),
+				Timestamp:   time.Now().Unix(),
+				Owner:       comm.LitePeer.Host.ID(),
+				Tag:         tag,
+				IsEncrypted: shouldEncrypt,
 			}
 			err = comm.LitePeer.Manager.Tag(tag, meta)
 			if err != nil {
@@ -113,5 +142,7 @@ Example:
 	}
 	addCommand.Flags().StringP("tag", "t", "",
 		"Tag for the file/content")
+	addCommand.Flags().String("passphrase", "",
+		"Passphrase to encrypt content")
 	return addCommand
 }
