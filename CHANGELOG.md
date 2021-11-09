@@ -1,7 +1,18 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## ## [v0.0.12] - 2021-10-07
+## Unreleased
+
+### Added
+
+- [-] Optional passphrase based content encryption
+
+### Changed
+
+- [-] zeroconf mDNS replaces libp2p mDNS 
+- [-] D2D now uses zeroconf mDNS service instead of manually handing connections
+
+## [v0.0.12] - 2021-10-07
 
 ### Added
 
