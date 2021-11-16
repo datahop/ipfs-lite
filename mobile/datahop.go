@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -42,6 +43,8 @@ var (
 
 	// ErrNoPeerAddress re returned if peer address is not available
 	ErrNoPeerAddress = errors.New("could not get peer address")
+
+	mtx sync.Mutex
 )
 
 const (
@@ -61,6 +64,8 @@ func (n *notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop.peer.Repo.Matrix().NodeConnected(c.RemotePeer().String())
 	hop.peer.Manager.StartUnfinishedDownload(c.RemotePeer())
 
@@ -70,6 +75,8 @@ func (n *notifier) Connected(net network.Network, c network.Conn) {
 }
 func (n *notifier) Disconnected(net network.Network, c network.Conn) {
 	// NodeMatrix management
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop.peer.Repo.Matrix().NodeDisconnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
@@ -90,6 +97,8 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	if err != nil {
 		return
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	err = hop.peer.HandlePeerFoundWithError(peerInfo)
 	if err != nil {
 		log.Error("HandlePeerFoundWithError failed : ", err.Error())
@@ -150,6 +159,8 @@ func Init(
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	dn := &discNotifee{}
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop = &datahop{
 		root:            root,
 		identity:        cfg.Identity,
@@ -178,6 +189,8 @@ func Init(
 
 // State returns number of keys in crdt store
 func State() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	return hop.repo.State().MarshalJSON()
 }
 
@@ -194,6 +207,8 @@ func FilterFromState() (string, error) {
 
 // DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	du, err := datastore.DiskUsage(hop.repo.Datastore())
 	if err != nil {
 		return 0, err
@@ -206,6 +221,8 @@ func Start(shouldBootstrap bool) error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	ctx, cancel := context.WithCancel(hop.ctx)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -240,6 +257,12 @@ const (
 
 // StartDiscovery starts BLE discovery
 func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error {
+	mtx.Lock()
+	defer func() {
+		mtx.Unlock()
+		fmt.Println("unlock")
+	}()
+
 	if hop != nil {
 		if hop.discService != nil {
 			go func() {
@@ -390,12 +413,14 @@ func startCRDTStateWatcher() error {
 
 // StopDiscovery stops BLE discovery
 func StopDiscovery() error {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("Stopping discovery")
 	if hop.discService != nil {
 		go func() {
 			hop.discService.stopSignal <- struct{}{}
 		}()
-		return hop.discService.Close()
+		return hop.discService.close()
 	}
 	return errors.New("discovery service is not initialised")
 }
@@ -404,7 +429,8 @@ func StopDiscovery() error {
 func ConnectWithAddress(address string) error {
 	addr, _ := ma.NewMultiaddr(address)
 	peerInfo, _ := peer.AddrInfosFromP2pAddrs(addr)
-
+	mtx.Lock()
+	defer mtx.Unlock()
 	for _, v := range peerInfo {
 		err := hop.peer.Connect(context.Background(), v)
 		if err != nil {
@@ -421,6 +447,8 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	if err != nil {
 		return err
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	err = hop.peer.Connect(context.Background(), peerInfo)
 	if err != nil {
 		return err
@@ -435,12 +463,16 @@ func Bootstrap(peerInfoByteString string) error {
 	if err != nil {
 		return err
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop.peer.Bootstrap([]peer.AddrInfo{peerInfo})
 	return nil
 }
 
 // PeerInfo Returns a string of the peer.AddrInfo []byte of the node
 func PeerInfo() string {
+	mtx.Lock()
+	defer mtx.Unlock()
 	for i := 0; i < 5; i++ {
 		log.Debugf("trying peerInfo %d", i)
 		if hop.peer != nil {
@@ -462,11 +494,15 @@ func PeerInfo() string {
 
 // ID Returns peerId of the node
 func ID() string {
+	mtx.Lock()
+	defer mtx.Unlock()
 	return hop.identity.PeerID
 }
 
 // Addrs Returns a comma(,) separated string of all the possible addresses of a node
 func Addrs() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -489,6 +525,8 @@ func Addrs() ([]byte, error) {
 // listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
 // use the known local interfaces.
 func InterfaceAddrs() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -512,6 +550,8 @@ func InterfaceAddrs() ([]byte, error) {
 
 // IsNodeOnline Checks if the node is running
 func IsNodeOnline() bool {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		return hop.peer.IsOnline()
 	}
@@ -520,6 +560,8 @@ func IsNodeOnline() bool {
 
 // Peers Returns a comma(,) separated string of all the connected peers of a node
 func Peers() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil && len(hop.peer.Peers()) > 0 {
 		peers := &types.StringSlice{
 			Output: hop.peer.Peers(),
@@ -531,6 +573,8 @@ func Peers() ([]byte, error) {
 
 // Add adds a record in the store
 func Add(tag string, content []byte, passphrase string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		buf := bytes.NewReader(nil)
 		shouldEncrypt := true
@@ -581,6 +625,8 @@ func Add(tag string, content []byte, passphrase string) error {
 
 // Get gets a record from the store by given tag
 func Get(tag string, passphrase string) ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		meta, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
@@ -623,6 +669,8 @@ func Get(tag string, passphrase string) ([]byte, error) {
 
 // GetTags gets all the tags from the store
 func GetTags() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		tags, err := hop.peer.Manager.GetAllTags()
 		if err != nil {

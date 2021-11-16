@@ -483,6 +483,7 @@ func TestOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	<-time.After(time.Second * 5)
 	p1peers = p1.Peers()
 	if len(p1peers) != 1 {
 		t.Fatal("Peer count should be one")
