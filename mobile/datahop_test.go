@@ -198,14 +198,19 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
+	fmt.Println("1")
 	err = StartDiscovery(true, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Println("1")
+
 	err = StopDiscovery()
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Println("1")
+
 }
 
 func TestContentLength(t *testing.T) {
