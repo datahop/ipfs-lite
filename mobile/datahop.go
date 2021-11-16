@@ -8,15 +8,14 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/datahop/ipfs-lite/internal/security"
@@ -107,7 +106,7 @@ type datahop struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	root            string
-	peer            *ipfslite.Peer
+	peer            *ipfs.Peer
 	identity        config.Identity
 	hook            ConnectionManager
 	wifiHS          WifiHotspot
@@ -171,7 +170,7 @@ func Init(
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
-	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfs.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
 		return err
@@ -227,7 +226,7 @@ func Start(shouldBootstrap bool) error {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		p, err := ipfslite.New(ctx, cancel, hop.repo, nil)
+		p, err := ipfs.New(ctx, cancel, hop.repo, nil)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			wg.Done()
@@ -236,7 +235,7 @@ func Start(shouldBootstrap bool) error {
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
 		if shouldBootstrap {
-			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+			hop.peer.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
 		select {
@@ -263,7 +262,7 @@ func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		p, err := ipfslite.New(ctx, cancel, hop.repo, swarmKey)
+		p, err := ipfs.New(ctx, cancel, hop.repo, swarmKey)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			wg.Done()
@@ -272,7 +271,7 @@ func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
 		if shouldBootstrap {
-			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+			hop.peer.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
 		select {
@@ -296,7 +295,6 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 	mtx.Lock()
 	defer func() {
 		mtx.Unlock()
-		fmt.Println("unlock")
 	}()
 
 	if hop != nil {

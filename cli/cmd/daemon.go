@@ -5,9 +5,10 @@ import (
 	"os"
 	"os/signal"
 
+	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
+
 	"github.com/datahop/ipfs-lite/internal/matrix"
 
-	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/cli/common"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
