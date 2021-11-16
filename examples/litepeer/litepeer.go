@@ -12,7 +12,8 @@ import (
 	"strings"
 	"sync"
 
-	ipfslite "github.com/datahop/ipfs-lite"
+	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
+
 	"github.com/datahop/ipfs-lite/internal/repo"
 )
 
