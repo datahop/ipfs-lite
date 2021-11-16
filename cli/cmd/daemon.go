@@ -5,9 +5,10 @@ import (
 	"os"
 	"os/signal"
 
+	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
+
 	"github.com/datahop/ipfs-lite/internal/matrix"
 
-	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/cli/common"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -43,7 +44,8 @@ func InitDaemonCmd(comm *common.Common) *cobra.Command {
 This command is used to start the Datahop Daemon.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo)
+			// TODO: take swarm.key location as parameter
+			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo, nil)
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)

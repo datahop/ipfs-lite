@@ -131,6 +131,8 @@ func (b *discoveryService) AddAdvertisingInfo(topic string, info string) {
 }
 
 func (b *discoveryService) Close() error {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("discoveryService Close")
 	b.discovery.Stop()
 	b.advertiser.Stop()
@@ -141,6 +143,19 @@ func (b *discoveryService) Close() error {
 	b.isHost = false
 	return nil
 }
+
+func (b *discoveryService) close() error {
+	log.Debug("discoveryService Close")
+	b.discovery.Stop()
+	b.advertiser.Stop()
+	stepsLog.Debug("discovery & advertiser stopped")
+	hop.wifiCon.Disconnect()
+	hop.wifiHS.Stop()
+	stepsLog.Debug("wifi conn & hotspot stopped")
+	b.isHost = false
+	return nil
+}
+
 func (b *discoveryService) RegisterNotifee(n Notifee) {
 	log.Debug("discoveryService RegisterNotifee")
 	b.lk.Lock()
@@ -176,7 +191,8 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 	if b.connected {
 		return
 	}
-
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop.peer.Repo.Matrix().BLEDiscovered(peerId)
 	hop.wifiCon.Connect(network, pass, "", peerId)
 }
@@ -191,7 +207,8 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 	log.Debugf("advertising new peer device different status : %s", string(value))
 	stepsLog.Debugf("advertising new peer device different status : %s", string(value))
 	log.Debugf("peerinfo: %s", id)
-
+	mtx.Lock()
+	defer mtx.Unlock()
 	conn := hop.peer.Host.Network().Connectedness(peer.ID(id))
 	if conn == p2pnet.Connected {
 		log.Debug("Peer already connected")
@@ -206,12 +223,16 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 }
 
 func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("Connection success")
 	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.connected = true
 }
 
 func (b *discoveryService) OnConnectionFailure(code int, started int64, failed int64) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 	b.connected = false

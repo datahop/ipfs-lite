@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
 	"github.com/datahop/ipfs-lite/internal/config"
+	"github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/datahop/ipfs-lite/internal/security"
@@ -42,6 +42,8 @@ var (
 
 	// ErrNoPeerAddress re returned if peer address is not available
 	ErrNoPeerAddress = errors.New("could not get peer address")
+
+	mtx sync.Mutex
 )
 
 const (
@@ -90,6 +92,8 @@ func (n *discNotifee) HandlePeerFound(peerInfoByteString string) {
 	if err != nil {
 		return
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	err = hop.peer.HandlePeerFoundWithError(peerInfo)
 	if err != nil {
 		log.Error("HandlePeerFoundWithError failed : ", err.Error())
@@ -102,7 +106,7 @@ type datahop struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	root            string
-	peer            *ipfslite.Peer
+	peer            *ipfs.Peer
 	identity        config.Identity
 	hook            ConnectionManager
 	wifiHS          WifiHotspot
@@ -150,6 +154,8 @@ func Init(
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	dn := &discNotifee{}
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop = &datahop{
 		root:            root,
 		identity:        cfg.Identity,
@@ -164,7 +170,7 @@ func Init(
 		discDriver:      discDriver,
 		advDriver:       advDriver,
 	}
-	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfslite.ServiceTag)
+	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfs.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
 		return err
@@ -178,12 +184,18 @@ func Init(
 
 // State returns number of keys in crdt store
 func State() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	return hop.repo.State().MarshalJSON()
+}
+
+func state() ([]byte, error) {
 	return hop.repo.State().MarshalJSON()
 }
 
 // FilterFromState returns the bloom filter from state
 func FilterFromState() (string, error) {
-	byt, err := State()
+	byt, err := state()
 	var dat map[string]interface{}
 	if err := json.Unmarshal(byt, &dat); err != nil {
 		return "", err
@@ -194,6 +206,8 @@ func FilterFromState() (string, error) {
 
 // DiskUsage returns number of bytes stored in the datastore
 func DiskUsage() (int64, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	du, err := datastore.DiskUsage(hop.repo.Datastore())
 	if err != nil {
 		return 0, err
@@ -206,11 +220,13 @@ func Start(shouldBootstrap bool) error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	ctx, cancel := context.WithCancel(hop.ctx)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		p, err := ipfslite.New(ctx, cancel, hop.repo)
+		p, err := ipfs.New(ctx, cancel, hop.repo, nil)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			wg.Done()
@@ -219,7 +235,43 @@ func Start(shouldBootstrap bool) error {
 		hop.peer = p
 		hop.peer.Host.Network().Notify(hop.networkNotifier)
 		if shouldBootstrap {
-			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+			hop.peer.Bootstrap(ipfs.DefaultBootstrapPeers())
+		}
+		wg.Done()
+		select {
+		case <-hop.peer.Ctx.Done():
+			log.Debug("Context Closed ")
+		}
+	}()
+	wg.Wait()
+	log.Debug("Node Started")
+	stepsLog.Debug("ipfs started")
+	return nil
+}
+
+// StartPrivate starts an ipfslite node in a private network with provided swarmkey
+func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
+	if swarmKey == nil {
+		return errors.New("invalid swarmkey")
+	}
+
+	if hop == nil {
+		return errors.New("start failed. datahop not initialised")
+	}
+	ctx, cancel := context.WithCancel(hop.ctx)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		p, err := ipfs.New(ctx, cancel, hop.repo, swarmKey)
+		if err != nil {
+			log.Error("Node setup failed : ", err.Error())
+			wg.Done()
+			return
+		}
+		hop.peer = p
+		hop.peer.Host.Network().Notify(hop.networkNotifier)
+		if shouldBootstrap {
+			hop.peer.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
 		select {
@@ -240,6 +292,11 @@ const (
 
 // StartDiscovery starts BLE discovery
 func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error {
+	mtx.Lock()
+	defer func() {
+		mtx.Unlock()
+	}()
+
 	if hop != nil {
 		if hop.discService != nil {
 			go func() {
@@ -390,12 +447,14 @@ func startCRDTStateWatcher() error {
 
 // StopDiscovery stops BLE discovery
 func StopDiscovery() error {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("Stopping discovery")
 	if hop.discService != nil {
 		go func() {
 			hop.discService.stopSignal <- struct{}{}
 		}()
-		return hop.discService.Close()
+		return hop.discService.close()
 	}
 	return errors.New("discovery service is not initialised")
 }
@@ -404,7 +463,8 @@ func StopDiscovery() error {
 func ConnectWithAddress(address string) error {
 	addr, _ := ma.NewMultiaddr(address)
 	peerInfo, _ := peer.AddrInfosFromP2pAddrs(addr)
-
+	mtx.Lock()
+	defer mtx.Unlock()
 	for _, v := range peerInfo {
 		err := hop.peer.Connect(context.Background(), v)
 		if err != nil {
@@ -421,6 +481,8 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	if err != nil {
 		return err
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	err = hop.peer.Connect(context.Background(), peerInfo)
 	if err != nil {
 		return err
@@ -428,19 +490,39 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	return nil
 }
 
-// Bootstrap Connects to a given peerInfo string
-func Bootstrap(peerInfoByteString string) error {
+// BootstrapWithPeerInfo bootstraps to a given peerInfo string of a node
+func BootstrapWithPeerInfo(peerInfoByteString string) error {
 	var peerInfo peer.AddrInfo
 	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
 	if err != nil {
 		return err
 	}
+	mtx.Lock()
+	defer mtx.Unlock()
 	hop.peer.Bootstrap([]peer.AddrInfo{peerInfo})
+	return nil
+}
+
+// BootstrapWithAddress bootstraps to a given address of a node
+func BootstrapWithAddress(bootstrapAddress string) error {
+	maddrs := make([]ma.Multiaddr, 1)
+	var err error
+	maddrs[0], err = ma.NewMultiaddr(bootstrapAddress)
+	if err != nil {
+		return err
+	}
+	infos, err := peer.AddrInfosFromP2pAddrs(maddrs...)
+	if err != nil {
+		return err
+	}
+	hop.peer.Bootstrap(infos)
 	return nil
 }
 
 // PeerInfo Returns a string of the peer.AddrInfo []byte of the node
 func PeerInfo() string {
+	mtx.Lock()
+	defer mtx.Unlock()
 	for i := 0; i < 5; i++ {
 		log.Debugf("trying peerInfo %d", i)
 		if hop.peer != nil {
@@ -462,11 +544,15 @@ func PeerInfo() string {
 
 // ID Returns peerId of the node
 func ID() string {
+	mtx.Lock()
+	defer mtx.Unlock()
 	return hop.identity.PeerID
 }
 
 // Addrs Returns a comma(,) separated string of all the possible addresses of a node
 func Addrs() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -489,6 +575,8 @@ func Addrs() ([]byte, error) {
 // listens. It expands "any interface" addresses (/ip4/0.0.0.0, /ip6/::) to
 // use the known local interfaces.
 func InterfaceAddrs() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	for i := 0; i < 5; i++ {
 		addrs := []string{}
 		if hop.peer != nil {
@@ -512,6 +600,8 @@ func InterfaceAddrs() ([]byte, error) {
 
 // IsNodeOnline Checks if the node is running
 func IsNodeOnline() bool {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		return hop.peer.IsOnline()
 	}
@@ -520,6 +610,8 @@ func IsNodeOnline() bool {
 
 // Peers Returns a comma(,) separated string of all the connected peers of a node
 func Peers() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil && len(hop.peer.Peers()) > 0 {
 		peers := &types.StringSlice{
 			Output: hop.peer.Peers(),
@@ -531,6 +623,8 @@ func Peers() ([]byte, error) {
 
 // Add adds a record in the store
 func Add(tag string, content []byte, passphrase string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		buf := bytes.NewReader(nil)
 		shouldEncrypt := true
@@ -566,7 +660,6 @@ func Add(tag string, content []byte, passphrase string) error {
 		if err != nil {
 			return err
 		}
-
 		// Update advertise info
 		bf, err := FilterFromState()
 		if err != nil {
@@ -581,6 +674,8 @@ func Add(tag string, content []byte, passphrase string) error {
 
 // Get gets a record from the store by given tag
 func Get(tag string, passphrase string) ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		meta, err := hop.peer.Manager.FindTag(tag)
 		if err != nil {
@@ -623,6 +718,8 @@ func Get(tag string, passphrase string) ([]byte, error) {
 
 // GetTags gets all the tags from the store
 func GetTags() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if hop != nil && hop.peer != nil {
 		tags, err := hop.peer.Manager.GetAllTags()
 		if err != nil {

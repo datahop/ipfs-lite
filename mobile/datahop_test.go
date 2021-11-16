@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	ipfslite "github.com/datahop/ipfs-lite"
+	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
+
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/h2non/filetype"
@@ -202,6 +203,7 @@ func TestStartStopDiscovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = StopDiscovery()
 	if err != nil {
 		t.Fatal(err)
@@ -297,7 +299,7 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := string(prb)
-	err = Bootstrap(st)
+	err = BootstrapWithPeerInfo(st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -901,7 +903,7 @@ func startAnotherNode(repopath, port string, t *testing.T) *ipfslite.Peer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := ipfslite.New(ctx, cancel, r1, ipfslite.WithmDNS(false))
+	p, err := ipfslite.New(ctx, cancel, r1, nil, ipfslite.WithmDNS(false))
 	if err != nil {
 		t.Fatal(err)
 	}
