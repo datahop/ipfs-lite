@@ -1,6 +1,7 @@
 package ipfslite
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/config"
-
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/grandcat/zeroconf"
@@ -30,12 +30,17 @@ import (
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipfs/go-unixfs/importer/trickle"
 	ufsio "github.com/ipfs/go-unixfs/io"
+	"github.com/libp2p/go-libp2p"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/pnet"
 	"github.com/libp2p/go-libp2p-core/routing"
 	swarm "github.com/libp2p/go-libp2p-swarm"
+	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
@@ -142,6 +147,7 @@ func New(
 	ctx context.Context,
 	cancelFunc context.CancelFunc,
 	r repo.Repo,
+	swarmKey []byte,
 	opts ...Option,
 ) (*Peer, error) {
 	options := defaultOptions()
@@ -162,6 +168,26 @@ func New(
 		listenAddrs = append(listenAddrs, listen)
 	}
 
+	// libp2pOptionsExtra provides some useful libp2p options
+	// to create a fully featured libp2p host. It can be used with
+	// SetupLibp2p.
+	libp2pOptionsExtra := []libp2p.Option{
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.DisableRelay(),
+		libp2p.NATPortMap(),
+		libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
+		libp2p.EnableNATService(),
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+	}
+	if swarmKey != nil {
+		log.Info("got swarm key. starting private network")
+		psk, err := pnet.DecodeV1PSK(bytes.NewReader(swarmKey))
+		if err != nil {
+			log.Error("swarm key decode failed")
+			return nil, err
+		}
+		libp2pOptionsExtra = append(libp2pOptionsExtra, libp2p.PrivateNetwork(psk))
+	}
 	h, dht, err := SetupLibp2p(
 		ctx,
 		privKey,
