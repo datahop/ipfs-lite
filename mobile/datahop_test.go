@@ -302,7 +302,7 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := string(prb)
-	err = Bootstrap(st)
+	err = BootstrapWithPeerInfo(st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -906,7 +906,7 @@ func startAnotherNode(repopath, port string, t *testing.T) *ipfslite.Peer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := ipfslite.New(ctx, cancel, r1, ipfslite.WithmDNS(false))
+	p, err := ipfslite.New(ctx, cancel, r1, nil, ipfslite.WithmDNS(false))
 	if err != nil {
 		t.Fatal(err)
 	}

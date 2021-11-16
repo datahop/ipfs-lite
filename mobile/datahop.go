@@ -64,8 +64,6 @@ func (n *notifier) Listen(network.Network, ma.Multiaddr)      {}
 func (n *notifier) ListenClose(network.Network, ma.Multiaddr) {}
 func (n *notifier) Connected(net network.Network, c network.Conn) {
 	// NodeMatrix management
-	mtx.Lock()
-	defer mtx.Unlock()
 	hop.peer.Repo.Matrix().NodeConnected(c.RemotePeer().String())
 	hop.peer.Manager.StartUnfinishedDownload(c.RemotePeer())
 
@@ -75,8 +73,6 @@ func (n *notifier) Connected(net network.Network, c network.Conn) {
 }
 func (n *notifier) Disconnected(net network.Network, c network.Conn) {
 	// NodeMatrix management
-	mtx.Lock()
-	defer mtx.Unlock()
 	hop.peer.Repo.Matrix().NodeDisconnected(c.RemotePeer().String())
 	if hop.hook != nil {
 		hop.hook.PeerDisconnected(c.RemotePeer().String())
@@ -194,9 +190,13 @@ func State() ([]byte, error) {
 	return hop.repo.State().MarshalJSON()
 }
 
+func state() ([]byte, error) {
+	return hop.repo.State().MarshalJSON()
+}
+
 // FilterFromState returns the bloom filter from state
 func FilterFromState() (string, error) {
-	byt, err := State()
+	byt, err := state()
 	var dat map[string]interface{}
 	if err := json.Unmarshal(byt, &dat); err != nil {
 		return "", err
@@ -227,7 +227,43 @@ func Start(shouldBootstrap bool) error {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		p, err := ipfslite.New(ctx, cancel, hop.repo)
+		p, err := ipfslite.New(ctx, cancel, hop.repo, nil)
+		if err != nil {
+			log.Error("Node setup failed : ", err.Error())
+			wg.Done()
+			return
+		}
+		hop.peer = p
+		hop.peer.Host.Network().Notify(hop.networkNotifier)
+		if shouldBootstrap {
+			hop.peer.Bootstrap(ipfslite.DefaultBootstrapPeers())
+		}
+		wg.Done()
+		select {
+		case <-hop.peer.Ctx.Done():
+			log.Debug("Context Closed ")
+		}
+	}()
+	wg.Wait()
+	log.Debug("Node Started")
+	stepsLog.Debug("ipfs started")
+	return nil
+}
+
+// StartPrivate starts an ipfslite node in a private network with provided swarmkey
+func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
+	if swarmKey == nil {
+		return errors.New("invalid swarmkey")
+	}
+
+	if hop == nil {
+		return errors.New("start failed. datahop not initialised")
+	}
+	ctx, cancel := context.WithCancel(hop.ctx)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		p, err := ipfslite.New(ctx, cancel, hop.repo, swarmKey)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			wg.Done()
@@ -456,8 +492,8 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	return nil
 }
 
-// Bootstrap Connects to a given peerInfo string
-func Bootstrap(peerInfoByteString string) error {
+// BootstrapWithPeerInfo bootstraps to a given peerInfo string of a node
+func BootstrapWithPeerInfo(peerInfoByteString string) error {
 	var peerInfo peer.AddrInfo
 	err := peerInfo.UnmarshalJSON([]byte(peerInfoByteString))
 	if err != nil {
@@ -466,6 +502,22 @@ func Bootstrap(peerInfoByteString string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 	hop.peer.Bootstrap([]peer.AddrInfo{peerInfo})
+	return nil
+}
+
+// BootstrapWithAddress bootstraps to a given address of a node
+func BootstrapWithAddress(bootstrapAddress string) error {
+	maddrs := make([]ma.Multiaddr, 1)
+	var err error
+	maddrs[0], err = ma.NewMultiaddr(bootstrapAddress)
+	if err != nil {
+		return err
+	}
+	infos, err := peer.AddrInfosFromP2pAddrs(maddrs...)
+	if err != nil {
+		return err
+	}
+	hop.peer.Bootstrap(infos)
 	return nil
 }
 
@@ -610,7 +662,6 @@ func Add(tag string, content []byte, passphrase string) error {
 		if err != nil {
 			return err
 		}
-
 		// Update advertise info
 		bf, err := FilterFromState()
 		if err != nil {

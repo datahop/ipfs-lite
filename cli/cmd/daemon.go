@@ -43,7 +43,8 @@ func InitDaemonCmd(comm *common.Common) *cobra.Command {
 This command is used to start the Datahop Daemon.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo)
+			// TODO: take swarm.key location as parameter
+			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo, nil)
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)

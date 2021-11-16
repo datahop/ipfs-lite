@@ -50,12 +50,12 @@ func setupPeers(t *testing.T) (p1, p2 *Peer, closer func(t *testing.T)) {
 		cancel()
 	}
 
-	p1, err = New(ctx, cancel, r1, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
+	p1, err = New(ctx, cancel, r1, nil, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
 	}
-	p2, err = New(ctx, cancel, r2, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
+	p2, err = New(ctx, cancel, r2, nil, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
 	if err != nil {
 		closer(t)
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r1.Close()
-	p1, err := New(ctx, cancel, r1)
+	p1, err := New(ctx, cancel, r1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestRepoClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	r1.Close()
-	_, err = New(ctx, cancel, r1)
+	_, err = New(ctx, cancel, r1, nil)
 	if err != repo.ErrorRepoClosed {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func TestState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r1.Close()
-	p1, err := New(ctx, cancel, r1)
+	p1, err := New(ctx, cancel, r1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -483,7 +483,6 @@ func TestOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-time.After(time.Second * 5)
 	p1peers = p1.Peers()
 	if len(p1peers) != 1 {
 		t.Fatal("Peer count should be one")
@@ -571,5 +570,120 @@ func TestFilesWithCRDT(t *testing.T) {
 		t.Error(string(content))
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
+	}
+}
+
+var swarmKey = `/key/swarm/psk/1.0.0/
+/base16/
+e0db576d0215a9e2851b76a59c000a08e519a46e8385fc0b68fba753bd80530a`
+
+func TestPrivateNetwork(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	root1 := filepath.Join("./test-p", "root1")
+	root2 := filepath.Join("./test-p", "root2")
+
+	err := repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = repo.Init(root2, "4502")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := repo.Open(root2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		r1.Close()
+		r2.Close()
+		cancel()
+		cleanupP()
+	}()
+	sk := []byte(swarmKey)
+	p1, err := New(ctx, cancel, r1, sk, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := New(ctx, cancel, r2, nil, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pinfo2 := peer.AddrInfo{
+		ID:    p2.Host.ID(),
+		Addrs: p2.Host.Addrs(),
+	}
+	p1.Bootstrap([]peer.AddrInfo{pinfo2})
+	if len(p1.Peers()) != 0 {
+		t.Fatal("setting up private network failed")
+	}
+	return
+}
+
+func TestPrivateNetworkSuccess(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	root1 := filepath.Join("./test-p", "root1")
+	root2 := filepath.Join("./test-p", "root2")
+
+	err := repo.Init(root1, "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := repo.Open(root1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = repo.Init(root2, "4502")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := repo.Open(root2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		r1.Close()
+		r2.Close()
+		cancel()
+		cleanupP()
+	}()
+	sk := []byte(swarmKey)
+	p1, err := New(ctx, cancel, r1, sk, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := New(ctx, cancel, r2, sk, WithRebroadcastInterval(time.Second), WithCrdtNamespace("ipfslite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pinfo2 := peer.AddrInfo{
+		ID:    p2.Host.ID(),
+		Addrs: p2.Host.Addrs(),
+	}
+	p1.Bootstrap([]peer.AddrInfo{pinfo2})
+	<-time.After(time.Second)
+	if len(p1.Peers()) == 0 {
+		t.Fatal("setting up private network failed")
+	}
+	return
+}
+
+func cleanupP() {
+	root1 := filepath.Join("./test-p", "root1")
+	root2 := filepath.Join("./test-p", "root2")
+	for _, v := range []string{root1, root2} {
+		os.RemoveAll(v)
 	}
 }
