@@ -299,6 +299,7 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 
 	if hop != nil {
 		if hop.discService != nil {
+			discService := hop.discService
 			go func() {
 				for {
 					bf, err := FilterFromState()
@@ -307,9 +308,9 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 						return
 					}
 					log.Debug("Filter state ", bf)
-					hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+					discService.AddAdvertisingInfo(CRDTStatus, bf)
 					select {
-					case <-hop.discService.stopSignal:
+					case <-discService.stopSignal:
 						log.Error("Stop AddAdvertisingInfo Routine")
 						return
 					case <-time.After(time.Second * 10):
@@ -325,16 +326,16 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 				}
 			}
 			if advertising && scanning {
-				hop.discService.Start()
+				discService.Start()
 				log.Debug("Started discovery")
 				stepsLog.Debug("discoveryService started")
 				return nil
 			} else if advertising {
-				hop.discService.StartOnlyAdvertising()
+				discService.StartOnlyAdvertising()
 				log.Debug("Started discovery only advertising")
 				return nil
 			} else if scanning {
-				hop.discService.StartOnlyScanning()
+				discService.StartOnlyScanning()
 				log.Debug("Started discovery only scanning")
 				return nil
 			}
