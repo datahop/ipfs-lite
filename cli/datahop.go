@@ -8,11 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	pkg2 "github.com/datahop/ipfs-lite/pkg"
-
 	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	pkg2 "github.com/datahop/ipfs-lite/pkg"
 	logger "github.com/ipfs/go-log/v2"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
@@ -86,15 +85,6 @@ func main() {
 	}
 
 	socketPath := filepath.Join("/tmp", sockPath)
-	if !uds.IsIPCListening(socketPath) {
-		r, err := repo.Open(comm.Root)
-		if err != nil {
-			log.Error(err)
-			os.Exit(1)
-		}
-		defer r.Close()
-		comm.Repo = r
-	}
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{

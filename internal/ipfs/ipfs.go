@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/datahop/ipfs-lite/internal/config"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/grandcat/zeroconf"
@@ -620,8 +619,13 @@ func (p *Peer) ZeroConfScan() {
 	}
 
 	action := func(entry *zeroconf.ServiceEntry) {
-		log.Debugf("zconf : Handle action : %+v\n", entry)
-		if entry.Instance == p.Host.ID().String() {
+		log.Debugf("zconf : Handle action : %+v\n", entry.Instance)
+		idr := strings.Split(entry.Instance, ":")
+		if len(idr) < 2 {
+			log.Error("zconf : wrong instance ", entry.Instance)
+			return
+		}
+		if idr[0] == p.Host.ID().String() {
 			log.Debug("zconf : got own address")
 			return
 		}
@@ -629,7 +633,7 @@ func (p *Peer) ZeroConfScan() {
 			log.Warn("Discovered peer with no ipv4")
 			return
 		}
-		address := fmt.Sprintf("/ip4/%s/tcp/%s/p2p/%s", entry.AddrIPv4[0], config.SwarmPort, entry.Instance)
+		address := fmt.Sprintf("/ip4/%s/tcp/%s/p2p/%s", entry.AddrIPv4[0], idr[1], idr[0])
 		maddr, err := multiaddr.NewMultiaddr(address)
 		if err != nil {
 			return
@@ -643,18 +647,22 @@ func (p *Peer) ZeroConfScan() {
 			log.Debug("zconf : Connect from zconf : ", pi)
 			err = p.Connect(p.Ctx, *pi)
 			if err != nil {
-				log.Error("zconf : Connecting failed : ", err.Error())
+				log.Error("zconf : Connecting failed : ", err.Error(), address)
 				return
 			}
 		}
 	}
+	cfg, err := p.Repo.Config()
+	if err != nil {
+		return
+	}
 
 	lookupAndConnect(p.Ctx, action)
-	go p.registerZeroConf(p.Host.ID().String())
+	go p.registerZeroConf(fmt.Sprintf("%s:%s", p.Host.ID().String(), cfg.SwarmPort))
 }
 
 func (p *Peer) registerZeroConf(instance string) error {
-	log.Debug("zconf : register service zconf")
+	log.Debug("zconf : register service zconf ", instance)
 	for {
 		select {
 		case <-p.Ctx.Done():

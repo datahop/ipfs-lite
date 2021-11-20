@@ -3,14 +3,13 @@ package cmd
 import (
 	"errors"
 
-	"github.com/datahop/ipfs-lite/pkg"
-
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
 )
 
 // InitRemoveCmd creates the remove command
-func InitRemoveCmd(comm *pkg.Common) *cobra.Command {
+func InitRemoveCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",
 		Short: "Remove content from datahop network",

@@ -5,8 +5,7 @@ import (
 	"os"
 	"os/signal"
 
-	pkg2 "github.com/datahop/ipfs-lite/pkg"
-
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +13,7 @@ import (
 var log = logging.Logger("cmd")
 
 // InitDaemonCmd creates the daemon command
-func InitDaemonCmd(comm *pkg2.Common) *cobra.Command {
+func InitDaemonCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "daemon",
 		Short: "Start datahop daemon",
@@ -22,7 +21,11 @@ func InitDaemonCmd(comm *pkg2.Common) *cobra.Command {
 This command is used to start the Datahop Daemon.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			err := pkg2.Start(comm)
+			err := ipfslite.Start(comm)
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
 			cfg, err := comm.Repo.Config()
 			if err != nil {
 				log.Error(err)

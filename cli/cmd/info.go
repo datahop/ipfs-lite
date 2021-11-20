@@ -3,11 +3,10 @@ package cmd
 import (
 	"strings"
 
-	"github.com/datahop/ipfs-lite/pkg"
-
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/config"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +21,7 @@ type info struct {
 }
 
 // InitInfoCmd creates the info command
-func InitInfoCmd(comm *pkg.Common) *cobra.Command {
+func InitInfoCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info",
 		Short: "Get datahop node information",

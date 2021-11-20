@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"github.com/datahop/ipfs-lite/pkg"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitStopCmd creates the stop command
-func InitStopCmd(comm *pkg.Common) *cobra.Command {
+func InitStopCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
 		Short: "Stop datahop daemon",

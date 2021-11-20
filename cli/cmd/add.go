@@ -8,18 +8,17 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/datahop/ipfs-lite/pkg"
-
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/security"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/h2non/filetype"
 	format "github.com/ipfs/go-ipld-format"
 	"github.com/spf13/cobra"
 )
 
 // InitAddCmd creates the add command
-func InitAddCmd(comm *pkg.Common) *cobra.Command {
+func InitAddCmd(comm *ipfslite.Common) *cobra.Command {
 	addCommand := &cobra.Command{
 		Use:   "add",
 		Short: "Add content into datahop network",

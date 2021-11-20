@@ -11,15 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/datahop/ipfs-lite/pkg"
-
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/security"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitGetCmd creates the get command
-func InitGetCmd(comm *pkg.Common) *cobra.Command {
+func InitGetCmd(comm *ipfslite.Common) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "get",
 		Short: "Get content by tag",
