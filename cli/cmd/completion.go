@@ -3,12 +3,13 @@ package cmd
 import (
 	"os"
 
-	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/pkg"
+
 	"github.com/spf13/cobra"
 )
 
 // InitCompletionCmd creates the stop command
-func InitCompletionCmd(comm *common.Common) *cobra.Command {
+func InitCompletionCmd(comm *pkg.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:                   "completion [bash|zsh|fish|powershell]",
 		Short:                 "Generate completion script",

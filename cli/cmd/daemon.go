@@ -5,38 +5,16 @@ import (
 	"os"
 	"os/signal"
 
-	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
+	pkg2 "github.com/datahop/ipfs-lite/pkg"
 
-	"github.com/datahop/ipfs-lite/internal/matrix"
-
-	"github.com/datahop/ipfs-lite/cli/common"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/network"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
 
 var log = logging.Logger("cmd")
 
-type notifier struct {
-	matrix *matrix.MatrixKeeper
-}
-
-func (n *notifier) Listen(network.Network, ma.Multiaddr)      {}
-func (n *notifier) ListenClose(network.Network, ma.Multiaddr) {}
-func (n *notifier) Connected(net network.Network, c network.Conn) {
-	// NodeMatrix management
-	n.matrix.NodeConnected(c.RemotePeer().String())
-}
-func (n *notifier) Disconnected(net network.Network, c network.Conn) {
-	// NodeMatrix management
-	n.matrix.NodeDisconnected(c.RemotePeer().String())
-}
-func (n *notifier) OpenedStream(net network.Network, s network.Stream) {}
-func (n *notifier) ClosedStream(network.Network, network.Stream)       {}
-
 // InitDaemonCmd creates the daemon command
-func InitDaemonCmd(comm *common.Common) *cobra.Command {
+func InitDaemonCmd(comm *pkg2.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "daemon",
 		Short: "Start datahop daemon",
@@ -44,15 +22,7 @@ func InitDaemonCmd(comm *common.Common) *cobra.Command {
 This command is used to start the Datahop Daemon.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			// TODO: take swarm.key location as parameter
-			litePeer, err := ipfslite.New(comm.Context, comm.Cancel, comm.Repo, nil)
-			if err != nil {
-				log.Error(err)
-				os.Exit(1)
-			}
-			comm.LitePeer = litePeer
-			networkNotifier := notifier{litePeer.Repo.Matrix()}
-			litePeer.Host.Network().Notify(&networkNotifier)
+			err := pkg2.Start(comm)
 			cfg, err := comm.Repo.Config()
 			if err != nil {
 				log.Error(err)

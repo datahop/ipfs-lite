@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/cli/out"
+	"github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitMatrixCmd creates the matrix command
-func InitMatrixCmd(comm *common.Common) *cobra.Command {
+func InitMatrixCmd(comm *pkg.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "matrix",
 		Short: "Get node connectivity and content matrix",

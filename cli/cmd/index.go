@@ -3,13 +3,14 @@ package cmd
 import (
 	"errors"
 
-	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/pkg"
+
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/spf13/cobra"
 )
 
 // InitIndexCmd creates the index command
-func InitIndexCmd(comm *common.Common) *cobra.Command {
+func InitIndexCmd(comm *pkg.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "index",
 		Short: "Index datahop node content",

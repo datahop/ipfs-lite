@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	pkg2 "github.com/datahop/ipfs-lite/pkg"
+
 	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	logger "github.com/ipfs/go-log/v2"
 	logging "github.com/ipfs/go-log/v2"
@@ -41,23 +42,15 @@ func init() {
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	home, err := os.UserHomeDir()
+	comm, err := pkg2.New(repo.Root, "0")
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
-	root := filepath.Join(home, repo.Root)
-	err = repo.Init(root, "0")
+	err = pkg2.Init(comm)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
-	}
-
-	comm := &common.Common{
-		Root:    root,
-		Context: ctx,
-		Cancel:  cancel,
 	}
 
 	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
@@ -94,7 +87,7 @@ func main() {
 
 	socketPath := filepath.Join("/tmp", sockPath)
 	if !uds.IsIPCListening(socketPath) {
-		r, err := repo.Open(root)
+		r, err := repo.Open(comm.Root)
 		if err != nil {
 			log.Error(err)
 			os.Exit(1)

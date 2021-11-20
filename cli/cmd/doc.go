@@ -3,14 +3,15 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/datahop/ipfs-lite/cli/common"
+	"github.com/datahop/ipfs-lite/pkg"
+
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
 
 // InitializeDocCommand creates the doc command
-func InitializeDocCommand(comm *common.Common) *cobra.Command {
+func InitializeDocCommand(comm *pkg.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doc",
 		Short: "Use to generate documentation",
