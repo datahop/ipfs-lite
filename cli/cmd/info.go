@@ -3,10 +3,11 @@ package cmd
 import (
 	"strings"
 
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
+
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/config"
-	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
 )

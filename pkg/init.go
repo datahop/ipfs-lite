@@ -1,4 +1,4 @@
-package ipfslite
+package pkg
 
 import (
 	"github.com/datahop/ipfs-lite/internal/repo"

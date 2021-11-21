@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"time"
 
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
+
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/security"
-	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/h2non/filetype"
 	format "github.com/ipfs/go-ipld-format"
 	"github.com/spf13/cobra"

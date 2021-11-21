@@ -1,8 +1,9 @@
-package ipfslite
+package pkg
 
 import (
 	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/pkg/store/ipfs"
 )
 
 func Start(comm *Common) error {
@@ -20,6 +21,7 @@ func Start(comm *Common) error {
 		return err
 	}
 	comm.LitePeer = litePeer
+	comm.Store = ipfs.New(litePeer)
 	networkNotifier := NewNotifier(litePeer.Repo.Matrix())
 	litePeer.Host.Network().Notify(networkNotifier)
 	return nil

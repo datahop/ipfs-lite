@@ -1,9 +1,11 @@
-package ipfslite
+package pkg
 
 import (
 	"context"
 	"os"
 	"path/filepath"
+
+	"github.com/datahop/ipfs-lite/pkg/store"
 
 	"github.com/datahop/ipfs-lite/internal/matrix"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -21,6 +23,7 @@ type Common struct {
 	LitePeer *ipfslite.Peer
 	Context  context.Context
 	Cancel   context.CancelFunc
+	Store    store.Store
 }
 
 type Notifier struct {

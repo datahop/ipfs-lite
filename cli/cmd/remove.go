@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	ipfslite "github.com/datahop/ipfs-lite/pkg"
+
 	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
 )

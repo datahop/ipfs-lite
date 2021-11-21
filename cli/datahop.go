@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/datahop/ipfs-lite/pkg"
+
 	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
 	"github.com/datahop/ipfs-lite/internal/repo"
-	pkg2 "github.com/datahop/ipfs-lite/pkg"
 	logger "github.com/ipfs/go-log/v2"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
@@ -41,12 +42,12 @@ func init() {
 }
 
 func main() {
-	comm, err := pkg2.New(repo.Root, "0")
+	comm, err := pkg.New(repo.Root, "0")
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
-	err = pkg2.Init(comm)
+	err = pkg.Init(comm)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
