@@ -42,12 +42,13 @@ func init() {
 }
 
 func main() {
-	comm, err := pkg.New(repo.Root, "0")
+	err := pkg.Init(repo.Root, "0")
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
-	err = pkg.Init(comm)
+
+	comm, err := pkg.New(context.Background(), repo.Root, "0")
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)

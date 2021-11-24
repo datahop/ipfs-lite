@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -53,16 +52,18 @@ Example:
 				}
 				destination = usr.HomeDir + string(os.PathSeparator) + "Downloads"
 			}
-			meta, err := comm.LitePeer.Manager.FindTag(tag)
+			r, info, err := comm.Node.Get(comm.Context, tag)
 			if err != nil {
 				return err
 			}
-			output := destination + string(os.PathSeparator) + meta.Name
+			defer r.Close()
+
+			output := destination + string(os.PathSeparator) + info.Name
 			extension := filepath.Ext(output)
 			// Rename if file already exist
 			count := 0
 			tmpout := output
-			filename := meta.Name
+			filename := info.Name
 			for {
 				_, err := os.Stat(tmpout)
 				if err == nil {
@@ -77,14 +78,8 @@ Example:
 					break
 				}
 			}
-			ctx, _ := context.WithCancel(comm.Context)
-			r, err := comm.LitePeer.GetFile(ctx, meta.Hash)
-			if err != nil {
-				log.Errorf("Unable to get file reader :%s", err.Error())
-				return err
-			}
-			defer r.Close()
-			if meta.IsEncrypted {
+
+			if info.IsEncrypted {
 				passphrase, _ := cmd.Flags().GetString("passphrase")
 				if passphrase == "" {
 					log.Error("passphrase is empty")
@@ -125,7 +120,7 @@ Example:
 					return err
 				}
 			}
-			err = out.Print(cmd, meta, parseFormat(cmd))
+			err = out.Print(cmd, info, parseFormat(cmd))
 			if err != nil {
 				return err
 			}

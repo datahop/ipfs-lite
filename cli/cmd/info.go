@@ -64,23 +64,24 @@ Example:
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			inf := &info{}
-			if comm.LitePeer != nil {
+			if comm.Node != nil {
 				// is daemon running
-				inf.IsDaemonRunning = comm.LitePeer.IsOnline()
+				inf.IsDaemonRunning = comm.Node.IsOnline()
 				// peers
-				inf.Peers = comm.LitePeer.Peers()
+				inf.Peers = comm.Node.Peers()
 				// addresses
 				addrs := []string{}
-				if comm.LitePeer != nil {
-					for _, v := range comm.LitePeer.Host.Addrs() {
-						if !strings.HasPrefix(v.String(), "127") {
-							addrs = append(addrs, v.String()+"/p2p/"+comm.LitePeer.Host.ID().String())
+				if comm.Node != nil {
+					pr := comm.Node.AddrInfo()
+					for _, v := range pr.Addrs {
+						if !strings.HasPrefix(v.String(), "/ip4/127") {
+							addrs = append(addrs, v.String()+"/p2p/"+pr.ID.String())
 						}
 					}
 					inf.Addresses = addrs
 				}
 				// disk usage
-				du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
+				du, err := datastore.DiskUsage(comm.Repo.Datastore())
 				if err != nil {
 					log.Error("Unable to get datastore usage ", err)
 					return err

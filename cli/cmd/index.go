@@ -47,10 +47,10 @@ Example:
 	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if comm.LitePeer == nil || !comm.LitePeer.IsOnline() {
+			if comm.Node == nil || !comm.Node.IsOnline() {
 				return errors.New("daemon not running")
 			}
-			tags, err := comm.LitePeer.Manager.Index()
+			tags, err := comm.Node.ReplManager().Index()
 			if err != nil {
 				return err
 			}

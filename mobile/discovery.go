@@ -6,8 +6,6 @@ import (
 	"io"
 	"sync"
 
-	p2pnet "github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
@@ -193,7 +191,7 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 	}
 	mtx.Lock()
 	defer mtx.Unlock()
-	hop.peer.Repo.Matrix().BLEDiscovered(peerId)
+	hop.comm.Repo.Matrix().BLEDiscovered(peerId)
 	hop.wifiCon.Connect(network, pass, "", peerId)
 }
 
@@ -209,12 +207,11 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 	log.Debugf("peerinfo: %s", id)
 	mtx.Lock()
 	defer mtx.Unlock()
-	conn := hop.peer.Host.Network().Connectedness(peer.ID(id))
-	if conn == p2pnet.Connected {
+	if hop.comm.Node.IsPeerConnected(id) {
 		log.Debug("Peer already connected")
 		return
 	}
-	hop.peer.Repo.Matrix().BLEDiscovered(id)
+	hop.comm.Repo.Matrix().BLEDiscovered(id)
 	if !b.isHost {
 		b.wifiHS.Start()
 		stepsLog.Debug("wifi hotspot started")
@@ -226,7 +223,7 @@ func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, r
 	mtx.Lock()
 	defer mtx.Unlock()
 	log.Debug("Connection success")
-	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
+	hop.comm.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.connected = true
 }
 

@@ -63,3 +63,6 @@ minor-cli:
 major-cli:
 	@make major-release-cli
 	@make build-cli
+
+run-tests:
+	go test -json -p 1 -race -v ./...

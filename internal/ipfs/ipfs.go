@@ -300,13 +300,14 @@ func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
-
 	p.Repo.Matrix().Close()
 	p.online = false
 	p.Manager.Close()
 	p.Host.Close()
 	p.bserv.Close()
-	p.Stopped <- true
+	go func() {
+		p.Stopped <- true
+	}()
 }
 
 // Bootstrap is an optional helper to connect to the given peers and bootstrap

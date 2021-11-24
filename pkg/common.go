@@ -2,62 +2,65 @@ package pkg
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+
+	"github.com/datahop/ipfs-lite/internal/replication"
+
+	"github.com/libp2p/go-libp2p-core/protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/datahop/ipfs-lite/pkg/store"
 
-	"github.com/datahop/ipfs-lite/internal/matrix"
-	"github.com/libp2p/go-libp2p-core/network"
-	ma "github.com/multiformats/go-multiaddr"
-
-	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/libp2p/go-libp2p-core/network"
 )
+
+type Node interface {
+	Stop()
+	NetworkNotifiee(network.Notifiee)
+	Bootstrap([]peer.AddrInfo)
+	NewFloodsubWithProtocols([]protocol.ID, ...pubsub.Option) (*pubsub.PubSub, error)
+	Peers() []string
+	Connect(peer.AddrInfo) error
+	AddrInfo() *peer.AddrInfo
+	IsOnline() bool
+	ReplManager() *replication.Manager
+	IsPeerConnected(string) bool
+
+	store.Store
+}
 
 // Common features for cli commands
 type Common struct {
-	Root     string
-	Port     string
-	Repo     repo.Repo
-	LitePeer *ipfslite.Peer
-	Context  context.Context
-	Cancel   context.CancelFunc
-	Store    store.Store
+	root    string
+	port    string
+	Repo    repo.Repo
+	Context context.Context
+	cancel  context.CancelFunc
+	Node    Node
 }
 
-type Notifier struct {
-	matrix *matrix.MatrixKeeper
-}
-
-func (n *Notifier) Listen(network.Network, ma.Multiaddr)      {}
-func (n *Notifier) ListenClose(network.Network, ma.Multiaddr) {}
-func (n *Notifier) Connected(net network.Network, c network.Conn) {
-	// NodeMatrix management
-	n.matrix.NodeConnected(c.RemotePeer().String())
-}
-func (n *Notifier) Disconnected(net network.Network, c network.Conn) {
-	// NodeMatrix management
-	n.matrix.NodeDisconnected(c.RemotePeer().String())
-}
-func (n *Notifier) OpenedStream(net network.Network, s network.Stream) {}
-func (n *Notifier) ClosedStream(network.Network, network.Stream)       {}
-
-func New(path, port string) (*Common, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	home, err := os.UserHomeDir()
+func New(ctx context.Context, root, port string) (*Common, error) {
+	ctx2, cancel := context.WithCancel(ctx)
+	r, err := repo.Open(root)
 	if err != nil {
-		os.Exit(1)
+		log.Error("Repo Open Failed : ", err.Error())
+		return nil, err
 	}
-	root := filepath.Join(home, path)
 	return &Common{
-		Root:    root,
-		Port:    port,
-		Context: ctx,
-		Cancel:  cancel,
+		Repo:    r,
+		root:    root,
+		port:    port,
+		Context: ctx2,
+		cancel:  cancel,
 	}, nil
 }
 
-func NewNotifier(matrix *matrix.MatrixKeeper) *Notifier {
-	return &Notifier{matrix: matrix}
+func (comm *Common) GetRoot() string {
+	return comm.root
+}
+
+func (comm *Common) GetPort() string {
+	return comm.port
 }

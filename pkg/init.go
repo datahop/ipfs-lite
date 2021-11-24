@@ -9,8 +9,8 @@ var (
 	log = logging.Logger("pkg")
 )
 
-func Init(comm *Common) error {
-	err := repo.Init(comm.Root, comm.Port)
+func Init(root, port string) error {
+	err := repo.Init(root, port)
 	if err != nil {
 		log.Errorf("pkg Init: %s", err.Error())
 		return err

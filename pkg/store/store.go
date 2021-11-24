@@ -15,6 +15,6 @@ type Info struct {
 
 type Store interface {
 	Add(context.Context, io.Reader, *Info) (string, error)
-	Get(context.Context, string) (io.Reader, *Info, error)
+	Get(context.Context, string) (io.ReadSeekCloser, *Info, error)
 	Delete(context.Context, string) error
 }

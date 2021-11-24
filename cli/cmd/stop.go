@@ -15,7 +15,7 @@ This command is used to stop datahop daemon
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Printf("Daemon Stopped")
-			comm.Cancel()
+			comm.Stop()
 		},
 	}
 }

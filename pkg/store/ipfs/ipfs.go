@@ -9,18 +9,22 @@ import (
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
-type IPFSStore struct {
-	litepeer *ipfs.Peer
+type IPFSNode struct {
+	peer *ipfs.Peer
 }
 
-func New(litepeer *ipfs.Peer) *IPFSStore {
-	return &IPFSStore{litepeer: litepeer}
+func New(litepeer *ipfs.Peer) *IPFSNode {
+	return &IPFSNode{peer: litepeer}
 }
 
-func (I *IPFSStore) Add(ctx context.Context, reader io.Reader, info *store.Info) (string, error) {
-	n, err := I.litepeer.AddFile(ctx, reader, nil)
+func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) (string, error) {
+	n, err := I.peer.AddFile(ctx, reader, nil)
 	if err != nil {
 		return "", err
 	}
@@ -30,19 +34,19 @@ func (I *IPFSStore) Add(ctx context.Context, reader io.Reader, info *store.Info)
 		Name:        info.Name,
 		Hash:        n.Cid(),
 		Timestamp:   time.Now().Unix(),
-		Owner:       I.litepeer.Host.ID(),
+		Owner:       I.peer.Host.ID(),
 		Tag:         info.Tag,
 		IsEncrypted: info.IsEncrypted,
 	}
-	err = I.litepeer.Manager.Tag(info.Tag, meta)
+	err = I.peer.Manager.Tag(info.Tag, meta)
 	if err != nil {
 		return "", err
 	}
 	return n.Cid().String(), nil
 }
 
-func (I *IPFSStore) Get(ctx context.Context, tag string) (io.Reader, *store.Info, error) {
-	meta, err := I.litepeer.Manager.FindTag(tag)
+func (I *IPFSNode) Get(ctx context.Context, tag string) (io.ReadSeekCloser, *store.Info, error) {
+	meta, err := I.peer.Manager.FindTag(tag)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,26 +57,73 @@ func (I *IPFSStore) Get(ctx context.Context, tag string) (io.Reader, *store.Info
 		IsEncrypted: meta.IsEncrypted,
 		Size:        meta.Size,
 	}
-	r, err := I.litepeer.GetFile(ctx, meta.Hash)
+	r, err := I.peer.GetFile(ctx, meta.Hash)
 	if err != nil {
 		return nil, nil, err
 	}
 	return r, info, nil
 }
 
-func (I *IPFSStore) Delete(ctx context.Context, tag string) error {
-	meta, err := I.litepeer.Manager.FindTag(tag)
+func (I *IPFSNode) Delete(ctx context.Context, tag string) error {
+	meta, err := I.peer.Manager.FindTag(tag)
 	if err != nil {
 		return err
 	}
 
-	err = I.litepeer.DeleteFile(ctx, meta.Hash)
+	err = I.peer.DeleteFile(ctx, meta.Hash)
 	if err != nil {
 		return err
 	}
-	err = I.litepeer.Manager.Delete(datastore.NewKey(tag))
+	err = I.peer.Manager.Delete(datastore.NewKey(tag))
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (I *IPFSNode) NetworkNotifiee(n network.Notifiee) {
+	I.peer.Host.Network().Notify(n)
+}
+
+func (I *IPFSNode) Bootstrap(peers []peer.AddrInfo) {
+	I.peer.Bootstrap(peers)
+}
+
+func (I *IPFSNode) NewFloodsubWithProtocols(ps []protocol.ID, opts ...pubsub.Option) (*pubsub.PubSub, error) {
+	return pubsub.NewFloodsubWithProtocols(I.peer.Ctx, I.peer.Host,
+		ps, opts...)
+}
+
+func (I *IPFSNode) Peers() []string {
+	return I.peer.Peers()
+}
+
+func (I *IPFSNode) Connect(info peer.AddrInfo) error {
+	if I.IsPeerConnected(info.ID.String()) {
+		return nil
+	}
+	return I.peer.Connect(I.peer.Ctx, info)
+}
+
+func (I *IPFSNode) AddrInfo() *peer.AddrInfo {
+	return &peer.AddrInfo{
+		ID:    I.peer.Host.ID(),
+		Addrs: I.peer.Host.Addrs(),
+	}
+}
+
+func (I *IPFSNode) IsOnline() bool {
+	return I.peer.IsOnline()
+}
+
+func (I *IPFSNode) ReplManager() *replication.Manager {
+	return I.peer.Manager
+}
+
+func (I *IPFSNode) IsPeerConnected(id string) bool {
+	conn := I.peer.Host.Network().Connectedness(peer.ID(id))
+	if conn == network.Connected {
+		return true
+	}
+	return false
 }

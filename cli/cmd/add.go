@@ -6,15 +6,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
-
-	ipfslite "github.com/datahop/ipfs-lite/pkg"
 
 	"github.com/datahop/ipfs-lite/cli/out"
-	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/security"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
+	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/h2non/filetype"
-	format "github.com/ipfs/go-ipld-format"
 	"github.com/spf13/cobra"
 )
 
@@ -62,7 +59,7 @@ Example:
 		`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if comm.LitePeer == nil || !comm.LitePeer.IsOnline() {
+			if comm.Node == nil || !comm.Node.IsOnline() {
 				return errors.New("daemon not running")
 			}
 			filePath := args[0]
@@ -82,30 +79,6 @@ Example:
 			if passphrase == "" {
 				shouldEncrypt = false
 			}
-			var n format.Node
-			if shouldEncrypt {
-				buf := bytes.NewBuffer(nil)
-				_, err = io.Copy(buf, f)
-				if err != nil {
-					log.Errorf("Failed io.Copy file encryption:%s", err.Error())
-					return err
-				}
-				byteContent, err := security.Encrypt(buf.Bytes(), passphrase)
-				if err != nil {
-					log.Errorf("Encryption failed :%s", err.Error())
-					return err
-				}
-				n, err = comm.LitePeer.AddFile(comm.Context, bytes.NewReader(byteContent), nil)
-				if err != nil {
-					return err
-				}
-			} else {
-				n, err = comm.LitePeer.AddFile(comm.Context, f, nil)
-				if err != nil {
-					return err
-				}
-			}
-
 			_, err = f.Seek(0, io.SeekStart)
 			if err != nil {
 				return err
@@ -120,21 +93,40 @@ Example:
 			if tag == "" {
 				tag = filepath.Base(f.Name())
 			}
-			meta := &replication.Metatag{
-				Size:        fileinfo.Size(),
+			info := &store.Info{
+				Tag:         tag,
 				Type:        kind.MIME.Value,
 				Name:        filepath.Base(f.Name()),
-				Hash:        n.Cid(),
-				Timestamp:   time.Now().Unix(),
-				Owner:       comm.LitePeer.Host.ID(),
-				Tag:         tag,
 				IsEncrypted: shouldEncrypt,
+				Size:        fileinfo.Size(),
 			}
-			err = comm.LitePeer.Manager.Tag(tag, meta)
-			if err != nil {
-				return err
+			var id string
+			if shouldEncrypt {
+				buf := bytes.NewBuffer(nil)
+				_, err = io.Copy(buf, f)
+				if err != nil {
+					log.Errorf("Failed io.Copy file encryption:%s", err.Error())
+					return err
+				}
+				byteContent, err := security.Encrypt(buf.Bytes(), passphrase)
+				if err != nil {
+					log.Errorf("Encryption failed :%s", err.Error())
+					return err
+				}
+
+				id, err = comm.Node.Add(comm.Context, bytes.NewReader(byteContent), info)
+				if err != nil {
+					return err
+				}
+			} else {
+				id, err = comm.Node.Add(comm.Context, f, info)
+				if err != nil {
+					return err
+				}
 			}
-			err = out.Print(cmd, meta, parseFormat(cmd))
+			_ = id
+			// TODO: show the id
+			err = out.Print(cmd, info, parseFormat(cmd))
 			if err != nil {
 				return err
 			}

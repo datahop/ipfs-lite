@@ -22,7 +22,7 @@ func InitDaemonCmd(comm *pkg.Common) *cobra.Command {
 This command is used to start the Datahop Daemon.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			err := pkg.Start(comm)
+			done, err := comm.Start()
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
@@ -55,9 +55,9 @@ $$    $$ |$$    $$ |  $$  $$/ $$    $$ |$$ |  $$ |$$    $$/ $$    $$/         $$
 				select {
 				case <-sigChan:
 					fmt.Println()
-					comm.Cancel()
+					comm.Stop()
 					return
-				case <-comm.Context.Done():
+				case <-done:
 					return
 				}
 			}

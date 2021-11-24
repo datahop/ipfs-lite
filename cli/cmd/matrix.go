@@ -67,10 +67,11 @@ Example:
 	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if comm.LitePeer != nil {
-				nodeMatrixSnapshot := comm.LitePeer.Repo.Matrix().NodeMatrixSnapshot()
-				contentMatrixSnapshot := comm.LitePeer.Repo.Matrix().ContentMatrixSnapshot()
-				uptime := comm.LitePeer.Repo.Matrix().GetTotalUptime()
+			if comm.Node != nil {
+				mKeeper := comm.Repo.Matrix()
+				nodeMatrixSnapshot := mKeeper.NodeMatrixSnapshot()
+				contentMatrixSnapshot := mKeeper.ContentMatrixSnapshot()
+				uptime := mKeeper.GetTotalUptime()
 				// output
 				matrix := map[string]interface{}{}
 				matrix["TotalUptime"] = uptime
