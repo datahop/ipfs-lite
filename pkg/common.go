@@ -46,6 +46,7 @@ func New(ctx context.Context, root, port string) (*Common, error) {
 	r, err := repo.Open(root)
 	if err != nil {
 		log.Error("Repo Open Failed : ", err.Error())
+		cancel()
 		return nil, err
 	}
 	return &Common{

@@ -625,7 +625,6 @@ func TestPrivateNetwork(t *testing.T) {
 	if len(p1.Peers()) != 0 {
 		t.Fatal("setting up private network failed")
 	}
-	return
 }
 
 func TestPrivateNetworkSuccess(t *testing.T) {
@@ -677,7 +676,6 @@ func TestPrivateNetworkSuccess(t *testing.T) {
 	if len(p1.Peers()) == 0 {
 		t.Fatal("setting up private network failed")
 	}
-	return
 }
 
 func cleanupP() {

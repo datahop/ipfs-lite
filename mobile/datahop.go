@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -22,7 +21,6 @@ import (
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/version"
-	"github.com/golang/protobuf/proto"
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
@@ -31,6 +29,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	ma "github.com/multiformats/go-multiaddr"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -103,11 +102,11 @@ type datahop struct {
 }
 
 func init() {
-	logger.SetLogLevel("ipfslite", "Debug")
-	logger.SetLogLevel("datahop", "Debug")
-	logger.SetLogLevel("step", "Debug")
-	logger.SetLogLevel("replication", "Debug")
-	logger.SetLogLevel("matrix", "Debug")
+	_ = logger.SetLogLevel("ipfslite", "Debug")
+	_ = logger.SetLogLevel("datahop", "Debug")
+	_ = logger.SetLogLevel("step", "Debug")
+	_ = logger.SetLogLevel("replication", "Debug")
+	_ = logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -128,11 +127,13 @@ func Init(
 	ctx, cancel := context.WithCancel(context.Background())
 	comm, err := pkg.New(ctx, root, "0")
 	if err != nil {
+		cancel()
 		return err
 	}
 	cfg, err := comm.Repo.Config()
 	if err != nil {
 		log.Error("Config Failed : ", err.Error())
+		cancel()
 		return err
 	}
 	n := &notifier{}
@@ -156,6 +157,7 @@ func Init(
 	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfs.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
+		cancel()
 		return err
 	}
 	if res, ok := service.(*discoveryService); ok {
@@ -219,11 +221,8 @@ func Start(shouldBootstrap bool) error {
 			hop.comm.Node.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
-		select {
-		case <-done:
-			log.Debug("Context Closed ")
-			fmt.Println("Context Closed ")
-		}
+		<-done
+		log.Debug("Context Closed")
 	}()
 	wg.Wait()
 	log.Debug("Node Started")
@@ -255,10 +254,8 @@ func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
 			hop.comm.Node.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
-		select {
-		case <-done:
-			log.Debug("Context Closed ")
-		}
+		<-done
+		log.Debug("Context Closed ")
 	}()
 	wg.Wait()
 	log.Debug("Node Started")
@@ -409,6 +406,11 @@ func startCRDTStateWatcher() error {
 						CRDTState: state,
 					}
 					msgBytes, err := newMsg.Marshal()
+					if err != nil {
+						log.Debugf("startCRDTStateWatcher : marshaling new message failed : %s", err)
+						log.Error("startCRDTStateWatcher : marshaling new message failed")
+						continue
+					}
 					err = hop.discService.stateInformer.Publish(hop.ctx, msgBytes)
 					if err != nil {
 						log.Error("startCRDTStateWatcher : message publish error ", err.Error())
@@ -589,7 +591,7 @@ func Add(tag string, content []byte, passphrase string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 	if hop != nil && hop.comm != nil {
-		buf := bytes.NewReader(nil)
+		var buf *bytes.Reader
 		shouldEncrypt := true
 		if passphrase == "" {
 			shouldEncrypt = false
@@ -769,11 +771,20 @@ func StartMeasurements(length, delay int) {
 			case <-hop.ctx.Done():
 				return
 			case <-time.After(time.Second * time.Duration(delay)):
-				StopDiscovery()
+				err := StopDiscovery()
+				if err != nil {
+					return
+				}
 				Stop()
 				<-time.After(time.Second * 5)
-				Start(false)
-				StartDiscovery(true, true, true)
+				err = Start(false)
+				if err != nil {
+					return
+				}
+				err = StartDiscovery(true, true, true)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}()

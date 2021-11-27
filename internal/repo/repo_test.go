@@ -106,7 +106,7 @@ func TestStateValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(bf1, bf2) != 0 {
+	if !bytes.Equal(bf1, bf2) {
 		t.Fatal("bloom filters should be identical")
 	}
 	newBloom := r.State().Add([]byte("This is a text"))
@@ -121,7 +121,7 @@ func TestStateValues(t *testing.T) {
 	if !newBloom.Equal(r.State()) {
 		t.Fatal("bloom filters should be identical")
 	}
-	if bytes.Compare(bf3, bf4) != 0 {
+	if !bytes.Equal(bf3, bf4) {
 		t.Fatal("bloom filters should be identical")
 	}
 }

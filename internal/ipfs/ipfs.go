@@ -488,10 +488,7 @@ func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
 	getLinks := func(ctx context.Context, cid cid.Cid) ([]*ipld.Link, error) {
 		links, err := ipld.GetLinks(ctx, p, c)
 		if err != nil {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
+			return nil, err
 		}
 		return links, nil
 	}
@@ -658,8 +655,17 @@ func (p *Peer) ZeroConfScan() {
 		return
 	}
 
-	lookupAndConnect(p.Ctx, action)
-	go p.registerZeroConf(fmt.Sprintf("%s:%s", p.Host.ID().String(), cfg.SwarmPort))
+	err = lookupAndConnect(p.Ctx, action)
+	if err != nil {
+		return
+	}
+	go func() {
+		err := p.registerZeroConf(fmt.Sprintf("%s:%s", p.Host.ID().String(), cfg.SwarmPort))
+		if err != nil {
+			log.Debugf("registerZeroConf failed : %s", err)
+			log.Error("registerZeroConf failed")
+		}
+	}()
 }
 
 func (p *Peer) registerZeroConf(instance string) error {

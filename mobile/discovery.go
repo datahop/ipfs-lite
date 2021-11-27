@@ -15,8 +15,8 @@ type ServiceType string
 
 const (
 	ScanAndAdvertise ServiceType = "Both"
-	OnlyScan                     = "OnlyScan"
-	OnlyAdv                      = "OnlyAdv"
+	OnlyScan         ServiceType = "OnlyScan"
+	OnlyAdv          ServiceType = "OnlyAdv"
 )
 
 type Service interface {
@@ -62,7 +62,6 @@ type discoveryService struct {
 	stopSignal      chan struct{}
 	advertisingInfo map[string]string
 	connected       bool //wifi connection status connected/disconnected
-	numConnected    int
 	service         ServiceType
 
 	isHost        bool
@@ -80,7 +79,7 @@ func NewDiscoveryService(
 	serviceTag string,
 ) (Service, error) {
 	if serviceTag == "" {
-		serviceTag = serviceTag
+		serviceTag = DiscoveryServiceTag
 	}
 	discovery := &discoveryService{
 		id:              id,

@@ -63,19 +63,16 @@ type ConnectionInfo struct {
 
 // MatrixKeeper takes care of entire node matrix
 type MatrixKeeper struct {
-	mtx             sync.Mutex
-	stop            chan struct{}
-	isTickerRunning bool
-	db              datastore.Datastore
-	NodeMatrix      *NodeMatrix
-	ContentMatrix   map[string]*ContentMatrix
+	mtx           sync.Mutex
+	db            datastore.Datastore
+	NodeMatrix    *NodeMatrix
+	ContentMatrix map[string]*ContentMatrix
 }
 
 // NewMatrixKeeper creates a new matrix keeper
 func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 	mKeeper := &MatrixKeeper{
-		stop: make(chan struct{}),
-		db:   ds,
+		db: ds,
 		NodeMatrix: &NodeMatrix{
 			TotalUptime:     0,
 			NodesDiscovered: map[string]*DiscoveredNodeMatrix{},

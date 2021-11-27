@@ -37,8 +37,8 @@ network through a CLI Interface.
 )
 
 func init() {
-	logger.SetLogLevel("uds", "Debug")
-	logger.SetLogLevel("cmd", "Debug")
+	_ = logger.SetLogLevel("uds", "Debug")
+	_ = logger.SetLogLevel("cmd", "Debug")
 }
 
 func main() {
@@ -81,7 +81,10 @@ func main() {
 	for _, v := range os.Args {
 		if v == "-h" || v == "--help" {
 			log.Debug("Executing help command")
-			rootCmd.Execute()
+			if err := rootCmd.Execute(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 			return
 		}
 	}
@@ -97,7 +100,7 @@ func main() {
 				log.Error(err)
 				goto Execute
 			}
-			defer c()
+			defer pkg.CheckError(log, c)
 			err = w(strings.Join(os.Args[1:], argSeparator))
 			if err != nil {
 				log.Error(err)

@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	logging "github.com/ipfs/go-log/v2"
-
 	"github.com/datahop/ipfs-lite/pkg/store"
 
 	"github.com/datahop/ipfs-lite/pkg"
@@ -406,14 +404,14 @@ func TestReplicationOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(bf1, bf2) == 0 {
+	if bytes.Equal(bf1, bf2) {
 		t.Fatal("bloom filter is same after addition")
 	}
 	bf3, err := comm.Repo.State().MarshalJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(bf3, bf2) != 0 {
+	if !bytes.Equal(bf3, bf2) {
 		t.Fatal("bloom filter should be same")
 	}
 }
@@ -458,7 +456,7 @@ func TestReplicationGet(t *testing.T) {
 	if _, err := Peers(); err == pkg.ErrNoPeersConnected {
 		t.Fatal("Should be connected to at least one peer")
 	}
-	content := []byte(fmt.Sprintf("checkState"))
+	content := []byte("checkState")
 	buf := bytes.NewReader(content)
 	tag := "tag"
 	info := &store.Info{
@@ -547,14 +545,14 @@ func TestReplicationIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(bf1, bf2) == 0 {
+	if bytes.Equal(bf1, bf2) {
 		t.Fatal("bloom filter are same")
 	}
 	bf3, err := State()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(bf3, bf2) != 0 {
+	if !bytes.Equal(bf3, bf2) {
 		t.Fatal("bloom filter should be same")
 	}
 }
@@ -717,7 +715,6 @@ func TestContentMatrix(t *testing.T) {
 }
 
 func TestContentDistribution(t *testing.T) {
-	logging.SetLogLevel("*", "Debug")
 	<-time.After(time.Second)
 	root := filepath.Join("../test", repo.Root)
 	cm := MockConnManager{}
@@ -867,6 +864,9 @@ func removeRepo(repopath string, t *testing.T) {
 
 func startAnotherNode(repopath, port string, t *testing.T) *pkg.Common {
 	err := pkg.Init(repopath, port)
+	if err != nil {
+		t.Fatal(err)
+	}
 	comm, err := pkg.New(context.Background(), repopath, port)
 	if err != nil {
 		t.Fatal(err)

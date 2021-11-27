@@ -231,7 +231,10 @@ func TestDownloadManager(t *testing.T) {
 	taskCount := 10
 	for i := 0; i < taskCount; i++ {
 		dt := &mockDownload{mockName: fmt.Sprintf("some content %d", i)}
-		m.dlManager.Go(dt)
+		_, err = m.dlManager.Go(dt)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	if len(m.DownloadManagerStatus()) != taskCount {
 		t.Fatalf("taskCount should be %d got %d", taskCount, len(m.DownloadManagerStatus()))

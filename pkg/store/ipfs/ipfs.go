@@ -122,8 +122,5 @@ func (I *IPFSNode) ReplManager() *replication.Manager {
 
 func (I *IPFSNode) IsPeerConnected(id string) bool {
 	conn := I.peer.Host.Network().Connectedness(peer.ID(id))
-	if conn == network.Connected {
-		return true
-	}
-	return false
+	return conn == network.Connected
 }

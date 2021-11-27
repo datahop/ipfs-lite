@@ -63,7 +63,7 @@ Example:
 			// Rename if file already exist
 			count := 0
 			tmpout := output
-			filename := info.Name
+			var filename string
 			for {
 				_, err := os.Stat(tmpout)
 				if err == nil {
@@ -102,7 +102,10 @@ Example:
 					return err
 				}
 				defer file.Close()
-				file.Write(byteContent)
+				_, err = file.Write(byteContent)
+				if err != nil {
+					return err
+				}
 				if err != nil {
 					log.Errorf("Unable to save file :%s", err.Error())
 					return err
