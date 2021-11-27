@@ -209,10 +209,12 @@ func Start(shouldBootstrap bool) error {
 	defer mtx.Unlock()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	var startErr error
 	go func() {
-		done, err := hop.comm.Start()
+		done, err := hop.comm.Start("")
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
+			startErr = err
 			wg.Done()
 			return
 		}
@@ -225,15 +227,18 @@ func Start(shouldBootstrap bool) error {
 		log.Debug("Context Closed")
 	}()
 	wg.Wait()
+	if startErr != nil {
+		return startErr
+	}
 	log.Debug("Node Started")
 	stepsLog.Debug("ipfs started")
 	return nil
 }
 
 // StartPrivate starts an ipfslite node in a private network with provided swarmkey
-func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
-	if swarmKey == nil {
-		return errors.New("invalid swarmkey")
+func StartPrivate(shouldBootstrap bool, swarmKey string) error {
+	if swarmKey == "" {
+		return errors.New("invalid group key")
 	}
 
 	if hop == nil {
@@ -241,11 +246,12 @@ func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	var startErr error
 	go func() {
-		// TODO: pass swarm key
-		done, err := hop.comm.Start()
+		done, err := hop.comm.Start(swarmKey)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
+			startErr = err
 			wg.Done()
 			return
 		}
@@ -258,6 +264,9 @@ func StartPrivate(shouldBootstrap bool, swarmKey []byte) error {
 		log.Debug("Context Closed ")
 	}()
 	wg.Wait()
+	if startErr != nil {
+		return startErr
+	}
 	log.Debug("Node Started")
 	stepsLog.Debug("ipfs started")
 	return nil

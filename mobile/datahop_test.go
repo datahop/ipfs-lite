@@ -221,6 +221,37 @@ func TestContentLength(t *testing.T) {
 	}
 }
 
+func TestStartPrivate(t *testing.T) {
+	<-time.After(time.Second)
+	root := "../test" + string(os.PathSeparator) + repo.Root
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		removeRepo(root, t)
+		Close()
+	}()
+	for i := 0; i < 10; i++ {
+		err = StartPrivate(false, "my_secret")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if IsNodeOnline() != true {
+			t.Fatal("Node should be running")
+		}
+		Stop()
+		if IsNodeOnline() != false {
+			t.Fatal("Node should not be running ")
+		}
+	}
+}
+
 func TestMultipleStart(t *testing.T) {
 	<-time.After(time.Second)
 	root := "../test" + string(os.PathSeparator) + repo.Root
@@ -274,7 +305,7 @@ func TestBootstrap(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -317,7 +348,99 @@ func TestConnectWithAddress(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
+	defer func() {
+		comm.Stop()
+		comm.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	pr := comm.Node.AddrInfo()
+	for _, v := range pr.Addrs {
+		if !strings.HasPrefix(v.String(), "/ip4/127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + pr.ID.String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := Peers(); err == pkg.ErrNoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+	// test matrix
+	nodeStatSnapshot := hop.comm.Repo.Matrix().GetNodeStat(pr.ID.String())
+	if nodeStatSnapshot.ConnectionSuccessCount != 1 {
+		t.Fatal("ConnectionSuccessCount is not 1")
+	}
+	pi := PeerInfo()
+	var peerInfo peer.AddrInfo
+	err = peerInfo.UnmarshalJSON([]byte(pi))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConnectWithAddressWithGroupKeyFail(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = StartPrivate(false, "my_secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	comm := startAnotherNode(secondNode, "5000", "", t)
+	defer func() {
+		comm.Stop()
+		comm.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	pr := comm.Node.AddrInfo()
+	for _, v := range pr.Addrs {
+		if !strings.HasPrefix(v.String(), "/ip4/127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + pr.ID.String())
+			if err == nil {
+				t.Fatal("peers should now be able to connect")
+			}
+		}
+	}
+}
+
+func TestConnectWithAddressWithGroupKey(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	err := Init(root, cm, dd, ad, whs, wc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = StartPrivate(false, "my_secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+	secondNode := filepath.Join("./test", "root1")
+	comm := startAnotherNode(secondNode, "5000", "my_secret", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -370,7 +493,7 @@ func TestReplicationOut(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -438,7 +561,7 @@ func TestReplicationGet(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -502,7 +625,7 @@ func TestReplicationIn(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -579,7 +702,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -622,7 +745,7 @@ func TestContentOwner(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -681,7 +804,7 @@ func TestContentMatrix(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", t)
+	comm := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -737,7 +860,7 @@ func TestContentDistribution(t *testing.T) {
 	}()
 
 	secondNode := filepath.Join("./test", "root1")
-	comm1 := startAnotherNode(secondNode, "5000", t)
+	comm1 := startAnotherNode(secondNode, "5000", "", t)
 	defer func() {
 		comm1.Stop()
 		comm1.Repo.Close()
@@ -770,7 +893,7 @@ func TestContentDistribution(t *testing.T) {
 	Stop()
 	Close()
 	thirdNode := filepath.Join("./test", "root2")
-	comm2 := startAnotherNode(thirdNode, "5001", t)
+	comm2 := startAnotherNode(thirdNode, "5001", "", t)
 	defer func() {
 		comm2.Stop()
 		comm2.Repo.Close()
@@ -790,7 +913,7 @@ func TestContentDistribution(t *testing.T) {
 	comm1.Stop()
 
 	fourthNode := filepath.Join("./test", "root3")
-	comm3 := startAnotherNode(fourthNode, "5002", t)
+	comm3 := startAnotherNode(fourthNode, "5002", "", t)
 	defer func() {
 		comm3.Stop()
 		comm3.Repo.Close()
@@ -862,7 +985,7 @@ func removeRepo(repopath string, t *testing.T) {
 	}
 }
 
-func startAnotherNode(repopath, port string, t *testing.T) *pkg.Common {
+func startAnotherNode(repopath, port, key string, t *testing.T) *pkg.Common {
 	err := pkg.Init(repopath, port)
 	if err != nil {
 		t.Fatal(err)
@@ -871,7 +994,7 @@ func startAnotherNode(repopath, port string, t *testing.T) *pkg.Common {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = comm.Start()
+	_, err = comm.Start(key)
 	if err != nil {
 		t.Fatal(err)
 	}
