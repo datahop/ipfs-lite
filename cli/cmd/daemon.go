@@ -15,14 +15,15 @@ var log = logging.Logger("cmd")
 
 // InitDaemonCmd creates the daemon command
 func InitDaemonCmd(comm *pkg.Common) *cobra.Command {
-	return &cobra.Command{
+	command := &cobra.Command{
 		Use:   "daemon",
 		Short: "Start datahop daemon",
 		Long: `
 This command is used to start the Datahop Daemon.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			done, err := comm.Start()
+			sk, _ := cmd.Flags().GetString("secret")
+			done, err := comm.Start(sk)
 			if err != nil {
 				log.Error(err)
 				os.Exit(1)
@@ -62,4 +63,7 @@ $$    $$ |$$    $$ |  $$  $$/ $$    $$ |$$ |  $$ |$$    $$/ $$    $$/         $$
 			}
 		},
 	}
+	command.Flags().String("secret", "",
+		"Group secret key")
+	return command
 }

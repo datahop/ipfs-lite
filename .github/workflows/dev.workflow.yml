@@ -35,6 +35,9 @@ jobs:
       - name: Install ipv6
         run: go get golang.org/x/net/ipv6
 
+      - name: Lint
+        run: golangci-lint run
+
       - name: Test
         run: go test -p 1 -v ./... -race -coverprofile=coverage.out -covermode=atomic
 
