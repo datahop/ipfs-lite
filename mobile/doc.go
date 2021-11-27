@@ -97,7 +97,7 @@ bootstrap the node with default datahop bootstrap node
 	}
 
 To be able to connect datahop ipfslite node to a private network node call
-"StartPrivate". It takes two parameters "shouldBootstrap" & "swarm key"
+"StartPrivate". It takes two parameters "shouldBootstrap" & "secret_string"
 
 	var shouldBootstrap bool
 	var swarmKey []byte

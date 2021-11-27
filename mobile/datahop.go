@@ -799,10 +799,10 @@ func StartMeasurements(length, delay int) {
 	}()
 }
 
-func AddAGB() {
+func AddContent() {
 	go func() {
 		stepsLog.Debug("AddAGB: starting adding a gb content")
-		contentLength := 1000000000
+		contentLength := 209715200
 		content := make([]byte, contentLength)
 		_, err := rand.Read(content)
 		if err != nil {

@@ -3,17 +3,15 @@ package pkg
 import (
 	"context"
 
-	"github.com/datahop/ipfs-lite/internal/replication"
+	_ "golang.org/x/mobile/bind"
 
+	"github.com/datahop/ipfs-lite/internal/replication"
+	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/pkg/store"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-
-	"github.com/libp2p/go-libp2p-core/peer"
-
-	"github.com/datahop/ipfs-lite/pkg/store"
-
-	"github.com/datahop/ipfs-lite/internal/repo"
-	"github.com/libp2p/go-libp2p-core/network"
 )
 
 type Node interface {
