@@ -6,8 +6,6 @@ import (
 	"io"
 	"sync"
 
-	p2pnet "github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
@@ -17,8 +15,8 @@ type ServiceType string
 
 const (
 	ScanAndAdvertise ServiceType = "Both"
-	OnlyScan                     = "OnlyScan"
-	OnlyAdv                      = "OnlyAdv"
+	OnlyScan         ServiceType = "OnlyScan"
+	OnlyAdv          ServiceType = "OnlyAdv"
 )
 
 type Service interface {
@@ -64,7 +62,6 @@ type discoveryService struct {
 	stopSignal      chan struct{}
 	advertisingInfo map[string]string
 	connected       bool //wifi connection status connected/disconnected
-	numConnected    int
 	service         ServiceType
 
 	isHost        bool
@@ -82,7 +79,7 @@ func NewDiscoveryService(
 	serviceTag string,
 ) (Service, error) {
 	if serviceTag == "" {
-		serviceTag = serviceTag
+		serviceTag = DiscoveryServiceTag
 	}
 	discovery := &discoveryService{
 		id:              id,
@@ -131,6 +128,8 @@ func (b *discoveryService) AddAdvertisingInfo(topic string, info string) {
 }
 
 func (b *discoveryService) Close() error {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("discoveryService Close")
 	b.discovery.Stop()
 	b.advertiser.Stop()
@@ -141,6 +140,19 @@ func (b *discoveryService) Close() error {
 	b.isHost = false
 	return nil
 }
+
+func (b *discoveryService) close() error {
+	log.Debug("discoveryService Close")
+	b.discovery.Stop()
+	b.advertiser.Stop()
+	stepsLog.Debug("discovery & advertiser stopped")
+	hop.wifiCon.Disconnect()
+	hop.wifiHS.Stop()
+	stepsLog.Debug("wifi conn & hotspot stopped")
+	b.isHost = false
+	return nil
+}
+
 func (b *discoveryService) RegisterNotifee(n Notifee) {
 	log.Debug("discoveryService RegisterNotifee")
 	b.lk.Lock()
@@ -176,8 +188,9 @@ func (b *discoveryService) DiscoveryPeerDifferentStatus(device string, topic str
 	if b.connected {
 		return
 	}
-
-	hop.peer.Repo.Matrix().BLEDiscovered(peerId)
+	mtx.Lock()
+	defer mtx.Unlock()
+	hop.comm.Repo.Matrix().BLEDiscovered(peerId)
 	hop.wifiCon.Connect(network, pass, "", peerId)
 }
 
@@ -191,13 +204,13 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 	log.Debugf("advertising new peer device different status : %s", string(value))
 	stepsLog.Debugf("advertising new peer device different status : %s", string(value))
 	log.Debugf("peerinfo: %s", id)
-
-	conn := hop.peer.Host.Network().Connectedness(peer.ID(id))
-	if conn == p2pnet.Connected {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop.comm.Node.IsPeerConnected(id) {
 		log.Debug("Peer already connected")
 		return
 	}
-	hop.peer.Repo.Matrix().BLEDiscovered(id)
+	hop.comm.Repo.Matrix().BLEDiscovered(id)
 	if !b.isHost {
 		b.wifiHS.Start()
 		stepsLog.Debug("wifi hotspot started")
@@ -206,12 +219,16 @@ func (b *discoveryService) AdvertiserPeerDifferentStatus(topic string, value []b
 }
 
 func (b *discoveryService) OnConnectionSuccess(started int64, completed int64, rssi int, speed int, freq int) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("Connection success")
-	hop.peer.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
+	hop.comm.Repo.Matrix().WifiConnected(hop.wifiCon.Host(), rssi, speed, freq)
 	b.connected = true
 }
 
 func (b *discoveryService) OnConnectionFailure(code int, started int64, failed int64) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	log.Debug("Connection failure ", code)
 	hop.wifiCon.Disconnect()
 	b.connected = false

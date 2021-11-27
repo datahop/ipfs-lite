@@ -3,13 +3,13 @@ package cmd
 import (
 	"errors"
 
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/cli/out"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitIndexCmd creates the index command
-func InitIndexCmd(comm *common.Common) *cobra.Command {
+func InitIndexCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "index",
 		Short: "Index datahop node content",
@@ -46,10 +46,10 @@ Example:
 	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if comm.LitePeer == nil || !comm.LitePeer.IsOnline() {
+			if comm.Node == nil || !comm.Node.IsOnline() {
 				return errors.New("daemon not running")
 			}
-			tags, err := comm.LitePeer.Manager.Index()
+			tags, err := comm.Node.ReplManager().Index()
 			if err != nil {
 				return err
 			}

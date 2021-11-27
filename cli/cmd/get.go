@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,14 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/security"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitGetCmd creates the get command
-func InitGetCmd(comm *common.Common) *cobra.Command {
+func InitGetCmd(comm *ipfslite.Common) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "get",
 		Short: "Get content by tag",
@@ -52,16 +51,18 @@ Example:
 				}
 				destination = usr.HomeDir + string(os.PathSeparator) + "Downloads"
 			}
-			meta, err := comm.LitePeer.Manager.FindTag(tag)
+			r, info, err := comm.Node.Get(comm.Context, tag)
 			if err != nil {
 				return err
 			}
-			output := destination + string(os.PathSeparator) + meta.Name
+			defer r.Close()
+
+			output := destination + string(os.PathSeparator) + info.Name
 			extension := filepath.Ext(output)
 			// Rename if file already exist
 			count := 0
 			tmpout := output
-			filename := meta.Name
+			var filename string
 			for {
 				_, err := os.Stat(tmpout)
 				if err == nil {
@@ -76,14 +77,8 @@ Example:
 					break
 				}
 			}
-			ctx, _ := context.WithCancel(comm.Context)
-			r, err := comm.LitePeer.GetFile(ctx, meta.Hash)
-			if err != nil {
-				log.Errorf("Unable to get file reader :%s", err.Error())
-				return err
-			}
-			defer r.Close()
-			if meta.IsEncrypted {
+
+			if info.IsEncrypted {
 				passphrase, _ := cmd.Flags().GetString("passphrase")
 				if passphrase == "" {
 					log.Error("passphrase is empty")
@@ -106,7 +101,10 @@ Example:
 					return err
 				}
 				defer file.Close()
-				file.Write(byteContent)
+				_, err = file.Write(byteContent)
+				if err != nil {
+					return err
+				}
 				if err != nil {
 					log.Errorf("Unable to save file :%s", err.Error())
 					return err
@@ -124,7 +122,7 @@ Example:
 					return err
 				}
 			}
-			err = out.Print(cmd, meta, parseFormat(cmd))
+			err = out.Print(cmd, info, parseFormat(cmd))
 			if err != nil {
 				return err
 			}

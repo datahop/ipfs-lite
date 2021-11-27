@@ -127,7 +127,9 @@ func New(
 
 // Close the crdt store
 func (m *Manager) Close() error {
-	m.dlManager.Stop(m.ctx)
+	if err := m.dlManager.Stop(m.ctx); err != nil {
+		return err
+	}
 	m.cancel()
 	return m.crdt.Close()
 }

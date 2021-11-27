@@ -12,7 +12,8 @@ import (
 	"strings"
 	"sync"
 
-	ipfslite "github.com/datahop/ipfs-lite"
+	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
+
 	"github.com/datahop/ipfs-lite/internal/repo"
 )
 
@@ -35,7 +36,7 @@ func main() {
 		return
 	}
 
-	lite, err := ipfslite.New(ctx, cancel, r)
+	lite, err := ipfslite.New(ctx, cancel, r, nil)
 	if err != nil {
 		panic(err)
 	}

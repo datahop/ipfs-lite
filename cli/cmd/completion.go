@@ -3,12 +3,12 @@ package cmd
 import (
 	"os"
 
-	"github.com/datahop/ipfs-lite/cli/common"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitCompletionCmd creates the stop command
-func InitCompletionCmd(comm *common.Common) *cobra.Command {
+func InitCompletionCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:                   "completion [bash|zsh|fish|powershell]",
 		Short:                 "Generate completion script",
@@ -16,13 +16,14 @@ func InitCompletionCmd(comm *common.Common) *cobra.Command {
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
 		Args:                  cobra.ExactValidArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			switch args[0] {
 			case "bash":
-				cmd.Root().GenBashCompletion(os.Stdout)
+				return cmd.Root().GenBashCompletion(os.Stdout)
 			case "zsh":
-				cmd.Root().GenZshCompletion(os.Stdout)
+				return cmd.Root().GenZshCompletion(os.Stdout)
 			}
+			return nil
 		},
 	}
 }

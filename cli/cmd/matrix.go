@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/cli/out"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
 // InitMatrixCmd creates the matrix command
-func InitMatrixCmd(comm *common.Common) *cobra.Command {
+func InitMatrixCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "matrix",
 		Short: "Get node connectivity and content matrix",
@@ -67,10 +67,11 @@ Example:
 	}
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if comm.LitePeer != nil {
-				nodeMatrixSnapshot := comm.LitePeer.Repo.Matrix().NodeMatrixSnapshot()
-				contentMatrixSnapshot := comm.LitePeer.Repo.Matrix().ContentMatrixSnapshot()
-				uptime := comm.LitePeer.Repo.Matrix().GetTotalUptime()
+			if comm.Node != nil {
+				mKeeper := comm.Repo.Matrix()
+				nodeMatrixSnapshot := mKeeper.NodeMatrixSnapshot()
+				contentMatrixSnapshot := mKeeper.ContentMatrixSnapshot()
+				uptime := mKeeper.GetTotalUptime()
 				// output
 				matrix := map[string]interface{}{}
 				matrix["TotalUptime"] = uptime

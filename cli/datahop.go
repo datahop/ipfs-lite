@@ -10,8 +10,8 @@ import (
 
 	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/pkg"
 	logger "github.com/ipfs/go-log/v2"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
@@ -36,28 +36,21 @@ network through a CLI Interface.
 )
 
 func init() {
-	logger.SetLogLevel("uds", "Debug")
-	logger.SetLogLevel("cmd", "Debug")
+	_ = logger.SetLogLevel("uds", "Debug")
+	_ = logger.SetLogLevel("cmd", "Debug")
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
-	}
-	root := filepath.Join(home, repo.Root)
-	err = repo.Init(root, "0")
+	err := pkg.Init(repo.Root, "0")
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
 
-	comm := &common.Common{
-		Root:    root,
-		Context: ctx,
-		Cancel:  cancel,
+	comm, err := pkg.New(context.Background(), repo.Root, "0")
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
 	}
 
 	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
@@ -87,21 +80,15 @@ func main() {
 	for _, v := range os.Args {
 		if v == "-h" || v == "--help" {
 			log.Debug("Executing help command")
-			rootCmd.Execute()
+			if err := rootCmd.Execute(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 			return
 		}
 	}
 
 	socketPath := filepath.Join("/tmp", sockPath)
-	if !uds.IsIPCListening(socketPath) {
-		r, err := repo.Open(root)
-		if err != nil {
-			log.Error(err)
-			os.Exit(1)
-		}
-		defer r.Close()
-		comm.Repo = r
-	}
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
@@ -112,7 +99,7 @@ func main() {
 				log.Error(err)
 				goto Execute
 			}
-			defer c()
+			defer pkg.CheckError(log, c)
 			err = w(strings.Join(os.Args[1:], argSeparator))
 			if err != nil {
 				log.Error(err)

@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/datahop/ipfs-lite/cli/common"
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/config"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/ipfs/go-datastore"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +21,7 @@ type info struct {
 }
 
 // InitInfoCmd creates the info command
-func InitInfoCmd(comm *common.Common) *cobra.Command {
+func InitInfoCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info",
 		Short: "Get datahop node information",
@@ -63,23 +63,24 @@ Example:
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			inf := &info{}
-			if comm.LitePeer != nil {
+			if comm.Node != nil {
 				// is daemon running
-				inf.IsDaemonRunning = comm.LitePeer.IsOnline()
+				inf.IsDaemonRunning = comm.Node.IsOnline()
 				// peers
-				inf.Peers = comm.LitePeer.Peers()
+				inf.Peers = comm.Node.Peers()
 				// addresses
 				addrs := []string{}
-				if comm.LitePeer != nil {
-					for _, v := range comm.LitePeer.Host.Addrs() {
-						if !strings.HasPrefix(v.String(), "127") {
-							addrs = append(addrs, v.String()+"/p2p/"+comm.LitePeer.Host.ID().String())
+				if comm.Node != nil {
+					pr := comm.Node.AddrInfo()
+					for _, v := range pr.Addrs {
+						if !strings.HasPrefix(v.String(), "/ip4/127") {
+							addrs = append(addrs, v.String()+"/p2p/"+pr.ID.String())
 						}
 					}
 					inf.Addresses = addrs
 				}
 				// disk usage
-				du, err := datastore.DiskUsage(comm.LitePeer.Repo.Datastore())
+				du, err := datastore.DiskUsage(comm.Repo.Datastore())
 				if err != nil {
 					log.Error("Unable to get datastore usage ", err)
 					return err

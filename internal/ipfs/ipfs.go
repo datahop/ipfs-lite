@@ -1,6 +1,7 @@
-package ipfslite
+package ipfs
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -9,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/datahop/ipfs-lite/internal/config"
 
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
@@ -30,12 +29,17 @@ import (
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipfs/go-unixfs/importer/trickle"
 	ufsio "github.com/ipfs/go-unixfs/io"
+	"github.com/libp2p/go-libp2p"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/pnet"
 	"github.com/libp2p/go-libp2p-core/routing"
 	swarm "github.com/libp2p/go-libp2p-swarm"
+	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
@@ -142,6 +146,7 @@ func New(
 	ctx context.Context,
 	cancelFunc context.CancelFunc,
 	r repo.Repo,
+	swarmKey []byte,
 	opts ...Option,
 ) (*Peer, error) {
 	options := defaultOptions()
@@ -162,6 +167,26 @@ func New(
 		listenAddrs = append(listenAddrs, listen)
 	}
 
+	// libp2pOptionsExtra provides some useful libp2p options
+	// to create a fully featured libp2p host. It can be used with
+	// SetupLibp2p.
+	libp2pOptionsExtra := []libp2p.Option{
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.DisableRelay(),
+		libp2p.NATPortMap(),
+		libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
+		libp2p.EnableNATService(),
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+	}
+	if swarmKey != nil {
+		log.Info("got swarm key. starting private network")
+		psk, err := pnet.DecodeV1PSK(bytes.NewReader(swarmKey))
+		if err != nil {
+			log.Error("swarm key decode failed")
+			return nil, err
+		}
+		libp2pOptionsExtra = append(libp2pOptionsExtra, libp2p.PrivateNetwork(psk))
+	}
 	h, dht, err := SetupLibp2p(
 		ctx,
 		privKey,
@@ -275,13 +300,14 @@ func (p *Peer) autoclose() {
 	<-p.Ctx.Done()
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
-
 	p.Repo.Matrix().Close()
 	p.online = false
 	p.Manager.Close()
 	p.Host.Close()
 	p.bserv.Close()
-	p.Stopped <- true
+	go func() {
+		p.Stopped <- true
+	}()
 }
 
 // Bootstrap is an optional helper to connect to the given peers and bootstrap
@@ -462,10 +488,7 @@ func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
 	getLinks := func(ctx context.Context, cid cid.Cid) ([]*ipld.Link, error) {
 		links, err := ipld.GetLinks(ctx, p, c)
 		if err != nil {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
+			return nil, err
 		}
 		return links, nil
 	}
@@ -594,8 +617,13 @@ func (p *Peer) ZeroConfScan() {
 	}
 
 	action := func(entry *zeroconf.ServiceEntry) {
-		log.Debugf("zconf : Handle action : %+v\n", entry)
-		if entry.Instance == p.Host.ID().String() {
+		log.Debugf("zconf : Handle action : %+v\n", entry.Instance)
+		idr := strings.Split(entry.Instance, ":")
+		if len(idr) < 2 {
+			log.Error("zconf : wrong instance ", entry.Instance)
+			return
+		}
+		if idr[0] == p.Host.ID().String() {
 			log.Debug("zconf : got own address")
 			return
 		}
@@ -603,7 +631,7 @@ func (p *Peer) ZeroConfScan() {
 			log.Warn("Discovered peer with no ipv4")
 			return
 		}
-		address := fmt.Sprintf("/ip4/%s/tcp/%s/p2p/%s", entry.AddrIPv4[0], config.SwarmPort, entry.Instance)
+		address := fmt.Sprintf("/ip4/%s/tcp/%s/p2p/%s", entry.AddrIPv4[0], idr[1], idr[0])
 		maddr, err := multiaddr.NewMultiaddr(address)
 		if err != nil {
 			return
@@ -617,18 +645,31 @@ func (p *Peer) ZeroConfScan() {
 			log.Debug("zconf : Connect from zconf : ", pi)
 			err = p.Connect(p.Ctx, *pi)
 			if err != nil {
-				log.Error("zconf : Connecting failed : ", err.Error())
+				log.Error("zconf : Connecting failed : ", err.Error(), address)
 				return
 			}
 		}
 	}
+	cfg, err := p.Repo.Config()
+	if err != nil {
+		return
+	}
 
-	lookupAndConnect(p.Ctx, action)
-	go p.registerZeroConf(p.Host.ID().String())
+	err = lookupAndConnect(p.Ctx, action)
+	if err != nil {
+		return
+	}
+	go func() {
+		err := p.registerZeroConf(fmt.Sprintf("%s:%s", p.Host.ID().String(), cfg.SwarmPort))
+		if err != nil {
+			log.Debugf("registerZeroConf failed : %s", err)
+			log.Error("registerZeroConf failed")
+		}
+	}()
 }
 
 func (p *Peer) registerZeroConf(instance string) error {
-	log.Debug("zconf : register service zconf")
+	log.Debug("zconf : register service zconf ", instance)
 	for {
 		select {
 		case <-p.Ctx.Done():

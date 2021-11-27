@@ -11,7 +11,7 @@ import (
 
 func createHash(key string) string {
 	hasher := md5.New()
-	hasher.Write([]byte(key))
+	_, _ = hasher.Write([]byte(key))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 

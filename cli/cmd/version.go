@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"github.com/datahop/ipfs-lite/cli/common"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/spf13/cobra"
 )
 
 // InitVersionCmd creates the version command
-func InitVersionCmd(comm *common.Common) *cobra.Command {
+func InitVersionCmd(comm *ipfslite.Common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Datahop cli version",
