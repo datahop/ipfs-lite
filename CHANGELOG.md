@@ -1,16 +1,17 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## [v0.0.13] - 2021-11-27
 
 ### Added
 
-- [-] Optional passphrase based content encryption
-
+- [6239e1e](https://github.com/datahop/ipfs-lite/commit/6239e1e) Optional passphrase based content encryption
+- [6708b03](https://github.com/datahop/ipfs-lite/commit/6708b03) Support for private network
+- 
 ### Changed
 
-- [-] zeroconf mDNS replaces libp2p mDNS 
-- [-] D2D now uses zeroconf mDNS service instead of manually handing connections
+- [df060c1](https://github.com/datahop/ipfs-lite/commit/df060c1) zeroconf mDNS replaces libp2p mDNS 
+- [df060c1](https://github.com/datahop/ipfs-lite/commit/df060c1) D2D now uses zeroconf mDNS service instead of manually handing connections
 
 ## [v0.0.12] - 2021-10-07
 
