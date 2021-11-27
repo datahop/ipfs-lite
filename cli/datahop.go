@@ -8,11 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/datahop/ipfs-lite/pkg"
-
 	uds "github.com/asabya/go-ipc-uds"
 	"github.com/datahop/ipfs-lite/cli/cmd"
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/pkg"
 	logger "github.com/ipfs/go-log/v2"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"

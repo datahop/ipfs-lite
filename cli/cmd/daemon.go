@@ -6,7 +6,6 @@ import (
 	"os/signal"
 
 	"github.com/datahop/ipfs-lite/pkg"
-
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 )

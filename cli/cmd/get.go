@@ -10,10 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	ipfslite "github.com/datahop/ipfs-lite/pkg"
-
 	"github.com/datahop/ipfs-lite/cli/out"
 	"github.com/datahop/ipfs-lite/internal/security"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 

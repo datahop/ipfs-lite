@@ -3,9 +3,8 @@ package cmd
 import (
 	"errors"
 
-	ipfslite "github.com/datahop/ipfs-lite/pkg"
-
 	"github.com/datahop/ipfs-lite/cli/out"
+	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
 
