@@ -3,8 +3,6 @@ package pkg
 import (
 	"context"
 
-	_ "golang.org/x/mobile/bind"
-
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/datahop/ipfs-lite/pkg/store"

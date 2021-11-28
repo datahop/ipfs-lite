@@ -41,9 +41,9 @@ require (
 	github.com/plexsysio/taskmanager v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
-	golang.org/x/mobile v0.0.0-20210924032853-1c027f395ef7
 	golang.org/x/net v0.0.0-20211013171255-e13a2654a71e // indirect
 	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c // indirect
+	golang.org/x/tools v0.1.2 // indirect
 	google.golang.org/protobuf v1.27.1
 )
 
