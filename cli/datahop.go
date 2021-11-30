@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -31,7 +32,7 @@ The Datahop CLI client gives access to datahop
 network through a CLI Interface.
 		`,
 	}
-	sockPath = "uds.sock"
+	sockPath = "datahop.sock"
 	log      = logging.Logger("cmd")
 )
 
@@ -41,16 +42,28 @@ func init() {
 }
 
 func main() {
-	err := pkg.Init(repo.Root, "0")
+	usr, err := user.Current()
+	if err != nil {
+		fmt.Printf("Failed getting user home directory. Is USER set?\n")
+		os.Exit(1)
+	}
+	absoluteRoot := usr.HomeDir + string(os.PathSeparator) + repo.Root
+
+	err = pkg.Init(absoluteRoot, "0")
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
 
-	comm, err := pkg.New(context.Background(), repo.Root, "0")
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
+	comm := &pkg.Common{}
+
+	socketPath := filepath.Join(os.TempDir(), sockPath)
+	if !uds.IsIPCListening(socketPath) {
+		comm, err = pkg.New(context.Background(), absoluteRoot, "0")
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
 	}
 
 	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
@@ -88,7 +101,6 @@ func main() {
 		}
 	}
 
-	socketPath := filepath.Join("/tmp", sockPath)
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
