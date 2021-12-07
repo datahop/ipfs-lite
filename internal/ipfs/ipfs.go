@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/gateway"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/grandcat/zeroconf"
@@ -41,6 +43,7 @@ import (
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
 	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -232,10 +235,48 @@ func New(
 	p.online = true
 	p.mtx.Unlock()
 
+	go p.runGateway(ctx)
 	go p.autoclose()
 	p.ZeroConfScan()
 
 	return p, nil
+}
+
+func (p *Peer) runGateway(ctx context.Context) {
+	listeningMultiAddr := "/ip4/0.0.0.0/tcp/8080"
+	addr, err := multiaddr.NewMultiaddr(listeningMultiAddr)
+	if err != nil {
+		log.Error("http newMultiaddr:", err.Error())
+		return
+	}
+
+	list, err := manet.Listen(addr)
+	if err != nil {
+		log.Error("http manet Listen:", err.Error())
+		return
+	}
+	defer list.Close()
+
+	// we might have listened to /tcp/0 - let's see what we are listing on
+	addr = list.Multiaddr()
+	log.Infof("API server listening on %s", addr)
+	topMux := http.NewServeMux()
+	gway := gateway.NewGatewayHandler(p, merkledag.NewReadOnlyDagService(merkledag.NewSession(ctx, p)), p.bserv)
+
+	topMux.Handle(gateway.ContentPathPrefix, gway)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		topMux.ServeHTTP(w, r)
+	})
+	server := &http.Server{
+		Handler: handler,
+	}
+	defer server.Close()
+	err = server.Serve(manet.NetListener(list))
+	if err != nil {
+		log.Error("serve :", err.Error())
+		return
+	}
 }
 
 func (p *Peer) setupBlockstore() error {
@@ -475,7 +516,7 @@ func (p *Peer) Download(ctx context.Context, c cid.Cid) error {
 // DeleteFile removes content from blockstore by its root CID. The file
 // must have been added as a UnixFS DAG (default for IPFS).
 func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
-	found, err := p.BlockStore().Has(c)
+	found, err := p.BlockStore().Has(ctx, c)
 	if err != nil {
 		log.Error("Unable to find block ", err)
 		return err
@@ -500,7 +541,7 @@ func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
 	}
 	err = gcs.ForEach(func(c cid.Cid) error {
 		log.Debug(c)
-		err = p.BlockStore().DeleteBlock(c)
+		err = p.BlockStore().DeleteBlock(ctx, c)
 		if err != nil {
 			log.Error("Unable to remove block ", err)
 			return err
@@ -521,8 +562,8 @@ func (p *Peer) BlockStore() blockstore.Blockstore {
 
 // HasBlock returns whether a given block is available locally. It is
 // a shorthand for .Blockstore().Has().
-func (p *Peer) HasBlock(c cid.Cid) (bool, error) {
-	return p.BlockStore().Has(c)
+func (p *Peer) HasBlock(ctx context.Context, c cid.Cid) (bool, error) {
+	return p.BlockStore().Has(ctx, c)
 }
 
 const connectionManagerTag = "user-connect"

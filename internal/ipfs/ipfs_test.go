@@ -191,11 +191,11 @@ func TestDAG(t *testing.T) {
 		t.Error(err)
 	}
 
-	if ok, err := p1.BlockStore().Has(node.Cid()); ok || err != nil {
+	if ok, err := p1.BlockStore().Has(p1.Ctx, node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
 
-	if ok, err := p2.BlockStore().Has(node.Cid()); ok || err != nil {
+	if ok, err := p2.BlockStore().Has(p1.Ctx, node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
 }
@@ -281,12 +281,12 @@ func TestDeleteFile(t *testing.T) {
 
 	content := []byte("content to be deleted")
 	buf := bytes.NewReader(content)
-	n, err := p1.AddFile(context.Background(), buf, nil)
+	n, err := p1.AddFile(p1.Ctx, buf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rsc, err := p2.GetFile(context.Background(), n.Cid())
+	rsc, err := p2.GetFile(p2.Ctx, n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
 	}
-	has, err := p1.BlockStore().Has(n.Cid())
+	has, err := p1.BlockStore().Has(p1.Ctx, n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	has, err = p1.BlockStore().Has(n.Cid())
+	has, err = p1.BlockStore().Has(p1.Ctx, n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestStateDualPeer(t *testing.T) {
 	cids := []cid.Cid{}
 	content := []byte("hola")
 	buf := bytes.NewReader(content)
-	n, err := p1.AddFile(context.Background(), buf, nil)
+	n, err := p1.AddFile(p1.Ctx, buf, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,7 +413,7 @@ func TestStateDualPeer(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		content := []byte(fmt.Sprintf("checkState%d", i))
 		buf := bytes.NewReader(content)
-		n, err := p1.AddFile(context.Background(), buf, nil)
+		n, err := p1.AddFile(p1.Ctx, buf, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -439,7 +439,7 @@ func TestStateDualPeer(t *testing.T) {
 		}
 	}
 	for _, v := range cids {
-		inStore, _ := p2.bstore.Has(v)
+		inStore, _ := p2.bstore.Has(p2.Ctx, v)
 		if !inStore {
 			t.Fatalf("%s is not in State", v.String())
 		}

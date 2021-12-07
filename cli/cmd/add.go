@@ -79,16 +79,19 @@ Example:
 			if passphrase == "" {
 				shouldEncrypt = false
 			}
-			_, err = f.Seek(0, io.SeekStart)
-			if err != nil {
-				return err
-			}
+
 			head := make([]byte, 261)
 			_, err = f.Read(head)
 			if err != nil {
 				return err
 			}
 			kind, _ := filetype.Match(head)
+
+			_, err = f.Seek(0, io.SeekStart)
+			if err != nil {
+				return err
+			}
+
 			tag, _ := cmd.Flags().GetString("tag")
 			if tag == "" {
 				tag = filepath.Base(f.Name())
