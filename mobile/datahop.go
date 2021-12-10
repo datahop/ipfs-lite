@@ -193,7 +193,7 @@ func FilterFromState() (string, error) {
 func DiskUsage() (int64, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
-	du, err := datastore.DiskUsage(hop.comm.Repo.Datastore())
+	du, err := datastore.DiskUsage(hop.ctx, hop.comm.Repo.Datastore())
 	if err != nil {
 		return 0, err
 	}

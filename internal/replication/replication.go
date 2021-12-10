@@ -164,7 +164,7 @@ func (m *Manager) FindTag(tag string) (*Metatag, error) {
 // Index returns the tag-mata info as key:value
 func (m *Manager) Index() (map[string]*Metatag, error) {
 	indexes := map[string]*Metatag{}
-	r, err := m.crdt.Query(query.Query{})
+	r, err := m.crdt.Query(context.Background(), query.Query{})
 	if err != nil {
 		return indexes, err
 	}
@@ -183,7 +183,7 @@ func (m *Manager) Index() (map[string]*Metatag, error) {
 // GetAllTags returns all tags
 func (m *Manager) GetAllTags() ([]string, error) {
 	tags := []string{}
-	r, err := m.crdt.Query(query.Query{})
+	r, err := m.crdt.Query(context.Background(), query.Query{})
 	if err != nil {
 		return tags, err
 	}
@@ -197,7 +197,7 @@ func (m *Manager) GetAllTags() ([]string, error) {
 // GetAllCids returns all the cids in the crdt store
 func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	cids := []cid.Cid{}
-	r, err := m.crdt.Query(query.Query{})
+	r, err := m.crdt.Query(context.Background(), query.Query{})
 	if err != nil {
 		return cids, err
 	}
@@ -239,18 +239,18 @@ func (m *Manager) StartUnfinishedDownload(pid peer.ID) {
 
 // Put stores the object `value` named by `key`.
 func (m *Manager) Put(key datastore.Key, v []byte) error {
-	return m.crdt.Put(key, v)
+	return m.crdt.Put(context.Background(), key, v)
 }
 
 // Delete removes the value for given `key`.
 func (m *Manager) Delete(key datastore.Key) error {
-	return m.crdt.Delete(key)
+	return m.crdt.Delete(context.Background(), key)
 }
 
 // Get retrieves the object `value` named by `key`.
 // Get will return ErrNotFound if the key is not mapped to a value.
 func (m *Manager) Get(key datastore.Key) ([]byte, error) {
-	return m.crdt.Get(key)
+	return m.crdt.Get(context.Background(), key)
 }
 
 // Has returns whether the `key` is mapped to a `value`.
@@ -258,7 +258,7 @@ func (m *Manager) Get(key datastore.Key) ([]byte, error) {
 // a value, rather than retrieving the value itself. (e.g. HTTP HEAD).
 // The default implementation is found in `GetBackedHas`.
 func (m *Manager) Has(key datastore.Key) (bool, error) {
-	return m.crdt.Has(key)
+	return m.crdt.Has(context.Background(), key)
 }
 
 // StartContentWatcher watches on incoming contents and gets content in datastore
