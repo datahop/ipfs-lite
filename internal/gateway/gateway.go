@@ -54,26 +54,6 @@ func NewGatewayHandler(peer Peer, dag ipld.DAGService, bserv blockservice.BlockS
 	}
 }
 
-func parseIpfsPath(p string) (cid.Cid, string, error) {
-	rootPath, err := ipfspath.ParsePath(p)
-	if err != nil {
-		return cid.Cid{}, "", err
-	}
-
-	// Check the path.
-	rsegs := rootPath.Segments()
-	if rsegs[0] != "ipfs" {
-		return cid.Cid{}, "", fmt.Errorf("WritableGateway: only ipfs paths supported")
-	}
-
-	rootCid, err := cid.Decode(rsegs[1])
-	if err != nil {
-		return cid.Cid{}, "", err
-	}
-
-	return rootCid, ipfspath.Join(rsegs[2:]), nil
-}
-
 func (i *GatewayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debug("ServeHTTP : ", r.URL.String())
 
@@ -92,8 +72,7 @@ func (i *GatewayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	i.getOrHeadHandler(w, r)
 
 	errmsg := "Method " + r.Method + " not allowed: "
-	var status int
-	status = http.StatusBadRequest
+	var status int = http.StatusBadRequest
 	errmsg = errmsg + "bad request for " + r.URL.Path
 	http.Error(w, errmsg, status)
 }
@@ -148,7 +127,6 @@ func (i *GatewayHandler) getOrHeadHandler(w http.ResponseWriter, r *http.Request
 		webError(w, "unable to decode cid", err, http.StatusBadRequest)
 		return
 	}
-	log.Debug("cid ", c.String())
 	dr, err := unixfile.NewUnixfsFile(r.Context(), i.dag, node)
 	if err != nil {
 		webError(w, "failed to get cid content "+escapedURLPath, err, http.StatusNotFound)
@@ -181,10 +159,6 @@ func (i *GatewayHandler) getOrHeadHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// construct the correct back link
-	// https://github.com/ipfs/go-ipfs/issues/1365
-	var backLink string = originalUrlPath
-
 	// don't go further up than /ipfs/$hash/
 	pathSplit := ipfspath.SplitList(urlPath)
 	switch {
@@ -196,11 +170,6 @@ func (i *GatewayHandler) getOrHeadHandler(w http.ResponseWriter, r *http.Request
 
 	// add the correct link depending on whether the path ends with a slash
 	default:
-		if strings.HasSuffix(backLink, "/") {
-			backLink += "./.."
-		} else {
-			backLink += "/.."
-		}
 	}
 
 	hash := c.String()
@@ -228,11 +197,6 @@ func webErrorWithCode(w http.ResponseWriter, message string, err error, code int
 	if code >= 500 {
 		log.Warnf("server error: %s", err)
 	}
-}
-
-// return a 500 error and log
-func internalWebError(w http.ResponseWriter, err error) {
-	webErrorWithCode(w, "internalWebError", err, http.StatusInternalServerError)
 }
 
 func (i *GatewayHandler) ResolvePath(ctx context.Context, p path.Path) (path.Resolved, error) {
