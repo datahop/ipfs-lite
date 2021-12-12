@@ -8,12 +8,13 @@ import (
 func TestNew(t *testing.T) {
 	text := []byte("test text")
 	pass := "pass"
-	b1, err := Encrypt(text, pass)
+	d := &DefaultEncryption{}
+	b1, err := d.EncryptContent(text, pass)
 	if err != nil {
 		t.Fatal("encrypt failed ", err.Error())
 	}
 
-	newText, err := Decrypt(b1, pass)
+	newText, err := d.DecryptContent(b1, pass)
 	if err != nil {
 		t.Fatal("encrypt failed ", err.Error())
 	}

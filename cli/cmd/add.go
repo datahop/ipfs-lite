@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/datahop/ipfs-lite/cli/out"
-	"github.com/datahop/ipfs-lite/internal/security"
 	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/h2non/filetype"
@@ -111,7 +110,7 @@ Example:
 					log.Errorf("Failed io.Copy file encryption:%s", err.Error())
 					return err
 				}
-				byteContent, err := security.Encrypt(buf.Bytes(), passphrase)
+				byteContent, err := comm.Encryption.EncryptContent(buf.Bytes(), passphrase)
 				if err != nil {
 					log.Errorf("Encryption failed :%s", err.Error())
 					return err

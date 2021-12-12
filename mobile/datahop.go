@@ -14,12 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/datahop/ipfs-lite/pkg/store"
-
 	"github.com/datahop/ipfs-lite/internal/ipfs"
-	"github.com/datahop/ipfs-lite/internal/security"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/pkg"
+	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-datastore"
@@ -118,6 +116,7 @@ func Init(
 	advDriver AdvertisingDriver,
 	hs WifiHotspot,
 	con WifiConnection,
+	encryption pkg.Encryption,
 ) error {
 	err := pkg.Init(root, "0")
 	if err != nil {
@@ -125,7 +124,7 @@ func Init(
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	comm, err := pkg.New(ctx, root, "0")
+	comm, err := pkg.New(ctx, root, "0", encryption)
 	if err != nil {
 		cancel()
 		return err
@@ -154,6 +153,7 @@ func Init(
 
 		comm: comm,
 	}
+
 	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfs.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
@@ -606,7 +606,7 @@ func Add(tag string, content []byte, passphrase string) error {
 			shouldEncrypt = false
 		}
 		if shouldEncrypt {
-			byteContent, err := security.Encrypt(content, passphrase)
+			byteContent, err := hop.comm.Encryption.EncryptContent(content, passphrase)
 			if err != nil {
 				log.Errorf("Encryption failed :%s", err.Error())
 				return err
@@ -661,7 +661,7 @@ func Get(tag string, passphrase string) ([]byte, error) {
 				log.Errorf("Failed io.Copy file encryption:%s", err.Error())
 				return nil, err
 			}
-			byteContent, err := security.Decrypt(buf.Bytes(), passphrase)
+			byteContent, err := hop.comm.Encryption.DecryptContent(buf.Bytes(), passphrase)
 			if err != nil {
 				log.Errorf("decryption failed :%s", err.Error())
 				return nil, err

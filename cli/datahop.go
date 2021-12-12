@@ -59,7 +59,7 @@ func main() {
 	tmp := os.TempDir()
 	socketPath := filepath.Join(tmp, sockPath)
 	if !uds.IsIPCListening(socketPath) {
-		comm, err = pkg.New(context.Background(), absoluteRoot, "0")
+		comm, err = pkg.New(context.Background(), absoluteRoot, "0", nil)
 		if err != nil {
 			log.Error(err)
 			os.Exit(1)

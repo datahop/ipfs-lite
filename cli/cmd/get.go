@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/datahop/ipfs-lite/cli/out"
-	"github.com/datahop/ipfs-lite/internal/security"
 	ipfslite "github.com/datahop/ipfs-lite/pkg"
 	"github.com/spf13/cobra"
 )
@@ -90,7 +89,7 @@ Example:
 					log.Errorf("Failed io.Copy file encryption:%s", err.Error())
 					return err
 				}
-				byteContent, err := security.Decrypt(buf.Bytes(), passphrase)
+				byteContent, err := comm.Encryption.DecryptContent(buf.Bytes(), passphrase)
 				if err != nil {
 					log.Errorf("decryption failed :%s", err.Error())
 					return err
