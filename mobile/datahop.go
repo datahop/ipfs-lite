@@ -759,61 +759,21 @@ func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
 }
 
-func StartMeasurements(length, delay int) {
-	go func() {
-		stepsLog.Debug("starting measurement loop")
-		contentLength := length
-		for {
-			content := make([]byte, contentLength)
-			_, err := rand.Read(content)
-			if err != nil {
-				stepsLog.Error("content creation failed :", err)
-				continue
-			}
-			err = Add(time.Now().String(), content, "")
-			if err != nil {
-				stepsLog.Error("Measurement content addition failed : ", err.Error())
-				continue
-			}
-			stepsLog.Debug("content added in measurement loop")
-			select {
-			case <-hop.ctx.Done():
-				return
-			case <-time.After(time.Second * time.Duration(delay)):
-				err := StopDiscovery()
-				if err != nil {
-					return
-				}
-				Stop()
-				<-time.After(time.Second * 5)
-				err = Start(false)
-				if err != nil {
-					return
-				}
-				err = StartDiscovery(true, true, true)
-				if err != nil {
-					return
-				}
-			}
-		}
-	}()
-}
-
 func AddContent() {
 	go func() {
-		stepsLog.Debug("AddAGB: starting adding a gb content")
-		contentLength := 209715200
+		stepsLog.Debug("AddContent: starting adding a gb content")
+		contentLength := 10000000
 		content := make([]byte, contentLength)
 		_, err := rand.Read(content)
 		if err != nil {
-			stepsLog.Error("AddAGB: content creation failed :", err)
+			stepsLog.Error("AddContent: content creation failed :", err)
 			return
 		}
 		err = Add(time.Now().String(), content, "")
 		if err != nil {
-			stepsLog.Error("AddAGB: content addition failed : ", err.Error())
+			stepsLog.Error("AddContent: content addition failed : ", err.Error())
 			return
 		}
-		stepsLog.Debug("AddAGB: added a gb content")
+		stepsLog.Debug("AddContent: added a gb content")
 	}()
 }

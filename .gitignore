@@ -20,3 +20,5 @@
 test/
 
 cli/datahop-cli*
+
+mod-cache
