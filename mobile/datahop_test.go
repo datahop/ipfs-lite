@@ -107,7 +107,7 @@ func TestInit(t *testing.T) {
 		Close()
 		removeRepo(root, t)
 	}()
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestNoPeerConnected(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = StartDiscovery(true, true, false)
+	err = StartDiscovery(DiscoveryOpts{true, true, false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestStartPrivate(t *testing.T) {
 		Close()
 	}()
 	for i := 0; i < 10; i++ {
-		err = StartPrivate(false, "my_secret")
+		err = StartPrivate("my_secret")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -278,7 +278,7 @@ func TestMultipleStart(t *testing.T) {
 		Close()
 	}()
 	for i := 0; i < 10; i++ {
-		err = Start(false)
+		err = Start(StartsOpts{false})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -306,7 +306,7 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestConnectWithAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestConnectWithAddressWithGroupKeyFail(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = StartPrivate(false, "my_secret")
+	err = StartPrivate("my_secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -444,7 +444,7 @@ func TestConnectWithAddressWithGroupKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = StartPrivate(false, "my_secret")
+	err = StartPrivate("my_secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +498,7 @@ func TestReplicationOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,7 +567,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,7 +632,7 @@ func TestReplicationIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -710,7 +710,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -754,7 +754,7 @@ func TestContentOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -814,7 +814,7 @@ func TestContentMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -870,7 +870,7 @@ func TestContentDistribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -966,7 +966,7 @@ func TestContentEncryption(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
