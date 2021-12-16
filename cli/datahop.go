@@ -56,8 +56,8 @@ func main() {
 	}
 
 	comm := &pkg.Common{}
-
-	socketPath := filepath.Join(os.TempDir(), sockPath)
+	tmp := os.TempDir()
+	socketPath := filepath.Join(tmp, sockPath)
 	if !uds.IsIPCListening(socketPath) {
 		comm, err = pkg.New(context.Background(), absoluteRoot, "0")
 		if err != nil {
@@ -104,7 +104,7 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] != "daemon" && uds.IsIPCListening(socketPath) {
 			opts := uds.Options{
-				SocketPath: filepath.Join(os.TempDir(), sockPath),
+				SocketPath: filepath.Join(tmp, sockPath),
 			}
 			r, w, c, err := uds.Dialer(opts)
 			if err != nil {
@@ -131,16 +131,16 @@ func main() {
 				fmt.Println("Datahop daemon is already running")
 				return
 			}
-			_, err := os.Stat(filepath.Join(os.TempDir(), sockPath))
+			_, err := os.Stat(filepath.Join(tmp, sockPath))
 			if !os.IsNotExist(err) {
-				err := os.Remove(filepath.Join(os.TempDir(), sockPath))
+				err := os.Remove(filepath.Join(tmp, sockPath))
 				if err != nil {
 					log.Error(err)
 					os.Exit(1)
 				}
 			}
 			opts := uds.Options{
-				SocketPath: filepath.Join(os.TempDir(), sockPath),
+				SocketPath: filepath.Join(tmp, sockPath),
 			}
 			in, err := uds.Listener(context.Background(), opts)
 			if err != nil {
