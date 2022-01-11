@@ -15,7 +15,9 @@ func createHash(key string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func Encrypt(data []byte, passphrase string) ([]byte, error) {
+type DefaultEncryption struct {}
+
+func (*DefaultEncryption) EncryptContent(data []byte, passphrase string) ([]byte, error) {
 	block, _ := aes.NewCipher([]byte(createHash(passphrase)))
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
@@ -29,7 +31,7 @@ func Encrypt(data []byte, passphrase string) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func Decrypt(data []byte, passphrase string) ([]byte, error) {
+func (*DefaultEncryption) DecryptContent(data []byte, passphrase string) ([]byte, error) {
 	key := []byte(createHash(passphrase))
 	block, err := aes.NewCipher(key)
 	if err != nil {

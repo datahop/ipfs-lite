@@ -14,12 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/datahop/ipfs-lite/pkg/store"
-
 	"github.com/datahop/ipfs-lite/internal/ipfs"
-	"github.com/datahop/ipfs-lite/internal/security"
 	types "github.com/datahop/ipfs-lite/pb"
 	"github.com/datahop/ipfs-lite/pkg"
+	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/datahop/ipfs-lite/version"
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-datastore"
@@ -118,6 +116,7 @@ func Init(
 	advDriver AdvertisingDriver,
 	hs WifiHotspot,
 	con WifiConnection,
+	encryption pkg.Encryption,
 ) error {
 	err := pkg.Init(root, "0")
 	if err != nil {
@@ -125,7 +124,7 @@ func Init(
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	comm, err := pkg.New(ctx, root, "0")
+	comm, err := pkg.New(ctx, root, "0", encryption)
 	if err != nil {
 		cancel()
 		return err
@@ -154,6 +153,7 @@ func Init(
 
 		comm: comm,
 	}
+
 	service, err := NewDiscoveryService(cfg.Identity.PeerID, hop.discDriver, hop.advDriver, 1000, 20000, hop.wifiHS, hop.wifiCon, ipfs.ServiceTag)
 	if err != nil {
 		log.Error("ble discovery setup failed : ", err.Error())
@@ -200,8 +200,12 @@ func DiskUsage() (int64, error) {
 	return int64(du), nil
 }
 
+type StartsOpts struct {
+	ShouldBootstrap bool
+}
+
 // Start an ipfslite node in a go routine
-func Start(shouldBootstrap bool) error {
+func Start(opts StartsOpts) error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
@@ -219,7 +223,7 @@ func Start(shouldBootstrap bool) error {
 			return
 		}
 		hop.comm.Node.NetworkNotifiee(hop.networkNotifier)
-		if shouldBootstrap {
+		if opts.ShouldBootstrap {
 			hop.comm.Node.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
@@ -236,7 +240,7 @@ func Start(shouldBootstrap bool) error {
 }
 
 // StartPrivate starts an ipfslite node in a private network with provided swarmkey
-func StartPrivate(shouldBootstrap bool, swarmKey string) error {
+func StartPrivate(swarmKey string) error {
 	if swarmKey == "" {
 		return errors.New("invalid group key")
 	}
@@ -256,9 +260,6 @@ func StartPrivate(shouldBootstrap bool, swarmKey string) error {
 			return
 		}
 		hop.comm.Node.NetworkNotifiee(hop.networkNotifier)
-		if shouldBootstrap {
-			hop.comm.Node.Bootstrap(ipfs.DefaultBootstrapPeers())
-		}
 		wg.Done()
 		<-done
 		log.Debug("Context Closed ")
@@ -277,8 +278,14 @@ const (
 	TopicCRDT  = "CRDTStateLine"
 )
 
+type DiscoveryOpts struct {
+	Advertise      bool
+	Scan           bool
+	AutoDisconnect bool
+}
+
 // StartDiscovery starts BLE discovery
-func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error {
+func StartDiscovery(opts DiscoveryOpts) error {
 	mtx.Lock()
 	defer func() {
 		mtx.Unlock()
@@ -304,24 +311,23 @@ func StartDiscovery(advertising bool, scanning bool, autoDisconnect bool) error 
 					}
 				}
 			}()
-			log.Debug("autoDisconnect : ", autoDisconnect)
-			if autoDisconnect {
+			if opts.AutoDisconnect {
 				err := startCRDTStateWatcher()
 				if err != nil {
 					log.Error("StartDiscovery: autoDisconnect: startCRDTStateWatcher failed ", err.Error())
 					return err
 				}
 			}
-			if advertising && scanning {
+			if opts.Advertise && opts.Scan {
 				discService.Start()
 				log.Debug("Started discovery")
 				stepsLog.Debug("discoveryService started")
 				return nil
-			} else if advertising {
+			} else if opts.Advertise {
 				discService.StartOnlyAdvertising()
 				log.Debug("Started discovery only advertising")
 				return nil
-			} else if scanning {
+			} else if opts.Scan {
 				discService.StartOnlyScanning()
 				log.Debug("Started discovery only scanning")
 				return nil
@@ -606,7 +612,7 @@ func Add(tag string, content []byte, passphrase string) error {
 			shouldEncrypt = false
 		}
 		if shouldEncrypt {
-			byteContent, err := security.Encrypt(content, passphrase)
+			byteContent, err := hop.comm.Encryption.EncryptContent(content, passphrase)
 			if err != nil {
 				log.Errorf("Encryption failed :%s", err.Error())
 				return err
@@ -661,7 +667,7 @@ func Get(tag string, passphrase string) ([]byte, error) {
 				log.Errorf("Failed io.Copy file encryption:%s", err.Error())
 				return nil, err
 			}
-			byteContent, err := security.Decrypt(buf.Bytes(), passphrase)
+			byteContent, err := hop.comm.Encryption.DecryptContent(buf.Bytes(), passphrase)
 			if err != nil {
 				log.Errorf("decryption failed :%s", err.Error())
 				return nil, err

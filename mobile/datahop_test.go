@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datahop/ipfs-lite/internal/security"
+
 	"github.com/datahop/ipfs-lite/pkg/store"
 
 	"github.com/datahop/ipfs-lite/pkg"
@@ -96,7 +98,8 @@ func TestInit(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +107,7 @@ func TestInit(t *testing.T) {
 		Close()
 		removeRepo(root, t)
 	}()
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +128,8 @@ func TestAddresses(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +142,7 @@ func TestAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +160,8 @@ func TestNoPeerConnected(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +169,7 @@ func TestNoPeerConnected(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +186,8 @@ func TestStartStopDiscovery(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +195,7 @@ func TestStartStopDiscovery(t *testing.T) {
 		removeRepo(root, t)
 		Close()
 	}()
-	err = StartDiscovery(true, true, false)
+	err = StartDiscovery(DiscoveryOpts{true, true, false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +213,8 @@ func TestContentLength(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +236,8 @@ func TestStartPrivate(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +246,7 @@ func TestStartPrivate(t *testing.T) {
 		Close()
 	}()
 	for i := 0; i < 10; i++ {
-		err = StartPrivate(false, "my_secret")
+		err = StartPrivate("my_secret")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -260,7 +268,8 @@ func TestMultipleStart(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +278,7 @@ func TestMultipleStart(t *testing.T) {
 		Close()
 	}()
 	for i := 0; i < 10; i++ {
-		err = Start(false)
+		err = Start(StartsOpts{false})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -291,12 +300,13 @@ func TestBootstrap(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +315,7 @@ func TestBootstrap(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -334,12 +344,13 @@ func TestConnectWithAddress(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +359,7 @@ func TestConnectWithAddress(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -387,12 +398,13 @@ func TestConnectWithAddressWithGroupKeyFail(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = StartPrivate(false, "my_secret")
+	err = StartPrivate("my_secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +413,7 @@ func TestConnectWithAddressWithGroupKeyFail(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -426,12 +438,13 @@ func TestConnectWithAddressWithGroupKey(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = StartPrivate(false, "my_secret")
+	err = StartPrivate("my_secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +453,7 @@ func TestConnectWithAddressWithGroupKey(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "my_secret", t)
+	comm := startAnotherNode(secondNode, "3214", "my_secret", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -479,12 +492,13 @@ func TestReplicationOut(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +507,7 @@ func TestReplicationOut(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -547,12 +561,13 @@ func TestReplicationGet(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +576,7 @@ func TestReplicationGet(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -611,12 +626,13 @@ func TestReplicationIn(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -625,7 +641,7 @@ func TestReplicationIn(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -688,12 +704,13 @@ func TestConnectWithPeerInfo(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -702,7 +719,7 @@ func TestConnectWithPeerInfo(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -731,12 +748,13 @@ func TestContentOwner(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -745,7 +763,7 @@ func TestContentOwner(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -790,12 +808,13 @@ func TestContentMatrix(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -804,7 +823,7 @@ func TestContentMatrix(t *testing.T) {
 		Close()
 	}()
 	secondNode := filepath.Join("./test", "root1")
-	comm := startAnotherNode(secondNode, "5000", "", t)
+	comm := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm.Stop()
 		comm.Repo.Close()
@@ -845,12 +864,13 @@ func TestContentDistribution(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -860,7 +880,7 @@ func TestContentDistribution(t *testing.T) {
 	}()
 
 	secondNode := filepath.Join("./test", "root1")
-	comm1 := startAnotherNode(secondNode, "5000", "", t)
+	comm1 := startAnotherNode(secondNode, "3214", "", t)
 	defer func() {
 		comm1.Stop()
 		comm1.Repo.Close()
@@ -897,7 +917,7 @@ func TestContentDistribution(t *testing.T) {
 	defer func() {
 		comm2.Stop()
 		comm2.Repo.Close()
-		removeRepo(secondNode, t)
+		removeRepo(thirdNode, t)
 	}()
 	pr2 := comm2.Node.AddrInfo()
 	err = comm1.Node.Connect(*pr2)
@@ -907,17 +927,17 @@ func TestContentDistribution(t *testing.T) {
 	<-time.After(time.Second * 5)
 	for _, v := range comm2.Repo.Matrix().ContentMatrix {
 		if len(v.ProvidedBy) > 0 && v.ProvidedBy[0] != pr1.ID {
-			t.Fatal("provider info is wrong")
+			t.Fatal("provider info is wrong", len(v.ProvidedBy), v.ProvidedBy[0], v.ProvidedBy[1])
 		}
 	}
 	comm1.Stop()
-
+	comm1.Repo.Close()
 	fourthNode := filepath.Join("./test", "root3")
 	comm3 := startAnotherNode(fourthNode, "5002", "", t)
 	defer func() {
 		comm3.Stop()
 		comm3.Repo.Close()
-		removeRepo(secondNode, t)
+		removeRepo(fourthNode, t)
 	}()
 	pr3 := comm3.Node.AddrInfo()
 	err = comm2.Node.Connect(*pr3)
@@ -940,12 +960,13 @@ func TestContentEncryption(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	err := Init(root, cm, dd, ad, whs, wc)
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(false)
+	err = Start(StartsOpts{false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -990,7 +1011,7 @@ func startAnotherNode(repopath, port, key string, t *testing.T) *pkg.Common {
 	if err != nil {
 		t.Fatal(err)
 	}
-	comm, err := pkg.New(context.Background(), repopath, port)
+	comm, err := pkg.New(context.Background(), repopath, port, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
