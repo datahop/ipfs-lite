@@ -24,7 +24,7 @@ import (
 
 var (
 	defaultBootstrapAddresses = []string{
-		"/ip4/52.66.216.67/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
+		"/ip4/3.7.249.218/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
 	}
 )
 
