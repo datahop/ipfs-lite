@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ipld/go-ipld-prime/datamodel"
-
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	bsfetcher "github.com/ipfs/go-fetcher/impl/blockservice"
@@ -25,6 +23,7 @@ import (
 	"github.com/ipfs/interface-go-ipfs-core/path"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	pipld "github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/libp2p/go-libp2p-core/routing"

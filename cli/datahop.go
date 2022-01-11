@@ -78,7 +78,6 @@ func main() {
 		cmd.InitAddCmd(comm),
 		cmd.InitIndexCmd(comm),
 		cmd.InitRemoveCmd(comm),
-		cmd.InitGetCmd(comm),
 		cmd.InitVersionCmd(comm),
 		cmd.InitMatrixCmd(comm),
 		cmd.InitializeDocCommand(comm),

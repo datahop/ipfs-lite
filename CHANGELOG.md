@@ -1,13 +1,24 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [v0.0.14] - 2022-1-11
+
+### Added
+
+- [0fca1cb](https://github.com/datahop/ipfs-lite/commit/0fca1cb) Allow custom encryption
+- [450c508](https://github.com/datahop/ipfs-lite/commit/450c508) Gateway added
+
+### Changed
+
+- [207e4df](https://github.com/datahop/ipfs-lite/commit/207e4df) Start takes in options rather than booleans
+
 ## [v0.0.13] - 2021-11-27
 
 ### Added
 
 - [6239e1e](https://github.com/datahop/ipfs-lite/commit/6239e1e) Optional passphrase based content encryption
 - [6708b03](https://github.com/datahop/ipfs-lite/commit/6708b03) Support for private network
-- 
+
 ### Changed
 
 - [df060c1](https://github.com/datahop/ipfs-lite/commit/df060c1) zeroconf mDNS replaces libp2p mDNS 
