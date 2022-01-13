@@ -1,6 +1,6 @@
 module github.com/datahop/ipfs-lite
 
-go 1.15
+go 1.16
 
 require (
 	github.com/asabya/go-ipc-uds v0.1.1
@@ -46,7 +46,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/multiformats/go-multihash v0.1.0
-	github.com/plexsysio/taskmanager v0.0.0-00010101000000-000000000000
+	github.com/plexsysio/taskmanager v0.0.0-20211220123746-de5ebdd49ae2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
 	github.com/warpfork/go-testmark v0.9.0 // indirect
@@ -58,5 +58,3 @@ require (
 	golang.org/x/tools v0.1.8-0.20211022200916-316ba0b74098 // indirect
 	google.golang.org/protobuf v1.27.1
 )
-
-replace github.com/plexsysio/taskmanager => github.com/asabya/taskmanager v0.1.0

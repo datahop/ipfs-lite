@@ -7,7 +7,12 @@ on:
 jobs:
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        go: [ 1.16 ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+
     env:
       GO111MODULE: on
     steps:
@@ -18,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: 1.16
+          go-version: ${{ matrix.go }}
 
       - name: Install deps
         run: go mod tidy
@@ -42,9 +47,15 @@ jobs:
         run: ./bin/golangci-lint run
 
       - name: Test
+        if: matrix.os != 'windows-latest'
+        run: go test -p 1 -v ./...
+
+      - name: Test-Race
+        if: matrix.os == 'ubuntu-latest'
         run: go test -p 1 -v ./... -race -coverprofile=coverage.out -covermode=atomic
 
       - name: Upload coverage report
+        if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
