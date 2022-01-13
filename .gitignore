@@ -22,3 +22,5 @@ test/
 cli/datahop-cli*
 
 mod-cache
+
+*.DS_Store

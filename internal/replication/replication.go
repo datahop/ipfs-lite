@@ -121,7 +121,7 @@ func New(
 		syncer:    syncer,
 		cancel:    cancel,
 		repo:      r,
-		dlManager: taskmanager.New(1, 100, time.Second*15),
+		dlManager: taskmanager.New(1, 100, time.Second*15, log),
 	}, nil
 }
 
