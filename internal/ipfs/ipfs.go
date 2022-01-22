@@ -304,7 +304,7 @@ func (p *Peer) setupDAGService() error {
 
 func (p *Peer) setupCrdtStore(opts *Options) error {
 	ctx, cancel := context.WithCancel(p.Ctx)
-	manager, err := replication.New(ctx, cancel, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p)
+	manager, err := replication.New(ctx, cancel, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p, p.Host.Peerstore())
 	if err != nil {
 		return err
 	}

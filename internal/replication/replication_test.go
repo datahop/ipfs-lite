@@ -168,7 +168,7 @@ func TestNewManager(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.StartContentWatcher()
-	meta := &Metatag{
+	meta := &ContentMetatag{
 		Size:      0,
 		Type:      filetype.Unknown.Extension,
 		Name:      "some content",
@@ -298,7 +298,7 @@ func TestGetAllCids(t *testing.T) {
 	}
 
 	m.StartContentWatcher()
-	meta1 := &Metatag{
+	meta1 := &ContentMetatag{
 		Size:      0,
 		Type:      filetype.Unknown.Extension,
 		Name:      "mtag1",
@@ -306,7 +306,7 @@ func TestGetAllCids(t *testing.T) {
 		Timestamp: time.Now().Unix(),
 		Owner:     h.ID(),
 	}
-	meta2 := &Metatag{
+	meta2 := &ContentMetatag{
 		Size:      0,
 		Type:      filetype.Unknown.Extension,
 		Name:      "mtag2",

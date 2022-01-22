@@ -28,7 +28,7 @@ func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) 
 	if err != nil {
 		return "", err
 	}
-	meta := &replication.Metatag{
+	meta := &replication.ContentMetatag{
 		Size:        info.Size,
 		Type:        info.Type,
 		Name:        info.Name,

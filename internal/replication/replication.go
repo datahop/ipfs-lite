@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/go-datastore/query"
 	crdt "github.com/ipfs/go-ds-crdt"
 	logging "github.com/ipfs/go-log/v2"
+	ic "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -23,8 +24,8 @@ var (
 	syncMtx sync.Mutex
 )
 
-// Metatag keeps meta information of a content in the crdt store
-type Metatag struct {
+// ContentMetatag keeps meta information of a content in the crdt store
+type ContentMetatag struct {
 	Tag         string
 	Size        int64
 	Type        string
@@ -37,20 +38,26 @@ type Metatag struct {
 
 // Manager handles replication
 type Manager struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	crdt   *crdt.Datastore
-	syncer Syncer
-	repo   repo.Repo
+	ctx          context.Context
+	cancel       context.CancelFunc
+	crdt         *crdt.Datastore
+	syncer       Syncer
+	pubKeyGetter PubKeyGetter
+	repo         repo.Repo
 
 	dlManager *taskmanager.TaskManager
-	download  chan Metatag
+	download  chan ContentMetatag
 }
 
 // Syncer gets the file and finds file provider from the network
 type Syncer interface {
 	Download(context.Context, cid.Cid) error
 	FindProviders(context.Context, cid.Cid) []peer.ID
+}
+
+// PubKeyGetter
+type PubKeyGetter interface {
+	PubKey(peer.ID) ic.PubKey
 }
 
 // New creates a new replication manager
@@ -65,6 +72,7 @@ func New(
 	topic string,
 	broadcastInterval time.Duration,
 	syncer Syncer,
+	pubKeyGetter PubKeyGetter,
 ) (*Manager, error) {
 	psub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
@@ -75,13 +83,13 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	contentChan := make(chan Metatag)
+	contentChan := make(chan ContentMetatag)
 	crdtOpts := crdt.DefaultOptions()
 	crdtOpts.Logger = log
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
-		m := &Metatag{}
+		m := &ContentMetatag{}
 		err := json.Unmarshal(v, m)
 		if err != nil {
 			log.Error(err.Error())
@@ -115,13 +123,14 @@ func New(
 	}
 
 	return &Manager{
-		ctx:       ctx,
-		crdt:      crdtStore,
-		download:  contentChan,
-		syncer:    syncer,
-		cancel:    cancel,
-		repo:      r,
-		dlManager: taskmanager.New(1, 100, time.Second*15, log),
+		ctx:          ctx,
+		crdt:         crdtStore,
+		download:     contentChan,
+		syncer:       syncer,
+		pubKeyGetter: pubKeyGetter,
+		cancel:       cancel,
+		repo:         r,
+		dlManager:    taskmanager.New(1, 100, time.Second*15, log),
 	}, nil
 }
 
@@ -135,7 +144,7 @@ func (m *Manager) Close() error {
 }
 
 // Tag a given meta info in the store
-func (m *Manager) Tag(tag string, meta *Metatag) error {
+func (m *Manager) Tag(tag string, meta *ContentMetatag) error {
 	bMeta, err := json.Marshal(meta)
 	if err != nil {
 		return err
@@ -148,12 +157,12 @@ func (m *Manager) Tag(tag string, meta *Metatag) error {
 }
 
 // FindTag gets the meta info of a given tag from the store
-func (m *Manager) FindTag(tag string) (*Metatag, error) {
+func (m *Manager) FindTag(tag string) (*ContentMetatag, error) {
 	b, err := m.Get(datastore.NewKey(tag))
 	if err != nil {
 		return nil, err
 	}
-	meta := &Metatag{}
+	meta := &ContentMetatag{}
 	err = json.Unmarshal(b, meta)
 	if err != nil {
 		return nil, err
@@ -162,15 +171,15 @@ func (m *Manager) FindTag(tag string) (*Metatag, error) {
 }
 
 // Index returns the tag-mata info as key:value
-func (m *Manager) Index() (map[string]*Metatag, error) {
-	indexes := map[string]*Metatag{}
+func (m *Manager) Index() (map[string]*ContentMetatag, error) {
+	indexes := map[string]*ContentMetatag{}
 	r, err := m.crdt.Query(context.Background(), query.Query{})
 	if err != nil {
 		return indexes, err
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		m := &Metatag{}
+		m := &ContentMetatag{}
 		err := json.Unmarshal(j.Entry.Value, m)
 		if err != nil {
 			continue
@@ -203,7 +212,7 @@ func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		meta := &Metatag{}
+		meta := &ContentMetatag{}
 		err = json.Unmarshal(j.Entry.Value, meta)
 		if err != nil {
 			continue
@@ -317,12 +326,12 @@ func (m *Manager) StartContentWatcher() {
 type DownloaderTask struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
-	metatag  Metatag
+	metatag  ContentMetatag
 	syncer   Syncer
 	callback func()
 }
 
-func newDownloaderTask(ctx context.Context, cancel context.CancelFunc, metatag Metatag, syncer Syncer, cb func()) *DownloaderTask {
+func newDownloaderTask(ctx context.Context, cancel context.CancelFunc, metatag ContentMetatag, syncer Syncer, cb func()) *DownloaderTask {
 	return &DownloaderTask{
 		ctx:      ctx,
 		cancel:   cancel,
