@@ -3,6 +3,7 @@ package replication
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,6 +90,10 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
+		if strings.HasPrefix(k.String(), "/group") {
+			// TODO handle group addition callback
+			return
+		}
 		m := &ContentMetatag{}
 		err := json.Unmarshal(v, m)
 		if err != nil {
@@ -248,26 +253,23 @@ func (m *Manager) StartUnfinishedDownload(pid peer.ID) {
 
 // Put stores the object `value` named by `key`.
 func (m *Manager) Put(key datastore.Key, v []byte) error {
-	return m.crdt.Put(context.Background(), key, v)
+	return m.crdt.Put(m.ctx, key, v)
 }
 
 // Delete removes the value for given `key`.
 func (m *Manager) Delete(key datastore.Key) error {
-	return m.crdt.Delete(context.Background(), key)
+	return m.crdt.Delete(m.ctx, key)
 }
 
 // Get retrieves the object `value` named by `key`.
 // Get will return ErrNotFound if the key is not mapped to a value.
 func (m *Manager) Get(key datastore.Key) ([]byte, error) {
-	return m.crdt.Get(context.Background(), key)
+	return m.crdt.Get(m.ctx, key)
 }
 
 // Has returns whether the `key` is mapped to a `value`.
-// In some contexts, it may be much cheaper only to check for existence of
-// a value, rather than retrieving the value itself. (e.g. HTTP HEAD).
-// The default implementation is found in `GetBackedHas`.
 func (m *Manager) Has(key datastore.Key) (bool, error) {
-	return m.crdt.Has(context.Background(), key)
+	return m.crdt.Has(m.ctx, key)
 }
 
 // StartContentWatcher watches on incoming contents and gets content in datastore

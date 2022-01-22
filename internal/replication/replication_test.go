@@ -158,7 +158,7 @@ func TestNewManager(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestDownloadManager(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestGetAllCids(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
 	if err != nil {
 		t.Fatal(err)
 	}
