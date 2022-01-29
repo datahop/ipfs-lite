@@ -38,12 +38,12 @@ func (m *Manager) CreateGroup(name string, ownerID peer.ID, ownerPrivateKey ic.P
 		isOpen:         false,
 	}
 	// In GroupMetadata is created using the "/groups/{groupID}" namespace
-	err = m.tagGroup(fmt.Sprintf("/groups/%s", gID.String()), gMeta)
+	err = m.tagGroup(fmt.Sprintf("%s/%s", groupPrefix, gID.String()), gMeta)
 	if err != nil {
 		return nil, err
 	}
 	//Also "/group-member/{peerID}/{groupID}" is created with public key as value
-	err = m.storePublicKey(fmt.Sprintf("/group-member/%s/%s", ownerID.String(), gID.String()), ownerPrivateKey.GetPublic())
+	err = m.storePublicKey(fmt.Sprintf("%s/%s/%s", groupMemberPrefix, ownerID.String(), gID.String()), ownerPrivateKey.GetPublic())
 	if err != nil {
 		return nil, err
 	}
@@ -68,13 +68,13 @@ func (m *Manager) CreateOpenGroup(name string, ownerID peer.ID, ownerPrivateKey 
 		isOpen:         true,
 	}
 	// In GroupMetadata is created using the "/groups/{groupID}" namespace
-	err = m.tagGroup(fmt.Sprintf("/groups/%s", gID.String()), gMeta)
+	err = m.tagGroup(fmt.Sprintf("%s/%s", groupPrefix, gID.String()), gMeta)
 	if err != nil {
 		return nil, err
 	}
 
 	//Also "/group-member/{peerID}/{groupID}" is created with public key as value
-	err = m.storePublicKey(fmt.Sprintf("/group-member/%s/%s", ownerID.String(), gID.String()), ownerPrivateKey.GetPublic())
+	err = m.storePublicKey(fmt.Sprintf("%s/%s/%s", groupMemberPrefix, ownerID.String(), gID.String()), ownerPrivateKey.GetPublic())
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (m *Manager) CreateOpenGroup(name string, ownerID peer.ID, ownerPrivateKey 
 
 func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID, memberPrivateKey ic.PrivKey, newMemberPublicKey ic.PubKey) error {
 	// Check if the group is open
-	groupTag := fmt.Sprintf("/groups/%s", groupID.String())
+	groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupID.String())
 	groupMetaBytes, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 	if err != nil {
 		return err
 	}
-	memberTag := fmt.Sprintf("/group-member/%s/%s", memberPeerId.String(), groupID.String())
+	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, memberPeerId.String(), groupID.String())
 	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 	}
 
 	//Add newMemberPublicKey "/group-member/{peerID}/{groupID}" is created with public key as value
-	err = m.storePublicKey(fmt.Sprintf("/group-member/%s/%s", newMemberPeerId.String(), groupID.String()), newMemberPublicKey)
+	err = m.storePublicKey(fmt.Sprintf("%s/%s/%s", groupMemberPrefix, newMemberPeerId.String(), groupID.String()), newMemberPublicKey)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 	if err != nil {
 		return groups, err
 	}
-	prefix := fmt.Sprintf("/group-member/%s", ownerID.String())
+	prefix := fmt.Sprintf("%s/%s", groupMemberPrefix, ownerID.String())
 	q := query.Query{Prefix: prefix}
 	r, err := m.crdt.Query(m.ctx, q)
 	if err != nil {
@@ -140,7 +140,7 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 	for j := range r.Next() {
 		if bytes.Equal(j.Value, key) {
 			groupIDString := strings.Split(j.Key, "/")[3]
-			groupTag := fmt.Sprintf("/groups/%s", groupIDString)
+			groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupIDString)
 			v, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
 			if err != nil {
 				continue
@@ -157,11 +157,78 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 }
 
 func (m *Manager) GroupAddContent(peerId, groupID peer.ID, privateKey ic.PrivKey, meta *ContentMetatag) error {
+	// Check if the group is open
+	groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupID.String())
+	groupMetaBytes, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
+	if err != nil {
+		return err
+	}
+	gm := &GroupMetadata{}
+	err = json.Unmarshal(groupMetaBytes, gm)
+	if err != nil {
+		return err
+	}
+
+	// if not open check if member is owner
+	if !gm.isOpen {
+		if gm.OwnerID != peerId {
+			return fmt.Errorf("user does not have permission to add content in this group")
+		}
+	}
+
+	// Check If the current user is a member of the group
+	key, err := privateKey.GetPublic().Raw()
+	if err != nil {
+		return err
+	}
+	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, peerId.String(), groupID.String())
+	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(key, memberPublicKey) {
+		return fmt.Errorf("user is not a member of this group")
+	}
+
+	err = m.Tag(fmt.Sprintf("%s/%s/%s", groupIndexPrefix, groupID.String(), meta.Tag), meta)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (m *Manager) GroupGetAllContent(ownerID peer.ID, privateKey ic.PrivKey) (map[string]*ContentMetatag, error) {
-	indexes := map[string]*ContentMetatag{}
+func (m *Manager) GroupGetAllContent(peerId, groupID peer.ID, privateKey ic.PrivKey) ([]*ContentMetatag, error) {
+	// Check If the current user is a member of the group
+	key, err := privateKey.GetPublic().Raw()
+	if err != nil {
+		return nil, err
+	}
+	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, peerId.String(), groupID.String())
+	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(key, memberPublicKey) {
+		return nil, fmt.Errorf("user is not a member of this group")
+	}
+
+	q := query.Query{Prefix: fmt.Sprintf("%s/%s", groupIndexPrefix, groupID.String())}
+	r, err := m.crdt.Query(m.ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	indexes := []*ContentMetatag{}
+	for j := range r.Next() {
+		meta := &ContentMetatag{}
+		err = json.Unmarshal(j.Entry.Value, meta)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		indexes = append(indexes, meta)
+	}
+
 	return indexes, nil
 }
 

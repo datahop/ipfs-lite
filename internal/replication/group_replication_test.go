@@ -2,11 +2,13 @@ package replication
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/ipfs/go-cid"
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p"
@@ -147,5 +149,79 @@ func TestGroupAddMember(t *testing.T) {
 	}
 	if groups[0].GroupID != gMeta.GroupID {
 		t.Fatal("groupID mismatch")
+	}
+}
+
+func TestGroupAddContent(t *testing.T) {
+	<-time.After(time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	root := filepath.Join("../../test", "root1")
+	d, err := leveldb.NewDatastore(root, &leveldb.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	r := &mockRepo{
+		path:  root,
+		state: bloom.New(uint(2000), 5),
+		ds:    syncds.MutexWrap(d),
+	}
+	defer r.Close()
+	defer removeRepo(root, t)
+	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := []libp2p.Option{
+		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/4832"),
+		libp2p.Identity(priv),
+		libp2p.DisableRelay(),
+	}
+	h, err := libp2p.New(opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	ds := &mockDAGSyncer{}
+	sy := &mockSyncer{}
+	childCtx, childCancel := context.WithCancel(ctx)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+	gMeta, err := m.CreateGroup("NewGroup1", h.ID(), priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		id, err := cid.Decode("bafybeiclg7ypvgnbumueqcfgarezgsz7af5kmg75nynaeqjxdme5jqmh3e")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ta := fmt.Sprintf("%d", time.Now().Unix())
+		content := []byte(ta)
+		meta := &ContentMetatag{
+			Tag:         fmt.Sprintf("%d/%s", i, ta),
+			Size:        int64(len(content)),
+			Type:        "",
+			Name:        ta,
+			Hash:        id,
+			Timestamp:   0,
+			Owner:       h.ID(),
+			IsEncrypted: false,
+		}
+		err = m.GroupAddContent(h.ID(), gMeta.GroupID, priv, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	c, err := m.GroupGetAllContent(h.ID(), gMeta.GroupID, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c) != 10 {
+		t.Fatal("length should be 10")
 	}
 }

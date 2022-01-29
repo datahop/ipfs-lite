@@ -25,6 +25,12 @@ var (
 	syncMtx sync.Mutex
 )
 
+const (
+	groupPrefix       = "/groups"
+	groupMemberPrefix = "/group-member"
+	groupIndexPrefix  = "/group-index"
+)
+
 // ContentMetatag keeps meta information of a content in the crdt store
 type ContentMetatag struct {
 	Tag         string
@@ -90,28 +96,29 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
-		if strings.HasPrefix(k.String(), "/group") {
-			// TODO handle group addition callback
-			return
-		}
-		m := &ContentMetatag{}
-		err := json.Unmarshal(v, m)
-		if err != nil {
-			log.Error(err.Error())
-			return
-		}
-		if h.ID() != m.Owner {
-			contentChan <- *m
-		} else {
-			syncMtx.Lock()
-			state := r.State().Add([]byte(m.Tag))
-			log.Debugf("New State: %d\n", state)
-			err := r.SetState()
+		if !strings.HasPrefix(k.String(), "/group") {
+			m := &ContentMetatag{}
+			err := json.Unmarshal(v, m)
 			if err != nil {
-				log.Errorf("SetState failed %s\n", err.Error())
+				log.Error(err.Error())
+				return
 			}
-			syncMtx.Unlock()
+			if h.ID() != m.Owner {
+				contentChan <- *m
+			} else {
+				syncMtx.Lock()
+				state := r.State().Add([]byte(m.Tag))
+				log.Debugf("New State: %d\n", state)
+				err := r.SetState()
+				if err != nil {
+					log.Errorf("SetState failed %s\n", err.Error())
+				}
+				syncMtx.Unlock()
+			}
 		}
+		// TODO handle group addition callback
+		return
+
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("CRDT Replication :: Removed: [%s]\n", k)
