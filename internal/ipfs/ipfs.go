@@ -61,6 +61,7 @@ const (
 	defaultCrdtRebroadcastInterval = time.Second * 3
 	defaultMDNSInterval            = time.Second * 5
 	defaultTopic                   = "datahop-crdt"
+	defaultAutoDownload            = true
 )
 
 var (
@@ -110,6 +111,13 @@ func WithmDNS(withmDNS bool) Option {
 	}
 }
 
+// WithAutoDownload decides if content will be downloaded automatically
+func WithAutoDownload(autoDownload bool) Option {
+	return func(h *Options) {
+		h.autoDownload = autoDownload
+	}
+}
+
 // WithCrdtTopic sets the replication crdt listen topic
 func WithCrdtTopic(topic string) Option {
 	return func(h *Options) {
@@ -130,6 +138,7 @@ type Options struct {
 	crdtRebroadcastInterval time.Duration
 	crdtPrefix              string
 	withmDNS                bool
+	autoDownload            bool
 	crdtTopic               string
 }
 
@@ -140,6 +149,7 @@ func defaultOptions() *Options {
 		withmDNS:                true,
 		crdtTopic:               defaultTopic,
 		crdtPrefix:              defaultCrdtNamespace,
+		autoDownload:            defaultAutoDownload,
 	}
 }
 
@@ -304,7 +314,7 @@ func (p *Peer) setupDAGService() error {
 
 func (p *Peer) setupCrdtStore(opts *Options) error {
 	ctx, cancel := context.WithCancel(p.Ctx)
-	manager, err := replication.New(ctx, cancel, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p, p.Host.Peerstore())
+	manager, err := replication.New(ctx, cancel, p.Repo, p.Host, p, p.Store, opts.crdtPrefix, opts.crdtTopic, opts.crdtRebroadcastInterval, p, p.Host.Peerstore(), opts.autoDownload)
 	if err != nil {
 		return err
 	}

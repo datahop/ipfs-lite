@@ -1,8 +1,10 @@
 package replication
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -21,8 +23,9 @@ import (
 )
 
 var (
-	log     = logging.Logger("replication")
-	syncMtx sync.Mutex
+	log             = logging.Logger("replication")
+	syncMtx         sync.Mutex
+	checkMembership func(string, []byte) bool
 )
 
 const (
@@ -80,6 +83,7 @@ func New(
 	broadcastInterval time.Duration,
 	syncer Syncer,
 	pubKeyGetter PubKeyGetter,
+	autoDownload bool,
 ) (*Manager, error) {
 	psub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
@@ -96,14 +100,26 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
-		if !strings.HasPrefix(k.String(), "/group") {
+		if !strings.HasPrefix(k.String(), groupMemberPrefix) && !strings.HasPrefix(k.String(), groupPrefix) {
+			if strings.HasPrefix(k.String(), groupIndexPrefix) {
+				groupID := k.List()[1]
+				key, err := pubKeyGetter.PubKey(h.ID()).Raw()
+				if err != nil {
+					return
+				}
+				memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
+				isMember := checkMembership(memberTag, key)
+				if !isMember {
+					return
+				}
+			}
 			m := &ContentMetatag{}
 			err := json.Unmarshal(v, m)
 			if err != nil {
 				log.Error(err.Error())
 				return
 			}
-			if h.ID() != m.Owner {
+			if h.ID() != m.Owner && autoDownload {
 				contentChan <- *m
 			} else {
 				syncMtx.Lock()
@@ -116,9 +132,6 @@ func New(
 				syncMtx.Unlock()
 			}
 		}
-		// TODO handle group addition callback
-		return
-
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
 		log.Debugf("CRDT Replication :: Removed: [%s]\n", k)
@@ -132,6 +145,14 @@ func New(
 	crdtStore, err := crdt.New(st, datastore.NewKey(prefix), dagSyncer, pubsubBC, crdtOpts)
 	if err != nil {
 		return nil, err
+	}
+
+	checkMembership = func(memberTag string, key []byte) bool {
+		memberPublicKey, err := crdtStore.Get(ctx, datastore.NewKey(memberTag))
+		if err != nil {
+			return false
+		}
+		return bytes.Equal(key, memberPublicKey)
 	}
 
 	return &Manager{

@@ -49,7 +49,7 @@ func TestGroupCreation(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestGroupAddMember(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestGroupAddContent(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore())
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
