@@ -2,6 +2,7 @@ package ipfs
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -31,6 +32,33 @@ func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) 
 	meta := &replication.Metatag{
 		Size:        info.Size,
 		Type:        info.Type,
+		Name:        info.Name,
+		Hash:        n.Cid(),
+		Timestamp:   time.Now().Unix(),
+		Owner:       I.peer.Host.ID(),
+		Tag:         info.Tag,
+		IsEncrypted: info.IsEncrypted,
+	}
+	err = I.peer.Manager.Tag(info.Tag, meta)
+	if err != nil {
+		return "", err
+	}
+	return n.Cid().String(), nil
+}
+
+func (I *IPFSNode) AddDir(ctx context.Context, dir string, info *store.Info) (string, error) {
+	n, err := I.peer.AddDir(ctx, dir, nil)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println(n.Cid())
+	for i, j := range n.Links() {
+		fmt.Println(i, j.Cid, j.Name)
+	}
+	fmt.Println(n.Size())
+	meta := &replication.Metatag{
+		Size:        info.Size,
+		Type:        "directory",
 		Name:        info.Name,
 		Hash:        n.Cid(),
 		Timestamp:   time.Now().Unix(),

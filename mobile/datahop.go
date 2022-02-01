@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -630,6 +631,41 @@ func Add(tag string, content []byte, passphrase string) error {
 			Size:        int64(len(content)),
 		}
 		id, err := hop.comm.Node.Add(hop.ctx, buf, info)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		bf, err := FilterFromState()
+		if err != nil {
+			log.Error("Unable to filter state")
+			return err
+		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+		return nil
+	}
+	return errors.New("datahop ipfs-lite node is not running")
+}
+
+// AddDir adds a directory in the store
+func AddDir(tag string, path string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		filePath := path
+		fileinfo, err := os.Lstat(filePath)
+		if err != nil {
+			log.Errorf("Failed executing find file path Err:%s", err.Error())
+			return err
+		}
+		info := &store.Info{
+			Tag:         tag,
+			Type:        "directory",
+			Name:        tag,
+			IsEncrypted: false,
+			Size:        fileinfo.Size(),
+		}
+		id, err := hop.comm.Node.AddDir(hop.ctx, filePath, info)
 		if err != nil {
 			return err
 		}

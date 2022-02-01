@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/asabya/go-ipc-uds v0.1.1
 	github.com/bits-and-blooms/bloom/v3 v3.1.0
+	github.com/dustin/go-humanize v1.0.0
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -22,11 +23,13 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v1.1.0
 	github.com/ipfs/go-ipfs-chunker v0.0.5
 	github.com/ipfs/go-ipfs-files v0.0.9
+	github.com/ipfs/go-ipfs-posinfo v0.0.1
 	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/ipfs/go-ipns v0.1.2
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipfs/go-merkledag v0.5.1
+	github.com/ipfs/go-mfs v0.2.1
 	github.com/ipfs/go-path v0.2.1
 	github.com/ipfs/go-unixfs v0.3.1
 	github.com/ipfs/go-unixfsnode v1.1.3 // indirect

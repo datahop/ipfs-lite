@@ -76,6 +76,7 @@ func main() {
 		cmd.InitInfoCmd(comm),
 		cmd.InitStopCmd(comm),
 		cmd.InitAddCmd(comm),
+		cmd.InitAddDirCmd(comm),
 		cmd.InitIndexCmd(comm),
 		cmd.InitRemoveCmd(comm),
 		cmd.InitVersionCmd(comm),
