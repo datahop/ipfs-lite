@@ -66,7 +66,6 @@ type Adder struct {
 	Chunker    string
 	mroot      *mfs.Root
 	unlocker   bstore.Unlocker
-	tempRoot   cid.Cid
 	CidBuilder cid.Builder
 	liveNodes  uint64
 }
@@ -120,30 +119,6 @@ func (adder *Adder) add(reader io.Reader) (ipld.Node, error) {
 	}
 
 	return nd, adder.bufferedDS.Commit()
-}
-
-// RootNode returns the mfs root node
-func (adder *Adder) curRootNode() (ipld.Node, error) {
-	mr, err := adder.mfsRoot()
-	if err != nil {
-		return nil, err
-	}
-	root, err := mr.GetDirectory().GetNode()
-	if err != nil {
-		return nil, err
-	}
-
-	// if one root file, use that hash as root.
-	if len(root.Links()) == 1 {
-		nd, err := root.Links()[0].GetNode(adder.ctx, adder.dagService)
-		if err != nil {
-			return nil, err
-		}
-
-		root = nd
-	}
-
-	return root, err
 }
 
 func (adder *Adder) outputDirs(path string, fsn mfs.FSNode) error {
