@@ -124,6 +124,43 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 	return nil
 }
 
+func (m *Manager) GroupGetInfo(memberPeerId, groupID peer.ID, memberPrivateKey ic.PrivKey) (*GroupMetadata, error) {
+	// Check if the group is open
+	groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupID.String())
+	groupMetaBytes, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
+	if err != nil {
+		return nil, err
+	}
+	gm := &GroupMetadata{}
+	err = json.Unmarshal(groupMetaBytes, gm)
+	if err != nil {
+		return nil, err
+	}
+
+	// if not open check if member is owner
+	if !gm.isOpen {
+		if gm.OwnerID != memberPeerId {
+			return nil, fmt.Errorf("user does not have permission to get group info")
+		}
+	}
+
+	// Check If the current user is a member of the group
+	key, err := memberPrivateKey.GetPublic().Raw()
+	if err != nil {
+		return nil, err
+	}
+	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, memberPeerId.String(), groupID.String())
+	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(key, memberPublicKey) {
+		return nil, fmt.Errorf("user is not a member of this group")
+	}
+
+	return gm, nil
+}
+
 func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey) ([]GroupMetadata, error) {
 	groups := []GroupMetadata{}
 	key, err := ownerPrivateKey.GetPublic().Raw()

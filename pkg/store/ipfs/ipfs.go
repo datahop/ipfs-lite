@@ -9,6 +9,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -123,4 +124,12 @@ func (I *IPFSNode) ReplManager() *replication.Manager {
 func (I *IPFSNode) IsPeerConnected(id string) bool {
 	conn := I.peer.Host.Network().Connectedness(peer.ID(id))
 	return conn == network.Connected
+}
+
+func (I *IPFSNode) GetPrivKey() crypto.PrivKey {
+	return I.peer.Host.Peerstore().PrivKey(I.peer.Host.ID())
+}
+
+func (I *IPFSNode) GetPubKey(id peer.ID) crypto.PubKey {
+	return I.peer.Host.Peerstore().PubKey(id)
 }
