@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
+	files "github.com/ipfs/go-ipfs-files"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
@@ -476,6 +478,40 @@ func (p *Peer) AddFile(ctx context.Context, r io.Reader, params *AddParams) (ipl
 		return nil, errors.New("invalid Layout")
 	}
 	return n, err
+}
+
+func (p *Peer) AddDir(ctx context.Context, dir string, params *AddParams) (ipld.Node, error) {
+	stat, err := os.Lstat(dir)
+	if err != nil {
+		return nil, err
+	}
+	if params == nil {
+		params = &AddParams{}
+	}
+	if params.HashFun == "" {
+		params.HashFun = "sha2-256"
+	}
+
+	sf, err := files.NewSerialFile(dir, false, stat)
+	if err != nil {
+		return nil, err
+	}
+	fAddr, err := NewAdder(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	fAddr.Chunker = params.Chunker
+	fAddr.CidBuilder, err = merkledag.PrefixForCidVersion(1)
+	if err != nil {
+		return nil, err
+	}
+	fAddr.RawLeaves = params.RawLeaves
+	fAddr.NoCopy = params.NoCopy
+	nd, err := fAddr.AddAll(sf)
+	if err != nil {
+		return nil, err
+	}
+	return nd, nil
 }
 
 // GetFile returns a reader to a file as identified by its root CID. The file

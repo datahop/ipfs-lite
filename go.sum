@@ -506,6 +506,8 @@ github.com/ipfs/go-merkledag v0.5.1 h1:tr17GPP5XtPhvPPiWtu20tSGZiZDuTaJRXBLcr79U
 github.com/ipfs/go-merkledag v0.5.1/go.mod h1:cLMZXx8J08idkp5+id62iVftUQV+HlYJ3PIhDfZsjA4=
 github.com/ipfs/go-metrics-interface v0.0.1 h1:j+cpbjYvu4R8zbleSs36gvB7jR+wsL2fGD6n0jO4kdg=
 github.com/ipfs/go-metrics-interface v0.0.1/go.mod h1:6s6euYU4zowdslK0GKHmqaIZ3j/b/tL7HTWtJ4VPgWY=
+github.com/ipfs/go-mfs v0.2.1 h1:5jz8+ukAg/z6jTkollzxGzhkl3yxm022Za9f2nL5ab8=
+github.com/ipfs/go-mfs v0.2.1/go.mod h1:Woj80iuw4ajDnIP6+seRaoHpPsc9hmL0pk/nDNDWP88=
 github.com/ipfs/go-path v0.1.1/go.mod h1:vC8q4AKOtrjJz2NnllIrmr2ZbGlF5fW2OKKyhV9ggb0=
 github.com/ipfs/go-path v0.2.1 h1:R0JYCu0JBnfa6A3C42nzsNPxtKU5/fnUPhWSuzcJHws=
 github.com/ipfs/go-path v0.2.1/go.mod h1:NOScsVgxfC/eIw4nz6OiGwK42PjaSJ4Y/ZFPn1Xe07I=

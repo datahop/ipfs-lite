@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -646,6 +647,41 @@ func Add(tag string, content []byte, passphrase string) error {
 		return nil
 	}
 	return ErrNodeNotRunning
+}
+
+// AddDir adds a directory in the store
+func AddDir(tag string, path string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		filePath := path
+		fileinfo, err := os.Lstat(filePath)
+		if err != nil {
+			log.Errorf("Failed executing find file path Err:%s", err.Error())
+			return err
+		}
+		info := &store.Info{
+			Tag:         tag,
+			Type:        "directory",
+			Name:        tag,
+			IsEncrypted: false,
+			Size:        fileinfo.Size(),
+		}
+		id, err := hop.comm.Node.AddDir(hop.ctx, filePath, info)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		bf, err := FilterFromState()
+		if err != nil {
+			log.Error("Unable to filter state")
+			return err
+		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+		return nil
+	}
+	return errors.New("datahop ipfs-lite node is not running")
 }
 
 // Get gets a record from the store by given tag
