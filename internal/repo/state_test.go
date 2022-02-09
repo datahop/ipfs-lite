@@ -1,0 +1,53 @@
+package repo
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestLoadStateKeeper(t *testing.T) {
+	root := filepath.Join("./test", "root1")
+	err := os.MkdirAll(root, 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = loadStateKeeper(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo("./test", t)
+}
+
+func TestLoadStateKeeperTwice(t *testing.T) {
+	root := filepath.Join("./test", "root1")
+	err := os.MkdirAll(root, 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := loadStateKeeper(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo("./test", t)
+
+	_, err = s.AddNewStates("myState")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 9; i++ {
+		s.states, err = s.AddNewStates(fmt.Sprintf("%d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	s2, err := loadStateKeeper(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(s2.states) != 10 {
+		t.Fatal("myState is not being loaded")
+	}
+}

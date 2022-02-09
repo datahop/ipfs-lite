@@ -2,7 +2,6 @@ package ipfs
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -52,12 +51,7 @@ func (I *IPFSNode) AddDir(ctx context.Context, dir string, info *store.Info) (st
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(n.Cid())
-	for i, j := range n.Links() {
-		fmt.Println(i, j.Cid, j.Name)
-	}
-	fmt.Println(n.Size())
-	meta := &replication.Metatag{
+	meta := &replication.ContentMetatag{
 		Size:        info.Size,
 		Type:        "directory",
 		Name:        info.Name,

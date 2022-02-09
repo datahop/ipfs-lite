@@ -47,6 +47,7 @@ type Repo interface {
 	State() *bloom.BloomFilter
 	SetState() error
 	Matrix() *matrix.MatrixKeeper
+	StateKeeper() *StateKeeper
 }
 
 // Datastore is the interface required from a datastore to be
@@ -63,11 +64,12 @@ type FSRepo struct {
 	path string
 	// lockfile is the file system lock to prevent others from opening
 	// the same fsrepo path concurrently
-	lockfile io.Closer
-	config   *config.Config
-	ds       Datastore
-	state    *bloom.BloomFilter
-	mKeeper  *matrix.MatrixKeeper
+	lockfile    io.Closer
+	config      *config.Config
+	ds          Datastore
+	state       *bloom.BloomFilter
+	mKeeper     *matrix.MatrixKeeper
+	stateKeeper *StateKeeper
 	io.Closer
 }
 
@@ -209,6 +211,10 @@ func open(repoPath string) (Repo, error) {
 		return nil, err
 	}
 	r.mKeeper = matrix.NewMatrixKeeper(r.ds)
+	r.stateKeeper, err = loadStateKeeper(r.path)
+	if err != nil {
+		return nil, err
+	}
 	keepLocked = true
 	r.closed = false
 	return r, nil
@@ -217,6 +223,11 @@ func open(repoPath string) (Repo, error) {
 // Matrix returns nodes matrix
 func (r *FSRepo) Matrix() *matrix.MatrixKeeper {
 	return r.mKeeper
+}
+
+// StateKeeper returns nodes matrix
+func (r *FSRepo) StateKeeper() *StateKeeper {
+	return r.stateKeeper
 }
 
 func (r *FSRepo) openDatastore() error {
