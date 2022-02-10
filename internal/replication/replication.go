@@ -44,6 +44,7 @@ type ContentMetatag struct {
 	Timestamp   int64
 	Owner       peer.ID
 	IsEncrypted bool
+	Group       string `json:"omitempty"`
 }
 
 // Manager handles replication
@@ -122,14 +123,25 @@ func New(
 			if h.ID() != m.Owner && autoDownload {
 				contentChan <- *m
 			} else {
-				syncMtx.Lock()
-				state := r.State().Add([]byte(m.Tag))
-				log.Debugf("New State: %d\n", state)
-				err := r.SetState()
-				if err != nil {
-					log.Errorf("SetState failed %s\n", err.Error())
+				if strings.HasPrefix(k.String(), groupIndexPrefix) {
+					syncMtx.Lock()
+					sk := r.StateKeeper()
+					groupID := k.List()[1]
+					_, err := sk.AddOrUpdateState(groupID, []byte(m.Tag))
+					if err != nil {
+						log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+					}
+					syncMtx.Unlock()
+				} else {
+					syncMtx.Lock()
+					state := r.State().Add([]byte(m.Tag))
+					log.Debugf("New State: %d\n", state)
+					err := r.SetState()
+					if err != nil {
+						log.Errorf("SetState failed %s\n", err.Error())
+					}
+					syncMtx.Unlock()
 				}
-				syncMtx.Unlock()
 			}
 		}
 	}
@@ -323,17 +335,32 @@ func (m *Manager) StartContentWatcher() {
 					//	return
 					//}
 					ctx, cancel := context.WithCancel(m.ctx)
-					cb := func() {
-						mat.ContentDownloadFinished(id.String())
-						syncMtx.Lock()
-						state := m.repo.State().Add([]byte(meta.Tag))
-						log.Debugf("New State: %d\n", state)
-						err := m.repo.SetState()
-						if err != nil {
-							log.Errorf("SetState failed %s\n", err.Error())
+					var cb func()
+					if meta.Group != "" {
+						cb = func() {
+							mat.ContentDownloadFinished(id.String())
+							syncMtx.Lock()
+							sk := m.repo.StateKeeper()
+							_, err := sk.AddOrUpdateState(meta.Group, []byte(meta.Tag))
+							if err != nil {
+								log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+							}
+							syncMtx.Unlock()
 						}
-						syncMtx.Unlock()
+					} else {
+						cb = func() {
+							mat.ContentDownloadFinished(id.String())
+							syncMtx.Lock()
+							state := m.repo.State().Add([]byte(meta.Tag))
+							log.Debugf("New State: %d\n", state)
+							err := m.repo.SetState()
+							if err != nil {
+								log.Errorf("SetState failed %s\n", err.Error())
+							}
+							syncMtx.Unlock()
+						}
 					}
+
 					t := newDownloaderTask(ctx, cancel, meta, m.syncer, cb)
 					done, err := m.dlManager.Go(t)
 					if err != nil {

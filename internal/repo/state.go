@@ -21,7 +21,7 @@ type StateKeeper struct {
 	mtx    sync.Mutex
 }
 
-func loadStateKeeper(root string) (*StateKeeper, error) {
+func LoadStateKeeper(root string) (*StateKeeper, error) {
 	sk := &StateKeeper{
 		states: map[string]*bloom.BloomFilter{},
 		mtx:    sync.Mutex{},
@@ -91,6 +91,20 @@ func (s *StateKeeper) AddNewStates(name string) (map[string]*bloom.BloomFilter, 
 
 	s.states[name] = bloom.New(uint(2000), 5)
 	return s.saveStates()
+}
+
+func (s *StateKeeper) AddOrUpdateState(name string, delta []byte) (*bloom.BloomFilter, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	if s.states[name] == nil {
+		s.states[name] = bloom.New(uint(2000), 5)
+	}
+	s.states[name] = s.states[name].Add(delta)
+	_, err := s.saveStates()
+	if err != nil {
+		return nil, err
+	}
+	return s.states[name], nil
 }
 
 func (s *StateKeeper) UpdateStates(name string, delta []byte) (*bloom.BloomFilter, error) {

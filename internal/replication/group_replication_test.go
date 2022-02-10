@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/ipfs/go-cid"
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
@@ -169,6 +170,13 @@ func TestGroupAddContent(t *testing.T) {
 	}
 	defer r.Close()
 	defer removeRepo(root, t)
+
+	sk, err := repo.LoadStateKeeper(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.sk = sk
+
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -191,37 +199,44 @@ func TestGroupAddContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer m.Close()
-	gMeta, err := m.CreateGroup("NewGroup1", h.ID(), priv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < 10; i++ {
-		id, err := cid.Decode("bafybeiclg7ypvgnbumueqcfgarezgsz7af5kmg75nynaeqjxdme5jqmh3e")
+	for j := 0; j <= 9; j++ {
+		gMeta, err := m.CreateGroup(fmt.Sprintf("NewGroup%d", j), h.ID(), priv)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ta := fmt.Sprintf("%d", time.Now().Unix())
-		content := []byte(ta)
-		meta := &ContentMetatag{
-			Tag:         fmt.Sprintf("%d/%s", i, ta),
-			Size:        int64(len(content)),
-			Type:        "",
-			Name:        ta,
-			Hash:        id,
-			Timestamp:   0,
-			Owner:       h.ID(),
-			IsEncrypted: false,
+		for i := 0; i < 10; i++ {
+			id, err := cid.Decode("bafybeiclg7ypvgnbumueqcfgarezgsz7af5kmg75nynaeqjxdme5jqmh3e")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ta := fmt.Sprintf("%d", time.Now().Unix())
+			content := []byte(ta)
+			meta := &ContentMetatag{
+				Tag:         fmt.Sprintf("%d/%s", i, ta),
+				Size:        int64(len(content)),
+				Type:        "",
+				Name:        ta,
+				Hash:        id,
+				Timestamp:   0,
+				Owner:       h.ID(),
+				IsEncrypted: false,
+			}
+			err = m.GroupAddContent(h.ID(), gMeta.GroupID, priv, meta)
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
-		err = m.GroupAddContent(h.ID(), gMeta.GroupID, priv, meta)
+		c, err := m.GroupGetAllContent(h.ID(), gMeta.GroupID, priv)
 		if err != nil {
 			t.Fatal(err)
 		}
+		if len(c) != 10 {
+			t.Fatal("length should be 10")
+		}
 	}
-	c, err := m.GroupGetAllContent(h.ID(), gMeta.GroupID, priv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(c) != 10 {
-		t.Fatal("length should be 10")
+
+	sk = m.repo.StateKeeper()
+	if len(sk.GetStates()) != 10 {
+		t.Fatal("group states malfunctioned")
 	}
 }

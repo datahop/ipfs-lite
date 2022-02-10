@@ -13,7 +13,7 @@ func TestLoadStateKeeper(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = loadStateKeeper(root)
+	_, err = LoadStateKeeper(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestLoadStateKeeperTwice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := loadStateKeeper(root)
+	s, err := LoadStateKeeper(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestLoadStateKeeperTwice(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	s2, err := loadStateKeeper(root)
+	s2, err := LoadStateKeeper(root)
 	if err != nil {
 		t.Fatal(err)
 	}

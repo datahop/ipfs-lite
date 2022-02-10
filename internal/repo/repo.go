@@ -211,7 +211,7 @@ func open(repoPath string) (Repo, error) {
 		return nil, err
 	}
 	r.mKeeper = matrix.NewMatrixKeeper(r.ds)
-	r.stateKeeper, err = loadStateKeeper(r.path)
+	r.stateKeeper, err = LoadStateKeeper(r.path)
 	if err != nil {
 		return nil, err
 	}

@@ -75,6 +75,7 @@ type mockRepo struct {
 	path  string
 	state *bloom.BloomFilter
 	ds    repo.Datastore
+	sk    *repo.StateKeeper
 }
 
 func (m *mockRepo) Path() string {
@@ -103,12 +104,16 @@ func (m *mockRepo) Close() error {
 	return nil
 }
 
-func (m mockRepo) State() *bloom.BloomFilter {
+func (m *mockRepo) State() *bloom.BloomFilter {
 	return m.state
 }
 
-func (m mockRepo) SetState() error {
+func (m *mockRepo) SetState() error {
 	return nil
+}
+
+func (m *mockRepo) StateKeeper() *repo.StateKeeper {
+	return m.sk
 }
 
 type mockDownload struct {

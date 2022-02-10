@@ -2,6 +2,7 @@ package replication
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -18,7 +19,7 @@ type GroupMetadata struct {
 	OwnerID        peer.ID
 	OwnerPublicKey []byte
 	GroupID        peer.ID
-	isOpen         bool
+	IsOpen         bool
 }
 
 func (m *Manager) CreateGroup(name string, ownerID peer.ID, ownerPrivateKey ic.PrivKey) (*GroupMetadata, error) {
@@ -35,7 +36,7 @@ func (m *Manager) CreateGroup(name string, ownerID peer.ID, ownerPrivateKey ic.P
 		OwnerID:        ownerID,
 		OwnerPublicKey: key,
 		GroupID:        gID,
-		isOpen:         false,
+		IsOpen:         false,
 	}
 	// In GroupMetadata is created using the "/groups/{groupID}" namespace
 	err = m.tagGroup(fmt.Sprintf("%s/%s", groupPrefix, gID.String()), gMeta)
@@ -65,8 +66,9 @@ func (m *Manager) CreateOpenGroup(name string, ownerID peer.ID, ownerPrivateKey 
 		OwnerID:        ownerID,
 		OwnerPublicKey: key,
 		GroupID:        gID,
-		isOpen:         true,
+		IsOpen:         true,
 	}
+
 	// In GroupMetadata is created using the "/groups/{groupID}" namespace
 	err = m.tagGroup(fmt.Sprintf("%s/%s", groupPrefix, gID.String()), gMeta)
 	if err != nil {
@@ -96,7 +98,7 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 	}
 
 	// if not open check if member is owner
-	if !gm.isOpen {
+	if !gm.IsOpen {
 		if gm.OwnerID != memberPeerId {
 			return fmt.Errorf("user does not have permission to add member in this group")
 		}
@@ -112,7 +114,8 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(key, memberPublicKey) {
+
+	if base64.StdEncoding.EncodeToString(key) != string(memberPublicKey) {
 		return fmt.Errorf("user is not a member of this group")
 	}
 
@@ -136,9 +139,8 @@ func (m *Manager) GroupGetInfo(memberPeerId, groupID peer.ID, memberPrivateKey i
 	if err != nil {
 		return nil, err
 	}
-
 	// if not open check if member is owner
-	if !gm.isOpen {
+	if !gm.IsOpen {
 		if gm.OwnerID != memberPeerId {
 			return nil, fmt.Errorf("user does not have permission to get group info")
 		}
@@ -154,7 +156,7 @@ func (m *Manager) GroupGetInfo(memberPeerId, groupID peer.ID, memberPrivateKey i
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(key, memberPublicKey) {
+	if base64.StdEncoding.EncodeToString(key) != string(memberPublicKey) {
 		return nil, fmt.Errorf("user is not a member of this group")
 	}
 
@@ -207,7 +209,7 @@ func (m *Manager) GroupAddContent(peerId, groupID peer.ID, privateKey ic.PrivKey
 	}
 
 	// if not open check if member is owner
-	if !gm.isOpen {
+	if !gm.IsOpen {
 		if gm.OwnerID != peerId {
 			return fmt.Errorf("user does not have permission to add content in this group")
 		}
@@ -226,7 +228,7 @@ func (m *Manager) GroupAddContent(peerId, groupID peer.ID, privateKey ic.PrivKey
 	if !bytes.Equal(key, memberPublicKey) {
 		return fmt.Errorf("user is not a member of this group")
 	}
-
+	meta.Group = groupID.String()
 	err = m.Tag(fmt.Sprintf("%s/%s/%s", groupIndexPrefix, groupID.String(), meta.Tag), meta)
 	if err != nil {
 		return err
@@ -260,7 +262,6 @@ func (m *Manager) GroupGetAllContent(peerId, groupID peer.ID, privateKey ic.Priv
 		meta := &ContentMetatag{}
 		err = json.Unmarshal(j.Entry.Value, meta)
 		if err != nil {
-			fmt.Println(err)
 			continue
 		}
 		indexes = append(indexes, meta)
@@ -290,5 +291,5 @@ func (m *Manager) storePublicKey(tag string, publicKey ic.PubKey) error {
 	if err != nil {
 		return err
 	}
-	return m.Put(datastore.NewKey(tag), b)
+	return m.Put(datastore.NewKey(tag), []byte(base64.StdEncoding.EncodeToString(b)))
 }

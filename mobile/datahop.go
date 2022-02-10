@@ -681,7 +681,7 @@ func AddDir(tag string, path string) error {
 		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
 		return nil
 	}
-	return errors.New("datahop ipfs-lite node is not running")
+	return ErrNodeNotRunning
 }
 
 // Get gets a record from the store by given tag
@@ -826,7 +826,7 @@ func CreateOpenGroup(name string) (string, error) {
 	defer mtx.Unlock()
 	if hop != nil && hop.comm != nil {
 		m := hop.comm.Node.ReplManager()
-		gm, err := m.CreateGroup(name, hop.comm.Node.AddrInfo().ID, hop.comm.Node.GetPrivKey())
+		gm, err := m.CreateOpenGroup(name, hop.comm.Node.AddrInfo().ID, hop.comm.Node.GetPrivKey())
 		if err != nil {
 			return "", err
 		}
