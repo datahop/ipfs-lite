@@ -185,13 +185,13 @@ func state() ([]byte, error) {
 
 // FilterFromState returns the bloom filter from state
 func FilterFromState() (string, error) {
-	byt, err := state()
+	byt, _ := state()
 	var dat map[string]interface{}
 	if err := json.Unmarshal(byt, &dat); err != nil {
 		return "", err
 	}
 	filter := dat["b"].(string)
-	return filter, err
+	return filter, nil
 }
 
 // DiskUsage returns number of bytes stored in the datastore
@@ -899,3 +899,95 @@ func GetGroupName(peerID, groupIDString string) (string, error) {
 
 // GetAllContent
 // AddContent
+
+// GroupAdd adds a record in a group
+func GroupAdd(tag string, content []byte, passphrase, groupID string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		var buf *bytes.Reader
+		shouldEncrypt := true
+		if passphrase == "" {
+			shouldEncrypt = false
+		}
+		if shouldEncrypt {
+			byteContent, err := hop.comm.Encryption.EncryptContent(content, passphrase)
+			if err != nil {
+				log.Errorf("Encryption failed :%s", err.Error())
+				return err
+			}
+			buf = bytes.NewReader(byteContent)
+		} else {
+			buf = bytes.NewReader(content)
+		}
+		kind, _ := filetype.Match(content)
+		info := &store.Info{
+			Tag:         tag,
+			Type:        kind.MIME.Value,
+			Name:        tag,
+			IsEncrypted: shouldEncrypt,
+			Size:        int64(len(content)),
+		}
+		id, err := hop.comm.Node.GroupAdd(hop.ctx, buf, info, groupID)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		sk := hop.comm.Repo.StateKeeper()
+		st, err := sk.GetState(groupID)
+		if err != nil {
+			return err
+		}
+		if st != nil {
+			f, _ := st.Filter.MarshalJSON()
+			var data map[string]interface{}
+			if err := json.Unmarshal(f, &data); err != nil {
+				return err
+			}
+			hop.discService.AddAdvertisingInfo(CRDTStatus, data["b"].(string))
+		}
+		return nil
+	}
+	return ErrNodeNotRunning
+}
+
+// GroupAddDir adds a directory in a group
+func GroupAddDir(tag, path, groupID string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		filePath := path
+		fileinfo, err := os.Lstat(filePath)
+		if err != nil {
+			log.Errorf("Failed executing find file path Err:%s", err.Error())
+			return err
+		}
+		info := &store.Info{
+			Tag:         tag,
+			Type:        "directory",
+			Name:        tag,
+			IsEncrypted: false,
+			Size:        fileinfo.Size(),
+		}
+		id, err := hop.comm.Node.GroupAddDir(hop.ctx, filePath, info, groupID)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		sk := hop.comm.Repo.StateKeeper()
+		st, err := sk.GetState(groupID)
+		if err != nil {
+			return err
+		}
+		f, _ := st.Filter.MarshalJSON()
+		var data map[string]interface{}
+		if err := json.Unmarshal(f, &data); err != nil {
+			return err
+		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, data["b"].(string))
+		return nil
+	}
+	return ErrNodeNotRunning
+}

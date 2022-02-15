@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/repo"
+	"github.com/datahop/ipfs-lite/internal/security"
 	"github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/h2non/filetype"
@@ -1008,6 +1009,97 @@ func TestGroupMemberAdd(t *testing.T) {
 	_, err = comm1.Node.ReplManager().GroupGetInfo(comm1.Node.AddrInfo().ID, groupId, comm1.Node.GetPrivKey())
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGroupStateOnContentAdd(t *testing.T) {
+	<-time.After(time.Second)
+	root := filepath.Join("../test", repo.Root)
+	cm := MockConnManager{}
+	dd := MockDisDriver{}
+	ad := MockAdvDriver{}
+	whs := MockWifiHotspot{}
+	wc := MockWifiConn{}
+	d := &security.DefaultEncryption{}
+	err := Init(root, cm, dd, ad, whs, wc, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeRepo(root, t)
+	err = Start(StartsOpts{false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		Stop()
+		Close()
+	}()
+
+	secondNode := filepath.Join("./test", "root1")
+	comm1 := startAnotherNode(secondNode, "3214", "", t)
+	defer func() {
+		comm1.Stop()
+		comm1.Repo.Close()
+		removeRepo(secondNode, t)
+	}()
+	pr1 := comm1.Node.AddrInfo()
+	for _, v := range pr1.Addrs {
+		if !strings.HasPrefix(v.String(), "127") {
+			err := ConnectWithAddress(v.String() + "/p2p/" + pr1.ID.String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := Peers(); err == pkg.ErrNoPeersConnected {
+		t.Fatal("Should be connected to at least one peer")
+	}
+
+	group, err := CreateOpenGroup("group1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = peer.Decode(group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f1, err := hop.comm.Repo.StateKeeper().GetState(group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f1.Membership != true {
+		t.Fatal("membership of node should be true")
+	}
+	_, err = comm1.Repo.StateKeeper().GetState(group)
+	if err == nil {
+		t.Fatal("error should not be nil")
+	}
+
+	<-time.After(time.Second)
+	f2, err := comm1.Repo.StateKeeper().GetState(group)
+	if err != nil {
+		t.Fatal("error should not be nil")
+	}
+	if f2.Membership != false {
+		t.Fatal("membership of second node should be false")
+	}
+	err = AddMember(comm1.Node.AddrInfo().ID.String(), group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second)
+	content := []byte("check_group_distribution")
+	err = GroupAdd("tag", content, "", group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second)
+	f2, err = comm1.Repo.StateKeeper().GetState(group)
+	if err != nil {
+		t.Fatal("error should not be nil")
+	}
+	if f2.Membership != true {
+		t.Fatal("membership of second node should be true now")
 	}
 }
 

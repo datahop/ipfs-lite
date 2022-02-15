@@ -155,3 +155,58 @@ func (I *IPFSNode) GetPrivKey() crypto.PrivKey {
 func (I *IPFSNode) GetPubKey(id peer.ID) crypto.PubKey {
 	return I.peer.Host.Peerstore().PubKey(id)
 }
+
+func (I *IPFSNode) GroupAdd(ctx context.Context, reader io.Reader, info *store.Info, groupIDString string) (string, error) {
+	groupID, err := peer.Decode(groupIDString)
+	if err != nil {
+		return "", err
+	}
+	n, err := I.peer.AddFile(ctx, reader, nil)
+	if err != nil {
+		return "", err
+	}
+	meta := &replication.ContentMetatag{
+		Size:        info.Size,
+		Type:        info.Type,
+		Name:        info.Name,
+		Hash:        n.Cid(),
+		Timestamp:   time.Now().Unix(),
+		Owner:       I.peer.Host.ID(),
+		Tag:         info.Tag,
+		IsEncrypted: info.IsEncrypted,
+		Group:       groupIDString,
+	}
+
+	err = I.peer.Manager.GroupAddContent(I.peer.Host.ID(), groupID, I.GetPrivKey(), meta)
+	if err != nil {
+		return "", err
+	}
+	return n.Cid().String(), nil
+}
+
+func (I *IPFSNode) GroupAddDir(ctx context.Context, dir string, info *store.Info, groupIDString string) (string, error) {
+	groupID, err := peer.Decode(groupIDString)
+	if err != nil {
+		return "", err
+	}
+	n, err := I.peer.AddDir(ctx, dir, nil)
+	if err != nil {
+		return "", err
+	}
+	meta := &replication.ContentMetatag{
+		Size:        info.Size,
+		Type:        "directory",
+		Name:        info.Name,
+		Hash:        n.Cid(),
+		Timestamp:   time.Now().Unix(),
+		Owner:       I.peer.Host.ID(),
+		Tag:         info.Tag,
+		IsEncrypted: info.IsEncrypted,
+		Group:       groupIDString,
+	}
+	err = I.peer.Manager.GroupAddContent(I.peer.Host.ID(), groupID, I.GetPrivKey(), meta)
+	if err != nil {
+		return "", err
+	}
+	return n.Cid().String(), nil
+}

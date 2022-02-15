@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
@@ -81,6 +82,11 @@ func (m *Manager) CreateOpenGroup(name string, ownerID peer.ID, ownerPrivateKey 
 		return nil, err
 	}
 
+	sk := m.repo.StateKeeper()
+	_, err = sk.AddOrUpdateState(gID.String(), true, nil)
+	if err != nil {
+		return nil, err
+	}
 	return gMeta, nil
 }
 
@@ -225,7 +231,7 @@ func (m *Manager) GroupAddContent(peerId, groupID peer.ID, privateKey ic.PrivKey
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(key, memberPublicKey) {
+	if base64.StdEncoding.EncodeToString(key) != string(memberPublicKey) {
 		return fmt.Errorf("user is not a member of this group")
 	}
 	meta.Group = groupID.String()
@@ -271,7 +277,8 @@ func (m *Manager) GroupGetAllContent(peerId, groupID peer.ID, privateKey ic.Priv
 }
 
 func createGroupId(name string) (peer.ID, error) {
-	h, err := mh.Sum([]byte(name), mh.SHA2_256, -1)
+	unique := fmt.Sprintf("%s+%d", name, time.Now().Unix())
+	h, err := mh.Sum([]byte(unique), mh.SHA2_256, -1)
 	if err != nil {
 		return "", err
 	}

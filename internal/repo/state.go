@@ -15,15 +15,20 @@ const (
 	stateKeeperFile = ".statekeeper"
 )
 
+type State struct {
+	Filter     *bloom.BloomFilter
+	Membership bool
+}
+
 type StateKeeper struct {
-	states map[string]*bloom.BloomFilter
+	states map[string]*State
 	root   string
 	mtx    sync.Mutex
 }
 
 func LoadStateKeeper(root string) (*StateKeeper, error) {
 	sk := &StateKeeper{
-		states: map[string]*bloom.BloomFilter{},
+		states: map[string]*State{},
 		mtx:    sync.Mutex{},
 		root:   root,
 	}
@@ -50,7 +55,7 @@ func LoadStateKeeper(root string) (*StateKeeper, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := map[string]*bloom.BloomFilter{}
+	d := map[string]*State{}
 	err = json.Unmarshal(data, &d)
 	if err != nil {
 		return nil, err
@@ -59,21 +64,21 @@ func LoadStateKeeper(root string) (*StateKeeper, error) {
 	return sk, nil
 }
 
-func (s *StateKeeper) GetStates() map[string]*bloom.BloomFilter {
+func (s *StateKeeper) GetStates() map[string]*State {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	return s.states
 }
 
-func (s *StateKeeper) SaveStates() (map[string]*bloom.BloomFilter, error) {
+func (s *StateKeeper) SaveStates() (map[string]*State, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	return s.saveStates()
 }
 
-func (s *StateKeeper) saveStates() (map[string]*bloom.BloomFilter, error) {
+func (s *StateKeeper) saveStates() (map[string]*State, error) {
 	d, err := json.Marshal(s.states)
 	if err != nil {
 		return s.states, err
@@ -85,46 +90,30 @@ func (s *StateKeeper) saveStates() (map[string]*bloom.BloomFilter, error) {
 	return s.states, nil
 }
 
-func (s *StateKeeper) AddNewStates(name string) (map[string]*bloom.BloomFilter, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	s.states[name] = bloom.New(uint(2000), 5)
-	return s.saveStates()
-}
-
-func (s *StateKeeper) AddOrUpdateState(name string, delta []byte) (*bloom.BloomFilter, error) {
+func (s *StateKeeper) AddOrUpdateState(name string, membership bool, delta []byte) (*bloom.BloomFilter, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if s.states[name] == nil {
-		s.states[name] = bloom.New(uint(2000), 5)
+		s.states[name] = &State{
+			Filter: bloom.New(uint(2000), 5),
+		}
 	}
-	s.states[name] = s.states[name].Add(delta)
+	if delta != nil {
+		s.states[name].Filter = s.states[name].Filter.Add(delta)
+	}
+	s.states[name].Membership = membership
 	_, err := s.saveStates()
 	if err != nil {
 		return nil, err
 	}
-	return s.states[name], nil
+	return s.states[name].Filter, nil
 }
 
-func (s *StateKeeper) UpdateStates(name string, delta []byte) (*bloom.BloomFilter, error) {
+func (s *StateKeeper) GetState(name string) (*State, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-
 	if s.states[name] == nil {
-		return nil, fmt.Errorf("state not available")
-	}
-	s.states[name] = s.states[name].Add(delta)
-	_, err := s.saveStates()
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("no state available")
 	}
 	return s.states[name], nil
-}
-
-func (s *StateKeeper) GetState(name string) *bloom.BloomFilter {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	return s.states[name]
 }

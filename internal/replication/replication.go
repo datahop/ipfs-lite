@@ -1,8 +1,8 @@
 package replication
 
 import (
-	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -101,7 +101,26 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
+		if strings.HasPrefix(k.String(), groupPrefix) {
+			groupID := k.List()[1]
+			memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
+			key, err := pubKeyGetter.PubKey(h.ID()).Raw()
+			isMember := checkMembership(memberTag, key)
+			syncMtx.Lock()
+			sk := r.StateKeeper()
+			_, err = sk.AddOrUpdateState(groupID, isMember, nil)
+			if err != nil {
+				log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+			}
+			syncMtx.Unlock()
+		}
 		if !strings.HasPrefix(k.String(), groupMemberPrefix) && !strings.HasPrefix(k.String(), groupPrefix) {
+			m := &ContentMetatag{}
+			err := json.Unmarshal(v, m)
+			if err != nil {
+				log.Error(err.Error())
+				return
+			}
 			if strings.HasPrefix(k.String(), groupIndexPrefix) {
 				groupID := k.List()[1]
 				key, err := pubKeyGetter.PubKey(h.ID()).Raw()
@@ -109,39 +128,31 @@ func New(
 					return
 				}
 				memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
+
 				isMember := checkMembership(memberTag, key)
+				syncMtx.Lock()
+				sk := r.StateKeeper()
+				_, err = sk.AddOrUpdateState(groupID, isMember, []byte(m.Tag))
+				if err != nil {
+					log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+				}
+				syncMtx.Unlock()
 				if !isMember {
 					return
 				}
 			}
-			m := &ContentMetatag{}
-			err := json.Unmarshal(v, m)
-			if err != nil {
-				log.Error(err.Error())
-				return
-			}
+
 			if h.ID() != m.Owner && autoDownload {
 				contentChan <- *m
 			} else {
-				if strings.HasPrefix(k.String(), groupIndexPrefix) {
-					syncMtx.Lock()
-					sk := r.StateKeeper()
-					groupID := k.List()[1]
-					_, err := sk.AddOrUpdateState(groupID, []byte(m.Tag))
-					if err != nil {
-						log.Errorf("AddOrUpdateState failed %s\n", err.Error())
-					}
-					syncMtx.Unlock()
-				} else {
-					syncMtx.Lock()
-					state := r.State().Add([]byte(m.Tag))
-					log.Debugf("New State: %d\n", state)
-					err := r.SetState()
-					if err != nil {
-						log.Errorf("SetState failed %s\n", err.Error())
-					}
-					syncMtx.Unlock()
+				syncMtx.Lock()
+				state := r.State().Add([]byte(m.Tag))
+				log.Debugf("New State: %d\n", state)
+				err := r.SetState()
+				if err != nil {
+					log.Errorf("SetState failed %s\n", err.Error())
 				}
+				syncMtx.Unlock()
 			}
 		}
 	}
@@ -164,7 +175,7 @@ func New(
 		if err != nil {
 			return false
 		}
-		return bytes.Equal(key, memberPublicKey)
+		return base64.StdEncoding.EncodeToString(key) == string(memberPublicKey)
 	}
 
 	return &Manager{
@@ -341,7 +352,7 @@ func (m *Manager) StartContentWatcher() {
 							mat.ContentDownloadFinished(id.String())
 							syncMtx.Lock()
 							sk := m.repo.StateKeeper()
-							_, err := sk.AddOrUpdateState(meta.Group, []byte(meta.Tag))
+							_, err := sk.AddOrUpdateState(meta.Group, true, []byte(meta.Tag))
 							if err != nil {
 								log.Errorf("AddOrUpdateState failed %s\n", err.Error())
 							}
