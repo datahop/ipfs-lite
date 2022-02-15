@@ -116,7 +116,6 @@ func Init(
 	advDriver AdvertisingDriver,
 	hs WifiHotspot,
 	con WifiConnection,
-	encryption pkg.Encryption,
 ) error {
 	err := pkg.Init(root, "0")
 	if err != nil {
@@ -124,7 +123,7 @@ func Init(
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	comm, err := pkg.New(ctx, root, "0", encryption)
+	comm, err := pkg.New(ctx, root, "0", nil)
 	if err != nil {
 		cancel()
 		return err
@@ -205,7 +204,7 @@ type StartsOpts struct {
 }
 
 // Start an ipfslite node in a go routine
-func Start(opts StartsOpts) error {
+func Start(bootstrap bool) error {
 	if hop == nil {
 		return errors.New("start failed. datahop not initialised")
 	}
@@ -223,7 +222,7 @@ func Start(opts StartsOpts) error {
 			return
 		}
 		hop.comm.Node.NetworkNotifiee(hop.networkNotifier)
-		if opts.ShouldBootstrap {
+		if bootstrap {
 			hop.comm.Node.Bootstrap(ipfs.DefaultBootstrapPeers())
 		}
 		wg.Done()
