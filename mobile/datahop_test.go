@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/datahop/ipfs-lite/internal/repo"
-	"github.com/datahop/ipfs-lite/internal/security"
 	"github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/h2non/filetype"
@@ -956,13 +955,12 @@ func TestGroupMemberAdd(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	d := &security.DefaultEncryption{}
-	err := Init(root, cm, dd, ad, whs, wc, d)
+	err := Init(root, cm, dd, ad, whs, wc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(StartsOpts{false})
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1020,13 +1018,12 @@ func TestGroupStateOnContentAdd(t *testing.T) {
 	ad := MockAdvDriver{}
 	whs := MockWifiHotspot{}
 	wc := MockWifiConn{}
-	d := &security.DefaultEncryption{}
-	err := Init(root, cm, dd, ad, whs, wc, d)
+	err := Init(root, cm, dd, ad, whs, wc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeRepo(root, t)
-	err = Start(StartsOpts{false})
+	err = Start(false)
 	if err != nil {
 		t.Fatal(err)
 	}
