@@ -1,7 +1,6 @@
 package replication
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -183,7 +182,7 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		if bytes.Equal(j.Value, key) {
+		if base64.StdEncoding.EncodeToString(key) == string(j.Value) {
 			groupIDString := strings.Split(j.Key, "/")[3]
 			groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupIDString)
 			v, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
@@ -253,7 +252,7 @@ func (m *Manager) GroupGetAllContent(peerId, groupID peer.ID, privateKey ic.Priv
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(key, memberPublicKey) {
+	if base64.StdEncoding.EncodeToString(key) != string(memberPublicKey) {
 		return nil, fmt.Errorf("user is not a member of this group")
 	}
 

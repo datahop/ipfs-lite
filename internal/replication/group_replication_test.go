@@ -32,6 +32,11 @@ func TestGroupCreation(t *testing.T) {
 		ds:    syncds.MutexWrap(d),
 	}
 	defer r.Close()
+	sk, err := repo.LoadStateKeeper(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.sk = sk
 	defer removeRepo(root, t)
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
@@ -87,6 +92,11 @@ func TestGroupAddMember(t *testing.T) {
 		ds:    syncds.MutexWrap(d),
 	}
 	defer r.Close()
+	sk, err := repo.LoadStateKeeper(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.sk = sk
 	defer removeRepo(root, t)
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
