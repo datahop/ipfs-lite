@@ -32,12 +32,12 @@ func TestLoadStateKeeperTwice(t *testing.T) {
 	}
 	defer removeRepo("./test", t)
 
-	_, err = s.AddNewStates("myState")
+	_, err = s.AddOrUpdateState("myState", true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 9; i++ {
-		s.states, err = s.AddNewStates(fmt.Sprintf("%d", i))
+		_, err = s.AddOrUpdateState(fmt.Sprintf("%d", i), true, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

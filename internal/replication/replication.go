@@ -105,6 +105,10 @@ func New(
 			groupID := k.List()[1]
 			memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
 			key, err := pubKeyGetter.PubKey(h.ID()).Raw()
+			if err != nil {
+				log.Errorf("Pubkey failed %s\n", err.Error())
+				return
+			}
 			isMember := checkMembership(memberTag, key)
 			syncMtx.Lock()
 			sk := r.StateKeeper()
