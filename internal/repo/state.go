@@ -90,7 +90,7 @@ func (s *StateKeeper) saveStates() (map[string]*State, error) {
 	return s.states, nil
 }
 
-func (s *StateKeeper) AddOrUpdateState(name string, membership bool, delta []byte) (*bloom.BloomFilter, error) {
+func (s *StateKeeper) AddOrUpdateState(name string, membership bool, deltas []string) (*bloom.BloomFilter, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if s.states[name] == nil {
@@ -98,8 +98,10 @@ func (s *StateKeeper) AddOrUpdateState(name string, membership bool, delta []byt
 			Filter: bloom.New(uint(2000), 5),
 		}
 	}
-	if delta != nil {
-		s.states[name].Filter = s.states[name].Filter.Add(delta)
+	if len(deltas) > 0 {
+		for _, v := range deltas {
+			s.states[name].Filter = s.states[name].Filter.AddString(v)
+		}
 	}
 	s.states[name].Membership = membership
 	_, err := s.saveStates()

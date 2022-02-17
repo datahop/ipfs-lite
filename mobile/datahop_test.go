@@ -1072,31 +1072,33 @@ func TestGroupStateOnContentAdd(t *testing.T) {
 		t.Fatal("error should not be nil")
 	}
 
-	<-time.After(time.Second * 5)
-	f2, err := comm1.Repo.StateKeeper().GetState(group)
-	if err != nil {
-		t.Fatal("error should not be nil")
-	}
-	if f2.Membership != false {
-		t.Fatal("membership of second node should be false")
-	}
-	err = AddMember(comm1.Node.AddrInfo().ID.String(), group)
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-time.After(time.Second * 5)
 	content := []byte("check_group_distribution")
 	err = GroupAdd("tag", content, "", group)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	<-time.After(time.Second * 5)
+	f2, err := comm1.Repo.StateKeeper().GetState(group)
+	if err == nil {
+		t.Fatal("error should be nil")
+	}
+
+	err = AddMember(comm1.Node.AddrInfo().ID.String(), group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 5)
+
 	f2, err = comm1.Repo.StateKeeper().GetState(group)
 	if err != nil {
 		t.Fatal("error should not be nil ", err)
 	}
 	if f2.Membership != true {
 		t.Fatal("membership of second node should be true now")
+	}
+	if !f2.Filter.TestString("tag") {
+		t.Fatal("tag should be present")
 	}
 }
 

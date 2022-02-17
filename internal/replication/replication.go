@@ -14,6 +14,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
 	crdt "github.com/ipfs/go-ds-crdt"
+	format "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
 	ic "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -23,9 +24,10 @@ import (
 )
 
 var (
-	log             = logging.Logger("replication")
-	syncMtx         sync.Mutex
-	checkMembership func(string, []byte) bool
+	log                = logging.Logger("replication")
+	syncMtx            sync.Mutex
+	checkMembership    func(string, []byte) bool
+	getContentMetadata func(groupID string) ([]*ContentMetatag, error)
 )
 
 const (
@@ -45,6 +47,7 @@ type ContentMetatag struct {
 	Owner       peer.ID
 	IsEncrypted bool
 	Group       string `json:"omitempty"`
+	Links       []*format.Link
 }
 
 // Manager handles replication
@@ -101,18 +104,24 @@ func New(
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
-		if strings.HasPrefix(k.String(), groupPrefix) {
-			groupID := k.List()[1]
-			memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
-			key, err := pubKeyGetter.PubKey(h.ID()).Raw()
-			if err != nil {
-				log.Errorf("Pubkey failed %s\n", err.Error())
+		if strings.HasPrefix(k.String(), groupMemberPrefix) {
+			groupID := k.List()[2]
+			userID := k.List()[1]
+			if h.ID().String() != userID {
 				return
 			}
-			isMember := checkMembership(memberTag, key)
+			indexes, err := getContentMetadata(groupID)
+			if err != nil {
+				log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+				return
+			}
+			deltas := []string{}
+			for _, v := range indexes {
+				deltas = append(deltas, v.Tag)
+			}
 			syncMtx.Lock()
 			sk := r.StateKeeper()
-			_, err = sk.AddOrUpdateState(groupID, isMember, nil)
+			_, err = sk.AddOrUpdateState(groupID, true, deltas)
 			if err != nil {
 				log.Errorf("AddOrUpdateState failed %s\n", err.Error())
 			}
@@ -134,9 +143,12 @@ func New(
 				memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
 
 				isMember := checkMembership(memberTag, key)
+				if !isMember {
+					return
+				}
 				syncMtx.Lock()
 				sk := r.StateKeeper()
-				_, err = sk.AddOrUpdateState(groupID, isMember, []byte(m.Tag))
+				_, err = sk.AddOrUpdateState(groupID, isMember, []string{m.Tag})
 				if err != nil {
 					log.Errorf("AddOrUpdateState failed %s\n", err.Error())
 				}
@@ -180,6 +192,25 @@ func New(
 			return false
 		}
 		return base64.StdEncoding.EncodeToString(key) == string(memberPublicKey)
+	}
+
+	getContentMetadata = func(groupID string) ([]*ContentMetatag, error) {
+		q := query.Query{Prefix: fmt.Sprintf("%s/%s", groupIndexPrefix, groupID)}
+		r, err := crdtStore.Query(ctx, q)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
+		indexes := []*ContentMetatag{}
+		for j := range r.Next() {
+			meta := &ContentMetatag{}
+			err = json.Unmarshal(j.Entry.Value, meta)
+			if err != nil {
+				continue
+			}
+			indexes = append(indexes, meta)
+		}
+		return indexes, nil
 	}
 
 	return &Manager{
@@ -356,7 +387,7 @@ func (m *Manager) StartContentWatcher() {
 							mat.ContentDownloadFinished(id.String())
 							syncMtx.Lock()
 							sk := m.repo.StateKeeper()
-							_, err := sk.AddOrUpdateState(meta.Group, true, []byte(meta.Tag))
+							_, err := sk.AddOrUpdateState(meta.Group, true, []string{meta.Tag})
 							if err != nil {
 								log.Errorf("AddOrUpdateState failed %s\n", err.Error())
 							}

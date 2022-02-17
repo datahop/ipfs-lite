@@ -738,6 +738,24 @@ func GetTags() ([]byte, error) {
 	return nil, ErrNodeNotRunning
 }
 
+// Index gets all content metatags from the store
+func Index() (string, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		tags, err := hop.comm.Node.ReplManager().Index()
+		if err != nil {
+			return "", err
+		}
+		tagsBytes, err := json.Marshal(tags)
+		if err != nil {
+			return "", err
+		}
+		return string(tagsBytes), nil
+	}
+	return "", ErrNodeNotRunning
+}
+
 // Version of ipfs-lite
 func Version() string {
 	return version.MobileVersion

@@ -60,6 +60,7 @@ func (I *IPFSNode) AddDir(ctx context.Context, dir string, info *store.Info) (st
 		Owner:       I.peer.Host.ID(),
 		Tag:         info.Tag,
 		IsEncrypted: info.IsEncrypted,
+		Links:       n.Links(),
 	}
 	err = I.peer.Manager.Tag(info.Tag, meta)
 	if err != nil {
@@ -203,6 +204,7 @@ func (I *IPFSNode) GroupAddDir(ctx context.Context, dir string, info *store.Info
 		Tag:         info.Tag,
 		IsEncrypted: info.IsEncrypted,
 		Group:       groupIDString,
+		Links:       n.Links(),
 	}
 	err = I.peer.Manager.GroupAddContent(I.peer.Host.ID(), groupID, I.GetPrivKey(), meta)
 	if err != nil {
