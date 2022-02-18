@@ -1079,7 +1079,7 @@ func TestGroupStateOnContentAdd(t *testing.T) {
 	}
 
 	<-time.After(time.Second * 5)
-	f2, err := comm1.Repo.StateKeeper().GetState(group)
+	_, err = comm1.Repo.StateKeeper().GetState(group)
 	if err == nil {
 		t.Fatal("error should be nil")
 	}
@@ -1090,7 +1090,7 @@ func TestGroupStateOnContentAdd(t *testing.T) {
 	}
 	<-time.After(time.Second * 5)
 
-	f2, err = comm1.Repo.StateKeeper().GetState(group)
+	f2, err := comm1.Repo.StateKeeper().GetState(group)
 	if err != nil {
 		t.Fatal("error should not be nil ", err)
 	}
