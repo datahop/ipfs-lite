@@ -7,6 +7,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/datahop/ipfs-lite/internal/security"
 	"github.com/datahop/ipfs-lite/pkg/store"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -24,6 +25,8 @@ type Node interface {
 	IsOnline() bool
 	ReplManager() *replication.Manager
 	IsPeerConnected(string) bool
+	GetPrivKey() crypto.PrivKey
+	GetPubKey(id peer.ID) crypto.PubKey
 
 	store.Store
 }

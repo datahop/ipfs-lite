@@ -359,7 +359,7 @@ func TestState(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		meta := &replication.Metatag{
+		meta := &replication.ContentMetatag{
 			Size:      int64(len(content)),
 			Type:      filetype.Unknown.Extension,
 			Name:      fmt.Sprintf("tag%d", i),
@@ -397,7 +397,7 @@ func TestStateDualPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	meta := &replication.Metatag{
+	meta := &replication.ContentMetatag{
 		Size:      int64(len(content)),
 		Type:      filetype.Unknown.Extension,
 		Name:      "tag",
@@ -417,7 +417,7 @@ func TestStateDualPeer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		meta := &replication.Metatag{
+		meta := &replication.ContentMetatag{
 			Size:      int64(len(content)),
 			Type:      filetype.Unknown.Extension,
 			Name:      fmt.Sprintf("tag%d", i),

@@ -5,11 +5,11 @@ package datahop
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +36,12 @@ var (
 	hop      *datahop
 
 	mtx sync.Mutex
+
+	ErrNodeNotRunning       = fmt.Errorf("datahop is not initialised yet")
+	ErrBlankGroupKey        = fmt.Errorf("private network secret cannot be blank")
+	ErrAdvScan              = fmt.Errorf("no advertising and no scanning enabled")
+	ErrDisc                 = fmt.Errorf("discovery service is not initialised")
+	ErrEncryptionPassphrase = fmt.Errorf("encryption passphrase cannot be blank")
 )
 
 const (
@@ -179,13 +185,13 @@ func state() ([]byte, error) {
 
 // FilterFromState returns the bloom filter from state
 func FilterFromState() (string, error) {
-	byt, err := state()
+	byt, _ := state()
 	var dat map[string]interface{}
 	if err := json.Unmarshal(byt, &dat); err != nil {
 		return "", err
 	}
 	filter := dat["b"].(string)
-	return filter, err
+	return filter, nil
 }
 
 // DiskUsage returns number of bytes stored in the datastore
@@ -206,7 +212,7 @@ type StartsOpts struct {
 // Start an ipfslite node in a go routine
 func Start(bootstrap bool) error {
 	if hop == nil {
-		return errors.New("start failed. datahop not initialised")
+		return ErrNodeNotRunning
 	}
 	mtx.Lock()
 	defer mtx.Unlock()
@@ -241,11 +247,11 @@ func Start(bootstrap bool) error {
 // StartPrivate starts an ipfslite node in a private network with provided swarmkey
 func StartPrivate(swarmKey string) error {
 	if swarmKey == "" {
-		return errors.New("invalid group key")
+		return ErrBlankGroupKey
 	}
 
 	if hop == nil {
-		return errors.New("start failed. datahop not initialised")
+		return ErrNodeNotRunning
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -286,9 +292,7 @@ type DiscoveryOpts struct {
 // StartDiscovery starts BLE discovery
 func StartDiscovery(opts DiscoveryOpts) error {
 	mtx.Lock()
-	defer func() {
-		mtx.Unlock()
-	}()
+	defer mtx.Unlock()
 
 	if hop != nil {
 		if hop.discService != nil {
@@ -331,11 +335,11 @@ func StartDiscovery(opts DiscoveryOpts) error {
 				log.Debug("Started discovery only scanning")
 				return nil
 			}
-			return errors.New("no advertising and no scanning enabled")
+			return ErrAdvScan
 		}
-		return errors.New("discovery service is not initialised")
+		return ErrDisc
 	}
-	return errors.New("datahop service is not initialised")
+	return ErrNodeNotRunning
 }
 
 func startCRDTStateWatcher() error {
@@ -460,7 +464,7 @@ func StopDiscovery() error {
 		}()
 		return hop.discService.close()
 	}
-	return errors.New("discovery service is not initialised")
+	return ErrDisc
 }
 
 // ConnectWithAddress Connects to a given peer address
@@ -642,7 +646,42 @@ func Add(tag string, content []byte, passphrase string) error {
 		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
 		return nil
 	}
-	return errors.New("datahop ipfs-lite node is not running")
+	return ErrNodeNotRunning
+}
+
+// AddDir adds a directory in the store
+func AddDir(tag string, path string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		filePath := path
+		fileinfo, err := os.Lstat(filePath)
+		if err != nil {
+			log.Errorf("Failed executing find file path Err:%s", err.Error())
+			return err
+		}
+		info := &store.Info{
+			Tag:         tag,
+			Type:        "directory",
+			Name:        tag,
+			IsEncrypted: false,
+			Size:        fileinfo.Size(),
+		}
+		id, err := hop.comm.Node.AddDir(hop.ctx, filePath, info)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		bf, err := FilterFromState()
+		if err != nil {
+			log.Error("Unable to filter state")
+			return err
+		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, bf)
+		return nil
+	}
+	return ErrNodeNotRunning
 }
 
 // Get gets a record from the store by given tag
@@ -658,7 +697,7 @@ func Get(tag string, passphrase string) ([]byte, error) {
 		if info.IsEncrypted {
 			if passphrase == "" {
 				log.Error("passphrase is empty")
-				return nil, errors.New("passphrase is empty")
+				return nil, ErrEncryptionPassphrase
 			}
 			buf := bytes.NewBuffer(nil)
 			_, err = io.Copy(buf, r)
@@ -679,7 +718,7 @@ func Get(tag string, passphrase string) ([]byte, error) {
 		}
 		return content, nil
 	}
-	return nil, errors.New("datahop ipfs-lite node is not running")
+	return nil, ErrNodeNotRunning
 }
 
 // GetTags gets all the tags from the store
@@ -696,7 +735,25 @@ func GetTags() ([]byte, error) {
 		}
 		return proto.Marshal(allTags)
 	}
-	return nil, errors.New("datahop ipfs-lite node is not running")
+	return nil, ErrNodeNotRunning
+}
+
+// Index gets all content metatags from the store
+func Index() (string, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		tags, err := hop.comm.Node.ReplManager().Index()
+		if err != nil {
+			return "", err
+		}
+		tagsBytes, err := json.Marshal(tags)
+		if err != nil {
+			return "", err
+		}
+		return string(tagsBytes), nil
+	}
+	return "", ErrNodeNotRunning
 }
 
 // Version of ipfs-lite
@@ -737,7 +794,7 @@ func Matrix() (string, error) {
 		}
 		return string(b), nil
 	}
-	return "", errors.New("datahop ipfs-lite node is not running")
+	return "", ErrNodeNotRunning
 }
 
 func DownloadsInProgress() int {
@@ -764,21 +821,191 @@ func GetWifiConnectionNotifier() WifiConnectionNotifier {
 	return hop.discService
 }
 
-func AddContent() {
-	go func() {
-		stepsLog.Debug("AddContent: starting adding a gb content")
-		contentLength := 10000000
-		content := make([]byte, contentLength)
-		_, err := rand.Read(content)
+// Groups
+
+// CreateGroup
+func CreateGroup(name string) (string, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		m := hop.comm.Node.ReplManager()
+		gm, err := m.CreateGroup(name, hop.comm.Node.AddrInfo().ID, hop.comm.Node.GetPrivKey())
 		if err != nil {
-			stepsLog.Error("AddContent: content creation failed :", err)
-			return
+			return "", err
 		}
-		err = Add(time.Now().String(), content, "")
+		return gm.GroupID.String(), nil
+	}
+	return "", ErrNodeNotRunning
+}
+
+// CreateOpenGroup
+func CreateOpenGroup(name string) (string, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		m := hop.comm.Node.ReplManager()
+		gm, err := m.CreateOpenGroup(name, hop.comm.Node.AddrInfo().ID, hop.comm.Node.GetPrivKey())
 		if err != nil {
-			stepsLog.Error("AddContent: content addition failed : ", err.Error())
-			return
+			return "", err
 		}
-		stepsLog.Debug("AddContent: added a gb content")
-	}()
+		return gm.GroupID.String(), nil
+	}
+	return "", ErrNodeNotRunning
+}
+
+// AddMember
+func AddMember(peerID, groupIDString string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		newPeerId, err := peer.Decode(peerID)
+		if err != nil {
+			return err
+		}
+		groupID, err := peer.Decode(groupIDString)
+		if err != nil {
+			return err
+		}
+		nemMemberPubKey := hop.comm.Node.GetPubKey(newPeerId)
+
+		m := hop.comm.Node.ReplManager()
+		return m.GroupAddMember(hop.comm.Node.AddrInfo().ID, newPeerId, groupID, hop.comm.Node.GetPrivKey(), nemMemberPubKey)
+	}
+	return ErrNodeNotRunning
+}
+
+// GetAllGroups
+func GetAllGroups() ([]byte, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		addrs := []string{}
+		m := hop.comm.Node.ReplManager()
+		groups, err := m.GroupGetAllGroups(hop.comm.Node.AddrInfo().ID, hop.comm.Node.GetPrivKey())
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range groups {
+			addrs = append(addrs, v.GroupID.String())
+		}
+		addrsOP := &types.StringSlice{
+			Output: addrs,
+		}
+		return proto.Marshal(addrsOP)
+	}
+	return nil, ErrNodeNotRunning
+}
+
+// GetGroupName
+func GetGroupName(peerID, groupIDString string) (string, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		groupID, err := peer.Decode(groupIDString)
+		if err != nil {
+			return "", err
+		}
+		m := hop.comm.Node.ReplManager()
+		info, err := m.GroupGetInfo(hop.comm.Node.AddrInfo().ID, groupID, hop.comm.Node.GetPrivKey())
+		if err != nil {
+			return "", err
+		}
+		return info.Name, nil
+	}
+	return "", ErrNodeNotRunning
+}
+
+// GetAllContent
+// AddContent
+
+// GroupAdd adds a record in a group
+func GroupAdd(tag string, content []byte, passphrase, groupID string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		var buf *bytes.Reader
+		shouldEncrypt := true
+		if passphrase == "" {
+			shouldEncrypt = false
+		}
+		if shouldEncrypt {
+			byteContent, err := hop.comm.Encryption.EncryptContent(content, passphrase)
+			if err != nil {
+				log.Errorf("Encryption failed :%s", err.Error())
+				return err
+			}
+			buf = bytes.NewReader(byteContent)
+		} else {
+			buf = bytes.NewReader(content)
+		}
+		kind, _ := filetype.Match(content)
+		info := &store.Info{
+			Tag:         tag,
+			Type:        kind.MIME.Value,
+			Name:        tag,
+			IsEncrypted: shouldEncrypt,
+			Size:        int64(len(content)),
+		}
+		id, err := hop.comm.Node.GroupAdd(hop.ctx, buf, info, groupID)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		sk := hop.comm.Repo.StateKeeper()
+		st, err := sk.GetState(groupID)
+		if err != nil {
+			return err
+		}
+		if st != nil {
+			f, _ := st.Filter.MarshalJSON()
+			var data map[string]interface{}
+			if err := json.Unmarshal(f, &data); err != nil {
+				return err
+			}
+			hop.discService.AddAdvertisingInfo(CRDTStatus, data["b"].(string))
+		}
+		return nil
+	}
+	return ErrNodeNotRunning
+}
+
+// GroupAddDir adds a directory in a group
+func GroupAddDir(tag, path, groupID string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	if hop != nil && hop.comm != nil {
+		filePath := path
+		fileinfo, err := os.Lstat(filePath)
+		if err != nil {
+			log.Errorf("Failed executing find file path Err:%s", err.Error())
+			return err
+		}
+		info := &store.Info{
+			Tag:         tag,
+			Type:        "directory",
+			Name:        tag,
+			IsEncrypted: false,
+			Size:        fileinfo.Size(),
+		}
+		id, err := hop.comm.Node.GroupAddDir(hop.ctx, filePath, info, groupID)
+		if err != nil {
+			return err
+		}
+		log.Infof("tag %s : hash %s", tag, id)
+		// Update advertise info
+		sk := hop.comm.Repo.StateKeeper()
+		st, err := sk.GetState(groupID)
+		if err != nil {
+			return err
+		}
+		f, _ := st.Filter.MarshalJSON()
+		var data map[string]interface{}
+		if err := json.Unmarshal(f, &data); err != nil {
+			return err
+		}
+		hop.discService.AddAdvertisingInfo(CRDTStatus, data["b"].(string))
+		return nil
+	}
+	return ErrNodeNotRunning
 }

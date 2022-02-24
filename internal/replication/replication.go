@@ -2,7 +2,10 @@ package replication
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,7 +14,9 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
 	crdt "github.com/ipfs/go-ds-crdt"
+	format "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
+	ic "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -19,12 +24,20 @@ import (
 )
 
 var (
-	log     = logging.Logger("replication")
-	syncMtx sync.Mutex
+	log                = logging.Logger("replication")
+	syncMtx            sync.Mutex
+	checkMembership    func(string, []byte) bool
+	getContentMetadata func(groupID string) ([]*ContentMetatag, error)
 )
 
-// Metatag keeps meta information of a content in the crdt store
-type Metatag struct {
+const (
+	groupPrefix       = "/groups"
+	groupMemberPrefix = "/group-member"
+	groupIndexPrefix  = "/group-index"
+)
+
+// ContentMetatag keeps meta information of a content in the crdt store
+type ContentMetatag struct {
 	Tag         string
 	Size        int64
 	Type        string
@@ -33,24 +46,32 @@ type Metatag struct {
 	Timestamp   int64
 	Owner       peer.ID
 	IsEncrypted bool
+	Group       string `json:"omitempty"`
+	Links       []*format.Link
 }
 
 // Manager handles replication
 type Manager struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	crdt   *crdt.Datastore
-	syncer Syncer
-	repo   repo.Repo
+	ctx          context.Context
+	cancel       context.CancelFunc
+	crdt         *crdt.Datastore
+	syncer       Syncer
+	pubKeyGetter PubKeyGetter
+	repo         repo.Repo
 
 	dlManager *taskmanager.TaskManager
-	download  chan Metatag
+	download  chan ContentMetatag
 }
 
 // Syncer gets the file and finds file provider from the network
 type Syncer interface {
 	Download(context.Context, cid.Cid) error
 	FindProviders(context.Context, cid.Cid) []peer.ID
+}
+
+// PubKeyGetter
+type PubKeyGetter interface {
+	PubKey(peer.ID) ic.PubKey
 }
 
 // New creates a new replication manager
@@ -65,6 +86,8 @@ func New(
 	topic string,
 	broadcastInterval time.Duration,
 	syncer Syncer,
+	pubKeyGetter PubKeyGetter,
+	autoDownload bool,
 ) (*Manager, error) {
 	psub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
@@ -75,29 +98,78 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	contentChan := make(chan Metatag)
+	contentChan := make(chan ContentMetatag)
 	crdtOpts := crdt.DefaultOptions()
 	crdtOpts.Logger = log
 	crdtOpts.RebroadcastInterval = broadcastInterval
 	crdtOpts.PutHook = func(k datastore.Key, v []byte) {
 		log.Debugf("CRDT Replication :: Added Key: [%s] -> Value: %s\n", k, string(v))
-		m := &Metatag{}
-		err := json.Unmarshal(v, m)
-		if err != nil {
-			log.Error(err.Error())
-			return
-		}
-		if h.ID() != m.Owner {
-			contentChan <- *m
-		} else {
-			syncMtx.Lock()
-			state := r.State().Add([]byte(m.Tag))
-			log.Debugf("New State: %d\n", state)
-			err := r.SetState()
+		if strings.HasPrefix(k.String(), groupMemberPrefix) {
+			groupID := k.List()[2]
+			userID := k.List()[1]
+			if h.ID().String() != userID {
+				return
+			}
+			indexes, err := getContentMetadata(groupID)
 			if err != nil {
-				log.Errorf("SetState failed %s\n", err.Error())
+				log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+				return
+			}
+			deltas := []string{}
+			for _, v := range indexes {
+				deltas = append(deltas, v.Tag)
+			}
+			syncMtx.Lock()
+			sk := r.StateKeeper()
+			_, err = sk.AddOrUpdateState(groupID, true, deltas)
+			if err != nil {
+				log.Errorf("AddOrUpdateState failed %s\n", err.Error())
 			}
 			syncMtx.Unlock()
+		}
+		if !strings.HasPrefix(k.String(), groupMemberPrefix) && !strings.HasPrefix(k.String(), groupPrefix) {
+			m := &ContentMetatag{}
+			err := json.Unmarshal(v, m)
+			if err != nil {
+				log.Error(err.Error())
+				return
+			}
+			if strings.HasPrefix(k.String(), groupIndexPrefix) {
+				groupID := k.List()[1]
+				key, err := pubKeyGetter.PubKey(h.ID()).Raw()
+				if err != nil {
+					return
+				}
+				memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, h.ID().String(), groupID)
+
+				isMember := checkMembership(memberTag, key)
+				if !isMember {
+					return
+				}
+				syncMtx.Lock()
+				sk := r.StateKeeper()
+				_, err = sk.AddOrUpdateState(groupID, isMember, []string{m.Tag})
+				if err != nil {
+					log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+				}
+				syncMtx.Unlock()
+				if !isMember {
+					return
+				}
+			}
+
+			if h.ID() != m.Owner && autoDownload {
+				contentChan <- *m
+			} else {
+				syncMtx.Lock()
+				state := r.State().Add([]byte(m.Tag))
+				log.Debugf("New State: %d\n", state)
+				err := r.SetState()
+				if err != nil {
+					log.Errorf("SetState failed %s\n", err.Error())
+				}
+				syncMtx.Unlock()
+			}
 		}
 	}
 	crdtOpts.DeleteHook = func(k datastore.Key) {
@@ -114,14 +186,42 @@ func New(
 		return nil, err
 	}
 
+	checkMembership = func(memberTag string, key []byte) bool {
+		memberPublicKey, err := crdtStore.Get(ctx, datastore.NewKey(memberTag))
+		if err != nil {
+			return false
+		}
+		return base64.StdEncoding.EncodeToString(key) == string(memberPublicKey)
+	}
+
+	getContentMetadata = func(groupID string) ([]*ContentMetatag, error) {
+		q := query.Query{Prefix: fmt.Sprintf("%s/%s", groupIndexPrefix, groupID)}
+		r, err := crdtStore.Query(ctx, q)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
+		indexes := []*ContentMetatag{}
+		for j := range r.Next() {
+			meta := &ContentMetatag{}
+			err = json.Unmarshal(j.Entry.Value, meta)
+			if err != nil {
+				continue
+			}
+			indexes = append(indexes, meta)
+		}
+		return indexes, nil
+	}
+
 	return &Manager{
-		ctx:       ctx,
-		crdt:      crdtStore,
-		download:  contentChan,
-		syncer:    syncer,
-		cancel:    cancel,
-		repo:      r,
-		dlManager: taskmanager.New(1, 100, time.Second*15, log),
+		ctx:          ctx,
+		crdt:         crdtStore,
+		download:     contentChan,
+		syncer:       syncer,
+		pubKeyGetter: pubKeyGetter,
+		cancel:       cancel,
+		repo:         r,
+		dlManager:    taskmanager.New(1, 100, time.Second*15, log),
 	}, nil
 }
 
@@ -135,7 +235,7 @@ func (m *Manager) Close() error {
 }
 
 // Tag a given meta info in the store
-func (m *Manager) Tag(tag string, meta *Metatag) error {
+func (m *Manager) Tag(tag string, meta *ContentMetatag) error {
 	bMeta, err := json.Marshal(meta)
 	if err != nil {
 		return err
@@ -148,12 +248,12 @@ func (m *Manager) Tag(tag string, meta *Metatag) error {
 }
 
 // FindTag gets the meta info of a given tag from the store
-func (m *Manager) FindTag(tag string) (*Metatag, error) {
+func (m *Manager) FindTag(tag string) (*ContentMetatag, error) {
 	b, err := m.Get(datastore.NewKey(tag))
 	if err != nil {
 		return nil, err
 	}
-	meta := &Metatag{}
+	meta := &ContentMetatag{}
 	err = json.Unmarshal(b, meta)
 	if err != nil {
 		return nil, err
@@ -162,15 +262,15 @@ func (m *Manager) FindTag(tag string) (*Metatag, error) {
 }
 
 // Index returns the tag-mata info as key:value
-func (m *Manager) Index() (map[string]*Metatag, error) {
-	indexes := map[string]*Metatag{}
+func (m *Manager) Index() (map[string]*ContentMetatag, error) {
+	indexes := map[string]*ContentMetatag{}
 	r, err := m.crdt.Query(context.Background(), query.Query{})
 	if err != nil {
 		return indexes, err
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		m := &Metatag{}
+		m := &ContentMetatag{}
 		err := json.Unmarshal(j.Entry.Value, m)
 		if err != nil {
 			continue
@@ -203,7 +303,7 @@ func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	}
 	defer r.Close()
 	for j := range r.Next() {
-		meta := &Metatag{}
+		meta := &ContentMetatag{}
 		err = json.Unmarshal(j.Entry.Value, meta)
 		if err != nil {
 			continue
@@ -239,26 +339,23 @@ func (m *Manager) StartUnfinishedDownload(pid peer.ID) {
 
 // Put stores the object `value` named by `key`.
 func (m *Manager) Put(key datastore.Key, v []byte) error {
-	return m.crdt.Put(context.Background(), key, v)
+	return m.crdt.Put(m.ctx, key, v)
 }
 
 // Delete removes the value for given `key`.
 func (m *Manager) Delete(key datastore.Key) error {
-	return m.crdt.Delete(context.Background(), key)
+	return m.crdt.Delete(m.ctx, key)
 }
 
 // Get retrieves the object `value` named by `key`.
 // Get will return ErrNotFound if the key is not mapped to a value.
 func (m *Manager) Get(key datastore.Key) ([]byte, error) {
-	return m.crdt.Get(context.Background(), key)
+	return m.crdt.Get(m.ctx, key)
 }
 
 // Has returns whether the `key` is mapped to a `value`.
-// In some contexts, it may be much cheaper only to check for existence of
-// a value, rather than retrieving the value itself. (e.g. HTTP HEAD).
-// The default implementation is found in `GetBackedHas`.
 func (m *Manager) Has(key datastore.Key) (bool, error) {
-	return m.crdt.Has(context.Background(), key)
+	return m.crdt.Has(m.ctx, key)
 }
 
 // StartContentWatcher watches on incoming contents and gets content in datastore
@@ -284,17 +381,32 @@ func (m *Manager) StartContentWatcher() {
 					//	return
 					//}
 					ctx, cancel := context.WithCancel(m.ctx)
-					cb := func() {
-						mat.ContentDownloadFinished(id.String())
-						syncMtx.Lock()
-						state := m.repo.State().Add([]byte(meta.Tag))
-						log.Debugf("New State: %d\n", state)
-						err := m.repo.SetState()
-						if err != nil {
-							log.Errorf("SetState failed %s\n", err.Error())
+					var cb func()
+					if meta.Group != "" {
+						cb = func() {
+							mat.ContentDownloadFinished(id.String())
+							syncMtx.Lock()
+							sk := m.repo.StateKeeper()
+							_, err := sk.AddOrUpdateState(meta.Group, true, []string{meta.Tag})
+							if err != nil {
+								log.Errorf("AddOrUpdateState failed %s\n", err.Error())
+							}
+							syncMtx.Unlock()
 						}
-						syncMtx.Unlock()
+					} else {
+						cb = func() {
+							mat.ContentDownloadFinished(id.String())
+							syncMtx.Lock()
+							state := m.repo.State().Add([]byte(meta.Tag))
+							log.Debugf("New State: %d\n", state)
+							err := m.repo.SetState()
+							if err != nil {
+								log.Errorf("SetState failed %s\n", err.Error())
+							}
+							syncMtx.Unlock()
+						}
 					}
+
 					t := newDownloaderTask(ctx, cancel, meta, m.syncer, cb)
 					done, err := m.dlManager.Go(t)
 					if err != nil {
@@ -317,12 +429,12 @@ func (m *Manager) StartContentWatcher() {
 type DownloaderTask struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
-	metatag  Metatag
+	metatag  ContentMetatag
 	syncer   Syncer
 	callback func()
 }
 
-func newDownloaderTask(ctx context.Context, cancel context.CancelFunc, metatag Metatag, syncer Syncer, cb func()) *DownloaderTask {
+func newDownloaderTask(ctx context.Context, cancel context.CancelFunc, metatag ContentMetatag, syncer Syncer, cb func()) *DownloaderTask {
 	return &DownloaderTask{
 		ctx:      ctx,
 		cancel:   cancel,

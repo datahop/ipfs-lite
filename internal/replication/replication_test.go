@@ -75,6 +75,7 @@ type mockRepo struct {
 	path  string
 	state *bloom.BloomFilter
 	ds    repo.Datastore
+	sk    *repo.StateKeeper
 }
 
 func (m *mockRepo) Path() string {
@@ -103,12 +104,16 @@ func (m *mockRepo) Close() error {
 	return nil
 }
 
-func (m mockRepo) State() *bloom.BloomFilter {
+func (m *mockRepo) State() *bloom.BloomFilter {
 	return m.state
 }
 
-func (m mockRepo) SetState() error {
+func (m *mockRepo) SetState() error {
 	return nil
+}
+
+func (m *mockRepo) StateKeeper() *repo.StateKeeper {
+	return m.sk
 }
 
 type mockDownload struct {
@@ -158,7 +163,7 @@ func TestNewManager(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +173,7 @@ func TestNewManager(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.StartContentWatcher()
-	meta := &Metatag{
+	meta := &ContentMetatag{
 		Size:      0,
 		Type:      filetype.Unknown.Extension,
 		Name:      "some content",
@@ -223,7 +228,7 @@ func TestDownloadManager(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +286,7 @@ func TestGetAllCids(t *testing.T) {
 	ds := &mockDAGSyncer{}
 	sy := &mockSyncer{}
 	childCtx, childCancel := context.WithCancel(ctx)
-	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy)
+	m, err := New(childCtx, childCancel, r, h, ds, r.Datastore(), "/prefix", "topic", time.Second, sy, h.Peerstore(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +303,7 @@ func TestGetAllCids(t *testing.T) {
 	}
 
 	m.StartContentWatcher()
-	meta1 := &Metatag{
+	meta1 := &ContentMetatag{
 		Size:      0,
 		Type:      filetype.Unknown.Extension,
 		Name:      "mtag1",
@@ -306,7 +311,7 @@ func TestGetAllCids(t *testing.T) {
 		Timestamp: time.Now().Unix(),
 		Owner:     h.ID(),
 	}
-	meta2 := &Metatag{
+	meta2 := &ContentMetatag{
 		Size:      0,
 		Type:      filetype.Unknown.Extension,
 		Name:      "mtag2",

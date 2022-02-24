@@ -64,12 +64,12 @@ Example:
 			filePath := args[0]
 			fileinfo, err := os.Lstat(filePath)
 			if err != nil {
-				log.Errorf("Failed executing share command Err:%s", err.Error())
+				log.Errorf("Failed executing add command Err:%s", err.Error())
 				return err
 			}
 			f, err := os.Open(filePath)
 			if err != nil {
-				log.Errorf("Failed executing share command Err:%s", err.Error())
+				log.Errorf("Failed executing add command Err:%s", err.Error())
 				return err
 			}
 			defer f.Close()
@@ -139,5 +139,55 @@ Example:
 		"Tag for the file/content")
 	addCommand.Flags().String("passphrase", "",
 		"Passphrase to encrypt content")
+	return addCommand
+}
+
+// InitAddDirCmd creates the add command
+func InitAddDirCmd(comm *ipfslite.Common) *cobra.Command {
+	addCommand := &cobra.Command{
+		Use:   "addDir",
+		Short: "Add directory into datahop network",
+		Long: `
+This command is used to add a directory in the 
+datahop network addressable by a given tag.
+		`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if comm.Node == nil || !comm.Node.IsOnline() {
+				return errors.New("daemon not running")
+			}
+			filePath := args[0]
+			fileinfo, err := os.Lstat(filePath)
+			if err != nil {
+				log.Errorf("Failed executing add command Err:%s", err.Error())
+				return err
+			}
+
+			tag, _ := cmd.Flags().GetString("tag")
+			if tag == "" {
+				tag = filepath.Base(fileinfo.Name())
+			}
+			info := &store.Info{
+				Tag:         tag,
+				Type:        "directory",
+				Name:        filepath.Base(fileinfo.Name()),
+				IsEncrypted: false,
+				Size:        fileinfo.Size(),
+			}
+			id, err := comm.Node.AddDir(comm.Context, filePath, info)
+			if err != nil {
+				return err
+			}
+			_ = id
+			// TODO: show the id
+			err = out.Print(cmd, info, parseFormat(cmd))
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	addCommand.Flags().StringP("tag", "t", "",
+		"Tag for the content")
 	return addCommand
 }

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	gopath "path"
-	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -20,6 +19,7 @@ import (
 	ipfspath "github.com/ipfs/go-path"
 	"github.com/ipfs/go-path/resolver"
 	unixfile "github.com/ipfs/go-unixfs/file"
+	"github.com/ipfs/go-unixfsnode"
 	"github.com/ipfs/interface-go-ipfs-core/path"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	pipld "github.com/ipld/go-ipld-prime"
@@ -80,11 +80,6 @@ func (i *GatewayHandler) getOrHeadHandler(w http.ResponseWriter, r *http.Request
 	urlPath := r.URL.Path
 	escapedURLPath := r.URL.EscapedPath()
 
-	// HostnameOption might have constructed an IPNS/IPFS path using the Host header.
-	// In this case, we need the original path for constructing redirects
-	// and links that match the requested URL.
-	// For example, http://example.net would become /ipns/example.net, and
-	// the redirects and links would end up as http://example.net/ipns/example.net
 	requestURI, err := url.ParseRequestURI(r.RequestURI)
 	if err != nil {
 		webError(w, "failed to parse request path", err, http.StatusInternalServerError)
@@ -92,17 +87,6 @@ func (i *GatewayHandler) getOrHeadHandler(w http.ResponseWriter, r *http.Request
 	}
 	originalUrlPath := requestURI.Path
 	log.Debug("originalUrlPath ", originalUrlPath)
-	// Service Worker registration request
-	if r.Header.Get("Service-Worker") == "script" {
-		// Disallow Service Worker registration on namespace roots
-		// https://github.com/ipfs/go-ipfs/issues/4025
-		matched, _ := regexp.MatchString(`^/ip[fn]s/[^/]+$`, r.URL.Path)
-		if matched {
-			err := fmt.Errorf("registration is not allowed for this scope")
-			webError(w, "navigator.serviceWorker", err, http.StatusBadRequest)
-			return
-		}
-	}
 
 	parsedPath := path.New(urlPath)
 	log.Debug("parsedPath ", parsedPath)
@@ -207,7 +191,7 @@ func (i *GatewayHandler) ResolvePath(ctx context.Context, p path.Path) (path.Res
 	}
 
 	ip := ipfspath.Path(p.String())
-	if ip.Segments()[0] != "ipfs" && ip.Segments()[0] != "ipld" {
+	if ip.Segments()[0] != "ipfs" {
 		return nil, fmt.Errorf("unsupported path namespace: %s", p.Namespace())
 	}
 
@@ -218,7 +202,9 @@ func (i *GatewayHandler) ResolvePath(ctx context.Context, p path.Path) (path.Res
 		}
 		return basicnode.Prototype.Any, nil
 	})
-	r := resolver.NewBasicResolver(ipldFetcher)
+	unixFSFetcher := ipldFetcher.WithReifier(unixfsnode.Reify)
+
+	r := resolver.NewBasicResolver(unixFSFetcher)
 
 	node, rest, err := r.ResolveToLastNode(ctx, ip)
 	if err != nil {

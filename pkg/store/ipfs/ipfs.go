@@ -9,6 +9,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -28,7 +29,7 @@ func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) 
 	if err != nil {
 		return "", err
 	}
-	meta := &replication.Metatag{
+	meta := &replication.ContentMetatag{
 		Size:        info.Size,
 		Type:        info.Type,
 		Name:        info.Name,
@@ -37,6 +38,29 @@ func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) 
 		Owner:       I.peer.Host.ID(),
 		Tag:         info.Tag,
 		IsEncrypted: info.IsEncrypted,
+	}
+	err = I.peer.Manager.Tag(info.Tag, meta)
+	if err != nil {
+		return "", err
+	}
+	return n.Cid().String(), nil
+}
+
+func (I *IPFSNode) AddDir(ctx context.Context, dir string, info *store.Info) (string, error) {
+	n, err := I.peer.AddDir(ctx, dir, nil)
+	if err != nil {
+		return "", err
+	}
+	meta := &replication.ContentMetatag{
+		Size:        info.Size,
+		Type:        "directory",
+		Name:        info.Name,
+		Hash:        n.Cid(),
+		Timestamp:   time.Now().Unix(),
+		Owner:       I.peer.Host.ID(),
+		Tag:         info.Tag,
+		IsEncrypted: info.IsEncrypted,
+		Links:       n.Links(),
 	}
 	err = I.peer.Manager.Tag(info.Tag, meta)
 	if err != nil {
@@ -123,4 +147,68 @@ func (I *IPFSNode) ReplManager() *replication.Manager {
 func (I *IPFSNode) IsPeerConnected(id string) bool {
 	conn := I.peer.Host.Network().Connectedness(peer.ID(id))
 	return conn == network.Connected
+}
+
+func (I *IPFSNode) GetPrivKey() crypto.PrivKey {
+	return I.peer.Host.Peerstore().PrivKey(I.peer.Host.ID())
+}
+
+func (I *IPFSNode) GetPubKey(id peer.ID) crypto.PubKey {
+	return I.peer.Host.Peerstore().PubKey(id)
+}
+
+func (I *IPFSNode) GroupAdd(ctx context.Context, reader io.Reader, info *store.Info, groupIDString string) (string, error) {
+	groupID, err := peer.Decode(groupIDString)
+	if err != nil {
+		return "", err
+	}
+	n, err := I.peer.AddFile(ctx, reader, nil)
+	if err != nil {
+		return "", err
+	}
+	meta := &replication.ContentMetatag{
+		Size:        info.Size,
+		Type:        info.Type,
+		Name:        info.Name,
+		Hash:        n.Cid(),
+		Timestamp:   time.Now().Unix(),
+		Owner:       I.peer.Host.ID(),
+		Tag:         info.Tag,
+		IsEncrypted: info.IsEncrypted,
+		Group:       groupIDString,
+	}
+
+	err = I.peer.Manager.GroupAddContent(I.peer.Host.ID(), groupID, I.GetPrivKey(), meta)
+	if err != nil {
+		return "", err
+	}
+	return n.Cid().String(), nil
+}
+
+func (I *IPFSNode) GroupAddDir(ctx context.Context, dir string, info *store.Info, groupIDString string) (string, error) {
+	groupID, err := peer.Decode(groupIDString)
+	if err != nil {
+		return "", err
+	}
+	n, err := I.peer.AddDir(ctx, dir, nil)
+	if err != nil {
+		return "", err
+	}
+	meta := &replication.ContentMetatag{
+		Size:        info.Size,
+		Type:        "directory",
+		Name:        info.Name,
+		Hash:        n.Cid(),
+		Timestamp:   time.Now().Unix(),
+		Owner:       I.peer.Host.ID(),
+		Tag:         info.Tag,
+		IsEncrypted: info.IsEncrypted,
+		Group:       groupIDString,
+		Links:       n.Links(),
+	}
+	err = I.peer.Manager.GroupAddContent(I.peer.Host.ID(), groupID, I.GetPrivKey(), meta)
+	if err != nil {
+		return "", err
+	}
+	return n.Cid().String(), nil
 }
