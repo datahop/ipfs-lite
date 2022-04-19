@@ -187,7 +187,7 @@ func New(
 	}
 
 	checkMembership = func(memberTag string, key []byte) bool {
-		memberPublicKey, err := crdtStore.Get(ctx, datastore.NewKey(memberTag))
+		memberPublicKey, err := crdtStore.Get(datastore.NewKey(memberTag))
 		if err != nil {
 			return false
 		}
@@ -196,7 +196,7 @@ func New(
 
 	getContentMetadata = func(groupID string) ([]*ContentMetatag, error) {
 		q := query.Query{Prefix: fmt.Sprintf("%s/%s", groupIndexPrefix, groupID)}
-		r, err := crdtStore.Query(ctx, q)
+		r, err := crdtStore.Query(q)
 		if err != nil {
 			return nil, err
 		}
@@ -264,7 +264,7 @@ func (m *Manager) FindTag(tag string) (*ContentMetatag, error) {
 // Index returns the tag-mata info as key:value
 func (m *Manager) Index() (map[string]*ContentMetatag, error) {
 	indexes := map[string]*ContentMetatag{}
-	r, err := m.crdt.Query(context.Background(), query.Query{})
+	r, err := m.crdt.Query(query.Query{})
 	if err != nil {
 		return indexes, err
 	}
@@ -283,7 +283,7 @@ func (m *Manager) Index() (map[string]*ContentMetatag, error) {
 // GetAllTags returns all tags
 func (m *Manager) GetAllTags() ([]string, error) {
 	tags := []string{}
-	r, err := m.crdt.Query(context.Background(), query.Query{})
+	r, err := m.crdt.Query(query.Query{})
 	if err != nil {
 		return tags, err
 	}
@@ -297,7 +297,7 @@ func (m *Manager) GetAllTags() ([]string, error) {
 // GetAllCids returns all the cids in the crdt store
 func (m *Manager) GetAllCids() ([]cid.Cid, error) {
 	cids := []cid.Cid{}
-	r, err := m.crdt.Query(context.Background(), query.Query{})
+	r, err := m.crdt.Query(query.Query{})
 	if err != nil {
 		return cids, err
 	}
@@ -339,23 +339,23 @@ func (m *Manager) StartUnfinishedDownload(pid peer.ID) {
 
 // Put stores the object `value` named by `key`.
 func (m *Manager) Put(key datastore.Key, v []byte) error {
-	return m.crdt.Put(m.ctx, key, v)
+	return m.crdt.Put(key, v)
 }
 
 // Delete removes the value for given `key`.
 func (m *Manager) Delete(key datastore.Key) error {
-	return m.crdt.Delete(m.ctx, key)
+	return m.crdt.Delete(key)
 }
 
 // Get retrieves the object `value` named by `key`.
 // Get will return ErrNotFound if the key is not mapped to a value.
 func (m *Manager) Get(key datastore.Key) ([]byte, error) {
-	return m.crdt.Get(m.ctx, key)
+	return m.crdt.Get(key)
 }
 
 // Has returns whether the `key` is mapped to a `value`.
 func (m *Manager) Has(key datastore.Key) (bool, error) {
-	return m.crdt.Has(m.ctx, key)
+	return m.crdt.Has(key)
 }
 
 // StartContentWatcher watches on incoming contents and gets content in datastore

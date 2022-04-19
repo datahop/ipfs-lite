@@ -198,7 +198,7 @@ func FilterFromState() (string, error) {
 func DiskUsage() (int64, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
-	du, err := datastore.DiskUsage(hop.ctx, hop.comm.Repo.Datastore())
+	du, err := datastore.DiskUsage(hop.comm.Repo.Datastore())
 	if err != nil {
 		return 0, err
 	}
@@ -290,7 +290,7 @@ type DiscoveryOpts struct {
 }
 
 // StartDiscovery starts BLE discovery
-func StartDiscovery(opts DiscoveryOpts) error {
+func StartDiscovery(advertise, scan, autoDisconnect bool) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 
@@ -314,23 +314,23 @@ func StartDiscovery(opts DiscoveryOpts) error {
 					}
 				}
 			}()
-			if opts.AutoDisconnect {
+			if autoDisconnect {
 				err := startCRDTStateWatcher()
 				if err != nil {
 					log.Error("StartDiscovery: autoDisconnect: startCRDTStateWatcher failed ", err.Error())
 					return err
 				}
 			}
-			if opts.Advertise && opts.Scan {
+			if advertise && scan {
 				discService.Start()
 				log.Debug("Started discovery")
 				stepsLog.Debug("discoveryService started")
 				return nil
-			} else if opts.Advertise {
+			} else if advertise {
 				discService.StartOnlyAdvertising()
 				log.Debug("Started discovery only advertising")
 				return nil
-			} else if opts.Scan {
+			} else if scan {
 				discService.StartOnlyScanning()
 				log.Debug("Started discovery only scanning")
 				return nil

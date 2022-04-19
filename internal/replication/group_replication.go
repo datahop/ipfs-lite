@@ -92,7 +92,7 @@ func (m *Manager) CreateOpenGroup(name string, ownerID peer.ID, ownerPrivateKey 
 func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID, memberPrivateKey ic.PrivKey, newMemberPublicKey ic.PubKey) error {
 	// Check if the group is open
 	groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupID.String())
-	groupMetaBytes, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
+	groupMetaBytes, err := m.crdt.Get(datastore.NewKey(groupTag))
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 		return err
 	}
 	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, memberPeerId.String(), groupID.String())
-	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	memberPublicKey, err := m.crdt.Get(datastore.NewKey(memberTag))
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (m *Manager) GroupAddMember(memberPeerId, newMemberPeerId, groupID peer.ID,
 func (m *Manager) GroupGetInfo(memberPeerId, groupID peer.ID, memberPrivateKey ic.PrivKey) (*GroupMetadata, error) {
 	// Check if the group is open
 	groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupID.String())
-	groupMetaBytes, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
+	groupMetaBytes, err := m.crdt.Get(datastore.NewKey(groupTag))
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (m *Manager) GroupGetInfo(memberPeerId, groupID peer.ID, memberPrivateKey i
 		return nil, err
 	}
 	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, memberPeerId.String(), groupID.String())
-	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	memberPublicKey, err := m.crdt.Get(datastore.NewKey(memberTag))
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 	}
 	prefix := fmt.Sprintf("%s/%s", groupMemberPrefix, ownerID.String())
 	q := query.Query{Prefix: prefix}
-	r, err := m.crdt.Query(m.ctx, q)
+	r, err := m.crdt.Query(q)
 	if err != nil {
 		return groups, err
 	}
@@ -185,7 +185,7 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 		if base64.StdEncoding.EncodeToString(key) == string(j.Value) {
 			groupIDString := strings.Split(j.Key, "/")[3]
 			groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupIDString)
-			v, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
+			v, err := m.crdt.Get(datastore.NewKey(groupTag))
 			if err != nil {
 				continue
 			}
@@ -203,7 +203,7 @@ func (m *Manager) GroupGetAllGroups(ownerID peer.ID, ownerPrivateKey ic.PrivKey)
 func (m *Manager) GroupAddContent(peerId, groupID peer.ID, privateKey ic.PrivKey, meta *ContentMetatag) error {
 	// Check if the group is open
 	groupTag := fmt.Sprintf("%s/%s", groupPrefix, groupID.String())
-	groupMetaBytes, err := m.crdt.Get(m.ctx, datastore.NewKey(groupTag))
+	groupMetaBytes, err := m.crdt.Get(datastore.NewKey(groupTag))
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func (m *Manager) GroupAddContent(peerId, groupID peer.ID, privateKey ic.PrivKey
 		return err
 	}
 	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, peerId.String(), groupID.String())
-	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	memberPublicKey, err := m.crdt.Get(datastore.NewKey(memberTag))
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (m *Manager) GroupGetAllContent(peerId, groupID peer.ID, privateKey ic.Priv
 		return nil, err
 	}
 	memberTag := fmt.Sprintf("%s/%s/%s", groupMemberPrefix, peerId.String(), groupID.String())
-	memberPublicKey, err := m.crdt.Get(m.ctx, datastore.NewKey(memberTag))
+	memberPublicKey, err := m.crdt.Get(datastore.NewKey(memberTag))
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (m *Manager) GroupGetAllContent(peerId, groupID peer.ID, privateKey ic.Priv
 	}
 
 	q := query.Query{Prefix: fmt.Sprintf("%s/%s", groupIndexPrefix, groupID.String())}
-	r, err := m.crdt.Query(m.ctx, q)
+	r, err := m.crdt.Query(q)
 	if err != nil {
 		return nil, err
 	}

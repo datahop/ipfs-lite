@@ -187,7 +187,6 @@ func New(
 	// SetupLibp2p.
 	libp2pOptionsExtra := []libp2p.Option{
 		libp2p.Transport(tcp.NewTCPTransport),
-		libp2p.DisableRelay(),
 		libp2p.NATPortMap(),
 		libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
 		libp2p.EnableNATService(),
@@ -562,7 +561,7 @@ func (p *Peer) Download(ctx context.Context, c cid.Cid) error {
 // DeleteFile removes content from blockstore by its root CID. The file
 // must have been added as a UnixFS DAG (default for IPFS).
 func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
-	found, err := p.BlockStore().Has(ctx, c)
+	found, err := p.BlockStore().Has(c)
 	if err != nil {
 		log.Error("Unable to find block ", err)
 		return err
@@ -587,7 +586,7 @@ func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
 	}
 	err = gcs.ForEach(func(c cid.Cid) error {
 		log.Debug(c)
-		err = p.BlockStore().DeleteBlock(ctx, c)
+		err = p.BlockStore().DeleteBlock(c)
 		if err != nil {
 			log.Error("Unable to remove block ", err)
 			return err
@@ -608,8 +607,8 @@ func (p *Peer) BlockStore() blockstore.Blockstore {
 
 // HasBlock returns whether a given block is available locally. It is
 // a shorthand for .Blockstore().Has().
-func (p *Peer) HasBlock(ctx context.Context, c cid.Cid) (bool, error) {
-	return p.BlockStore().Has(ctx, c)
+func (p *Peer) HasBlock(c cid.Cid) (bool, error) {
+	return p.BlockStore().Has(c)
 }
 
 const connectionManagerTag = "user-connect"
