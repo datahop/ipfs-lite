@@ -13,7 +13,7 @@ import (
 const skBase = `/key/swarm/psk/1.0.0/
 /base16/`
 
-func (comm *Common) Start(key string) (<-chan struct{}, error) {
+func (comm *Common) Start(key string, autoDownload bool) (<-chan struct{}, error) {
 	var swarmKey []byte
 	if key != "" {
 		byteKey := md5.Sum([]byte(key))
@@ -24,7 +24,7 @@ func (comm *Common) Start(key string) (<-chan struct{}, error) {
 
 	// TODO: check if repo exists
 	ctx2, cancel := context.WithCancel(comm.Context)
-	litePeer, err := ipfslite.New(ctx2, cancel, comm.Repo, swarmKey)
+	litePeer, err := ipfslite.New(ctx2, cancel, comm.Repo, swarmKey, ipfslite.WithAutoDownload(autoDownload))
 	if err != nil {
 		log.Errorf("pkg Start: %s", err.Error())
 		return nil, err

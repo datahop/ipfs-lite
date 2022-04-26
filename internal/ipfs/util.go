@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	relay "github.com/libp2p/go-libp2p-circuit"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -12,7 +14,6 @@ import (
 	dag "github.com/ipfs/go-merkledag"
 	"github.com/ipfs/go-verifcid"
 	"github.com/libp2p/go-libp2p"
-	relay "github.com/libp2p/go-libp2p-circuit"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -27,6 +28,8 @@ var (
 	defaultBootstrapAddresses = []string{
 		"/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo",
 	}
+
+	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo"
 )
 
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use

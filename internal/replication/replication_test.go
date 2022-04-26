@@ -54,7 +54,7 @@ func (m mockDAGSyncer) RemoveMany(ctx context.Context, cids []cid.Cid) error {
 	return nil
 }
 
-func (m mockDAGSyncer) HasBlock(ctx context.Context, c cid.Cid) (bool, error) {
+func (m mockDAGSyncer) HasBlock(cid.Cid) (bool, error) {
 	// do something
 	return true, nil
 }
@@ -155,7 +155,7 @@ func TestNewManager(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestDownloadManager(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestGetAllCids(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

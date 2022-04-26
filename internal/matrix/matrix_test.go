@@ -43,14 +43,14 @@ func TestMatrixKeeperFlush(t *testing.T) {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
 	defer mKeeper.db.Close()
-	has, err := mKeeper.db.Has(context.Background(), nodeMatrixKey)
+	has, err := mKeeper.db.Has(nodeMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if has {
 		t.Fatal("db should not have the key")
 	}
-	has, err = mKeeper.db.Has(context.Background(), contentMatrixKey)
+	has, err = mKeeper.db.Has(contentMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,14 +61,14 @@ func TestMatrixKeeperFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	has, err = mKeeper.db.Has(context.Background(), nodeMatrixKey)
+	has, err = mKeeper.db.Has(nodeMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !has {
 		t.Fatal("db should have the key")
 	}
-	has, err = mKeeper.db.Has(context.Background(), contentMatrixKey)
+	has, err = mKeeper.db.Has(contentMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}

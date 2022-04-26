@@ -210,7 +210,7 @@ type StartsOpts struct {
 }
 
 // Start an ipfslite node in a go routine
-func Start(bootstrap bool) error {
+func Start(bootstrap, autoDownload bool) error {
 	if hop == nil {
 		return ErrNodeNotRunning
 	}
@@ -220,7 +220,7 @@ func Start(bootstrap bool) error {
 	wg.Add(1)
 	var startErr error
 	go func() {
-		done, err := hop.comm.Start("")
+		done, err := hop.comm.Start("", autoDownload)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			startErr = err
@@ -245,7 +245,7 @@ func Start(bootstrap bool) error {
 }
 
 // StartPrivate starts an ipfslite node in a private network with provided swarmkey
-func StartPrivate(swarmKey string) error {
+func StartPrivate(swarmKey string, autoDownload bool) error {
 	if swarmKey == "" {
 		return ErrBlankGroupKey
 	}
@@ -257,7 +257,7 @@ func StartPrivate(swarmKey string) error {
 	wg.Add(1)
 	var startErr error
 	go func() {
-		done, err := hop.comm.Start(swarmKey)
+		done, err := hop.comm.Start(swarmKey, autoDownload)
 		if err != nil {
 			log.Error("Node setup failed : ", err.Error())
 			startErr = err

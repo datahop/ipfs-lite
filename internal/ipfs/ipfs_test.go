@@ -191,11 +191,11 @@ func TestDAG(t *testing.T) {
 		t.Error(err)
 	}
 
-	if ok, err := p1.BlockStore().Has(p1.Ctx, node.Cid()); ok || err != nil {
+	if ok, err := p1.BlockStore().Has(node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
 
-	if ok, err := p2.BlockStore().Has(p1.Ctx, node.Cid()); ok || err != nil {
+	if ok, err := p2.BlockStore().Has(node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
 }
@@ -302,7 +302,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
 	}
-	has, err := p1.BlockStore().Has(p1.Ctx, n.Cid())
+	has, err := p1.BlockStore().Has(n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	has, err = p1.BlockStore().Has(p1.Ctx, n.Cid())
+	has, err = p1.BlockStore().Has(n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -439,7 +439,7 @@ func TestStateDualPeer(t *testing.T) {
 		}
 	}
 	for _, v := range cids {
-		inStore, _ := p2.bstore.Has(p2.Ctx, v)
+		inStore, _ := p2.bstore.Has(v)
 		if !inStore {
 			t.Fatalf("%s is not in State", v.String())
 		}

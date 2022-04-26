@@ -324,6 +324,23 @@ func (p *Peer) setupCrdtStore(opts *Options) error {
 	return nil
 }
 
+func (p *Peer) ConnectIfNotConnectedUsingRelay(ctx context.Context, providers []peer.ID) {
+	for _, v := range providers {
+		conn := p.Host.Network().Connectedness(v)
+		if conn != inet.Connected {
+			fmt.Println(fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, v.String()))
+			pi, err := peer.AddrInfoFromString(fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, v.String()))
+			if err != nil {
+				continue
+			}
+			err = p.Host.Connect(ctx, *pi)
+			if err == nil {
+				fmt.Println("connection established with ", fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, v.String()))
+			}
+		}
+	}
+}
+
 // FindProviders check dht to check for providers of a given cid
 func (p *Peer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
 	providerAddresses := []peer.ID{}
