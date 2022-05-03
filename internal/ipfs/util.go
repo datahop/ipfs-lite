@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	relay "github.com/libp2p/go-libp2p-circuit"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -24,8 +26,10 @@ import (
 
 var (
 	defaultBootstrapAddresses = []string{
-		"/ip4/3.7.249.218/tcp/4501/p2p/QmcWEJqQD3bPMT5Mr7ijdwVCmVjUh5Z7CysiTQPgr2VZBC",
+		"/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo",
 	}
+
+	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo"
 )
 
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
@@ -59,6 +63,8 @@ func SetupLibp2p(
 	finalOpts := []libp2p.Option{
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
+		libp2p.EnableRelay(relay.OptHop),
+		libp2p.EnableAutoRelay(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			ddht, err = newDHT(ctx, h, ds)
 			return ddht, err
@@ -66,6 +72,7 @@ func SetupLibp2p(
 	}
 	finalOpts = append(finalOpts, opts...)
 	h, err := libp2p.New(
+		ctx,
 		finalOpts...,
 	)
 	if err != nil {

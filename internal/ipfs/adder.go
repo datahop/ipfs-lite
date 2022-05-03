@@ -196,7 +196,7 @@ func (adder *Adder) addNode(node ipld.Node, path string) error {
 func (adder *Adder) AddAll(file files.Node) (ipld.Node, error) {
 	defer func() {
 		if adder.unlocker != nil {
-			adder.unlocker.Unlock(adder.ctx)
+			adder.unlocker.Unlock()
 		}
 	}()
 

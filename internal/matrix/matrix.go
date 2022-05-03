@@ -79,12 +79,12 @@ func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 		},
 		ContentMatrix: map[string]*ContentMatrix{},
 	}
-	n, err := mKeeper.db.Get(context.Background(), nodeMatrixKey)
+	n, err := mKeeper.db.Get(nodeMatrixKey)
 	if err != nil {
 		log.Error("Unable to get nodeMatrixKey : ", err)
 		return mKeeper
 	}
-	c, err := mKeeper.db.Get(context.Background(), contentMatrixKey)
+	c, err := mKeeper.db.Get(contentMatrixKey)
 	if err != nil {
 		return mKeeper
 	}
@@ -135,12 +135,12 @@ func (mKeeper *MatrixKeeper) flush() error {
 		log.Error(err)
 		return err
 	}
-	err = mKeeper.db.Put(context.Background(), nodeMatrixKey, nm)
+	err = mKeeper.db.Put(nodeMatrixKey, nm)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	err = mKeeper.db.Put(context.Background(), contentMatrixKey, cm)
+	err = mKeeper.db.Put(contentMatrixKey, cm)
 	if err != nil {
 		log.Error(err)
 		return err

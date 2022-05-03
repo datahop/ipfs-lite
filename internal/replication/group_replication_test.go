@@ -47,7 +47,7 @@ func TestGroupCreation(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestGroupAddMember(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestGroupAddMember(t *testing.T) {
 		libp2p.Identity(privPeerTwo),
 		libp2p.DisableRelay(),
 	}
-	h2, err := libp2p.New(optsPeerTwo...)
+	h2, err := libp2p.New(childCtx, optsPeerTwo...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestGroupAddContent(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(opts...)
+	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
