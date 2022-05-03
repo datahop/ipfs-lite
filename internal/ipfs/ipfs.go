@@ -328,7 +328,6 @@ func (p *Peer) ConnectIfNotConnectedUsingRelay(ctx context.Context, providers []
 	for _, v := range providers {
 		conn := p.Host.Network().Connectedness(v)
 		if conn != inet.Connected {
-			fmt.Println(fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, v.String()))
 			pi, err := peer.AddrInfoFromString(fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, v.String()))
 			if err != nil {
 				continue

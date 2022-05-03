@@ -61,6 +61,10 @@ func (m mockDAGSyncer) HasBlock(cid.Cid) (bool, error) {
 
 type mockSyncer struct{}
 
+func (m mockSyncer) ConnectIfNotConnectedUsingRelay(ctx context.Context, ids []peer.ID) {
+	// do nothing
+}
+
 func (m mockSyncer) Download(ctx context.Context, c cid.Cid) error {
 	// do something
 	return nil
