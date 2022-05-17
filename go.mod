@@ -13,7 +13,7 @@ require (
 	github.com/h2non/filetype v1.1.3
 	github.com/ipfs/go-bitswap v0.4.0
 	github.com/ipfs/go-blockservice v0.1.7
-	github.com/ipfs/go-cid v0.0.7
+	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-crdt v0.1.20
 	github.com/ipfs/go-ds-leveldb v0.4.2
@@ -34,8 +34,8 @@ require (
 	github.com/ipfs/go-unixfsnode v1.1.3
 	github.com/ipfs/go-verifcid v0.0.1
 	github.com/ipfs/interface-go-ipfs-core v0.5.1
-	github.com/ipld/go-codec-dagpb v1.3.0
-	github.com/ipld/go-ipld-prime v0.12.2
+	github.com/ipld/go-codec-dagpb v1.3.1
+	github.com/ipld/go-ipld-prime v0.16.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-circuit v0.4.0
 	github.com/libp2p/go-libp2p-connmgr v0.2.4
@@ -49,7 +49,7 @@ require (
 	github.com/libp2p/go-tcp-transport v0.2.8
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.4.0
-	github.com/multiformats/go-multihash v0.0.15
+	github.com/multiformats/go-multihash v0.1.0
 	github.com/plexsysio/taskmanager v0.0.0-20211220123746-de5ebdd49ae2
 	github.com/smartystreets/assertions v1.0.1 // indirect
 	github.com/spf13/cobra v0.0.5
