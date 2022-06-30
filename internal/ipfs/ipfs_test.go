@@ -169,25 +169,17 @@ func TestDAG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("p1", p1.Host.ID().String())
-	fmt.Println("p2", p2.Host.ID().String())
+
 	t.Log("created node: ", node.Cid())
 	err = p1.Add(ctx, node)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("p1 added")
-	fmt.Println("p2 getting")
+
 	_, err = p2.Get(ctx, node.Cid())
 	if err != nil {
 		t.Error(err)
 	}
-	//dontHaveCid, _ := cid.Decode("bafybeia4ssmbshzjwcuhq6xl3b7pjmfapy6buaaheh75hf7qzjzvs4rogq")
-	//_, err = p2.Get(ctx, dontHaveCid)
-	//if err != nil {
-	//	t.Error(err)
-	//}
-	fmt.Println("============will be removed from p1")
 	err = p1.Remove(ctx, node.Cid())
 	if err != nil {
 		t.Error(err)
