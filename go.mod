@@ -59,3 +59,5 @@ require (
 	google.golang.org/protobuf v1.27.1
 
 )
+
+replace github.com/ipfs/go-bitswap => ../go-bitswap
