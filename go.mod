@@ -60,4 +60,4 @@ require (
 
 )
 
-replace github.com/ipfs/go-bitswap => github.com/datahop/go-bitswap v0.4.1-0.20220705032004-2054a890a3f2
+replace github.com/ipfs/go-bitswap => github.com/datahop/go-bitswap v0.4.1-0.20220705050641-d3d9d0ed97da
