@@ -158,7 +158,9 @@ func New(
 					return
 				}
 			}
-
+			log.Debug("Host id ", h.ID().String())
+			log.Debug("Owner id ", m.Owner.String())
+			log.Debug("autoDownload ", autoDownload)
 			if h.ID() != m.Owner && autoDownload {
 				contentChan <- *m
 			} else {

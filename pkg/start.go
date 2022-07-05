@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	logger "github.com/ipfs/go-log/v2"
+
 	ipfslite "github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/pkg/store/ipfs"
 )
@@ -14,6 +16,7 @@ const skBase = `/key/swarm/psk/1.0.0/
 /base16/`
 
 func (comm *Common) Start(key string, autoDownload bool) (<-chan struct{}, error) {
+	_ = logger.SetLogLevel("replication", "Debug")
 	var swarmKey []byte
 	if key != "" {
 		byteKey := md5.Sum([]byte(key))
