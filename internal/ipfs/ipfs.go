@@ -24,6 +24,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
+	exchange "github.com/ipfs/go-ipfs-exchange-interface"
 	files "github.com/ipfs/go-ipfs-files"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -82,6 +83,7 @@ type Peer struct {
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
+	bswap 			exchange.Interface
 	online          bool
 	mtx             sync.Mutex
 	Manager         *replication.Manager
@@ -303,8 +305,8 @@ func (p *Peer) setupBlockstore() error {
 
 func (p *Peer) setupBlockService() error {
 	bswapnet := network.NewFromIpfsHost(p.Host, p.DHT)
-	bswap := bitswap.New(p.Ctx, bswapnet, p.bstore)
-	p.bserv = blockservice.New(p.bstore, bswap)
+	p.bswap = bitswap.New(p.Ctx, bswapnet, p.bstore)
+	p.bserv = blockservice.New(p.bstore, p.bswap)
 	return nil
 }
 
@@ -794,6 +796,14 @@ func (p *Peer) registerZeroConf(instance string) error {
 			wg.Wait()
 		}
 	}
+}
+
+func (p *Peer) BitswapStat() (*bitswap.Stat, error) {
+	bs, ok := p.bswap.(*bitswap.Bitswap)
+	if !ok {
+		return nil, fmt.Errorf("unable to access bitswap")
+	}
+	return bs.Stat()
 }
 
 func lookupAndConnect(ctx context.Context, action func(*zeroconf.ServiceEntry)) error {

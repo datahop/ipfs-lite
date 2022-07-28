@@ -8,6 +8,7 @@ import (
 	"github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
+	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -142,6 +143,10 @@ func (I *IPFSNode) IsOnline() bool {
 
 func (I *IPFSNode) ReplManager() *replication.Manager {
 	return I.peer.Manager
+}
+
+func (I *IPFSNode) BitswapStat() (*bitswap.Stat, error) {
+	return I.peer.BitswapStat()
 }
 
 func (I *IPFSNode) IsPeerConnected(id string) bool {
