@@ -11,7 +11,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/h2non/filetype v1.1.3
-	github.com/ipfs/go-bitswap v0.4.0
+	github.com/ipfs/go-bitswap v0.4.0-2054a89
 	github.com/ipfs/go-blockservice v0.1.7
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
@@ -61,4 +61,4 @@ require (
 
 )
 
-replace github.com/ipfs/go-bitswap => ../go-bitswap
+replace github.com/ipfs/go-bitswap => github.com/datahop/go-bitswap v0.4.1-0.20220705050641-d3d9d0ed97da
