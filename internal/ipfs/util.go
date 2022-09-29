@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	relay "github.com/libp2p/go-libp2p-circuit"
+	//relay "github.com/libp2p/go-libp2p-circuit"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -63,7 +63,7 @@ func SetupLibp2p(
 	finalOpts := []libp2p.Option{
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
-		libp2p.EnableRelay(relay.OptHop),
+		//libp2p.EnableRelay(relay.OptHop),
 		libp2p.EnableAutoRelay(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			ddht, err = newDHT(ctx, h, ds)
@@ -72,7 +72,6 @@ func SetupLibp2p(
 	}
 	finalOpts = append(finalOpts, opts...)
 	h, err := libp2p.New(
-		ctx,
 		finalOpts...,
 	)
 	if err != nil {

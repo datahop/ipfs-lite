@@ -18,7 +18,7 @@ var root = filepath.Join("./test", "root1")
 func TestNewMatrixKeeper(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper == nil {
 		t.Fatal("Matrix keeper should not be null")
 	}
@@ -28,7 +28,7 @@ func TestNewMatrixKeeper(t *testing.T) {
 func TestNodeMatrix(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -38,19 +38,19 @@ func TestNodeMatrix(t *testing.T) {
 func TestMatrixKeeperFlush(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
 	defer mKeeper.db.Close()
-	has, err := mKeeper.db.Has(nodeMatrixKey)
+	has, err := mKeeper.db.Has(context.Background(), nodeMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if has {
 		t.Fatal("db should not have the key")
 	}
-	has, err = mKeeper.db.Has(contentMatrixKey)
+	has, err = mKeeper.db.Has(context.Background(), contentMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,14 +61,14 @@ func TestMatrixKeeperFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	has, err = mKeeper.db.Has(nodeMatrixKey)
+	has, err = mKeeper.db.Has(context.Background(), nodeMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !has {
 		t.Fatal("db should have the key")
 	}
-	has, err = mKeeper.db.Has(contentMatrixKey)
+	has, err = mKeeper.db.Has(context.Background(), contentMatrixKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestMatrixKeeperFlush(t *testing.T) {
 func TestMatrixKeeperFlushWithData(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -109,7 +109,7 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mKeeper2 := NewMatrixKeeper(mKeeper.db)
+	mKeeper2 := NewMatrixKeeper(context.Background(), mKeeper.db)
 	if mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].IPFSConnectedAt != mKeeper2.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].IPFSConnectedAt {
 		t.Fatal("discoveredNodeTwo IPFSConnectedAt mismatch")
 	}
@@ -122,7 +122,7 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 func TestMatrixKeeperNodeMatrixOps(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -157,7 +157,7 @@ func TestMatrixKeeperNodeMatrixOps(t *testing.T) {
 func TestMatrixKeeperContentMatrixOps(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper.NodeMatrix == nil {
 		t.Fatal("NodeMatrix keeper should not be null")
 	}
@@ -186,7 +186,7 @@ func TestMatrixKeeperContentMatrixOps(t *testing.T) {
 func TestMatrixKeeperTicker(t *testing.T) {
 	<-time.After(time.Second)
 	defer removeRepo(t)
-	mKeeper := NewMatrixKeeper(initDatastore(t))
+	mKeeper := NewMatrixKeeper(context.Background(), initDatastore(t))
 	if mKeeper == nil {
 		t.Fatal("Matrix keeper should not be null")
 	}
