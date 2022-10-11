@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -22,10 +21,10 @@ import (
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 	"google.golang.org/protobuf/proto"
 )
@@ -712,7 +711,7 @@ func Get(tag string, passphrase string) ([]byte, error) {
 			}
 			return byteContent, nil
 		}
-		content, err := ioutil.ReadAll(r)
+		content, err := io.ReadAll(r)
 		if err != nil {
 			return nil, err
 		}

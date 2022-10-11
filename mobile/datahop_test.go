@@ -14,7 +14,7 @@ import (
 	"github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/h2non/filetype"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type MockConnManager struct{}

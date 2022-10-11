@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,7 +16,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -257,7 +257,7 @@ func TestAddFile(t *testing.T) {
 	}
 	defer rsc.Close()
 
-	content2, err := ioutil.ReadAll(rsc)
+	content2, err := io.ReadAll(rsc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestDeleteFile(t *testing.T) {
 	}
 	defer rsc.Close()
 
-	content2, err := ioutil.ReadAll(rsc)
+	content2, err := io.ReadAll(rsc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +561,7 @@ func TestFilesWithCRDT(t *testing.T) {
 	}
 	b2 := bytes.NewReader(c2)
 
-	content2, err := ioutil.ReadAll(b2)
+	content2, err := io.ReadAll(b2)
 	if err != nil {
 		t.Fatal(err)
 	}
