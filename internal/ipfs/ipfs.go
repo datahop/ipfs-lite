@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	exchange "github.com/ipfs/go-ipfs-exchange-interface"
+
 	"github.com/datahop/ipfs-lite/internal/gateway"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
@@ -81,6 +83,7 @@ type Peer struct {
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
+	bswap           exchange.Interface
 	online          bool
 	mtx             sync.Mutex
 	Manager         *replication.Manager
@@ -302,8 +305,8 @@ func (p *Peer) setupBlockstore() error {
 
 func (p *Peer) setupBlockService() error {
 	bswapnet := network.NewFromIpfsHost(p.Host, p.DHT)
-	bswap := bitswap.New(p.Ctx, bswapnet, p.bstore)
-	p.bserv = blockservice.New(p.bstore, bswap)
+	p.bswap = bitswap.New(p.Ctx, bswapnet, p.bstore)
+	p.bserv = blockservice.New(p.bstore, p.bswap)
 	return nil
 }
 
@@ -814,4 +817,12 @@ func lookupAndConnect(ctx context.Context, action func(*zeroconf.ServiceEntry)) 
 		}
 	}()
 	return nil
+}
+
+func (p *Peer) BitswapStat() (*bitswap.Stat, error) {
+	bs, ok := p.bswap.(*bitswap.Bitswap)
+	if !ok {
+		return nil, fmt.Errorf("unable to access bitswap")
+	}
+	return bs.Stat()
 }

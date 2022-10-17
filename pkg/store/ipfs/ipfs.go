@@ -5,6 +5,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/ipfs/go-bitswap"
+
 	"github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
@@ -22,6 +24,10 @@ type IPFSNode struct {
 
 func New(litepeer *ipfs.Peer) *IPFSNode {
 	return &IPFSNode{peer: litepeer}
+}
+
+func (I *IPFSNode) BitswapStat() (*bitswap.Stat, error) {
+	return I.peer.BitswapStat()
 }
 
 func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) (string, error) {

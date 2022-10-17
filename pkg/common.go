@@ -3,6 +3,8 @@ package pkg
 import (
 	"context"
 
+	"github.com/ipfs/go-bitswap"
+
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
 	"github.com/datahop/ipfs-lite/internal/security"
@@ -27,6 +29,7 @@ type Node interface {
 	IsPeerConnected(string) bool
 	GetPrivKey() crypto.PrivKey
 	GetPubKey(id peer.ID) crypto.PubKey
+	BitswapStat() (*bitswap.Stat, error)
 
 	store.Store
 }
