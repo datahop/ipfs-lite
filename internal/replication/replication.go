@@ -404,7 +404,7 @@ func (m *Manager) StartContentWatcher() {
 						}
 					}
 					// TODO check if we are connected with the providers. if not, try to connect using relay.
-					m.syncer.ConnectIfNotConnectedUsingRelay(m.ctx, providers)
+					//m.syncer.ConnectIfNotConnectedUsingRelay(m.ctx, providers)
 
 					t := newDownloaderTask(ctx, cancel, meta, m.syncer, cb)
 					done, err := m.dlManager.Go(t)

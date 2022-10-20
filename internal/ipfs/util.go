@@ -64,7 +64,8 @@ func SetupLibp2p(
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
 		//libp2p.EnableRelay(relay.OptHop),
-		libp2p.EnableAutoRelay(),
+		//libp2p.EnableAutoRelay(),
+		libp2p.DisableRelay(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			ddht, err = newDHT(ctx, h, ds)
 			return ddht, err
