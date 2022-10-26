@@ -783,7 +783,7 @@ func TestContentOwner(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	<-time.After(time.Second * 2)
+	<-time.After(time.Second * 10)
 	for i := 0; i < 10; i++ {
 		meta, err := comm.Node.ReplManager().FindTag(fmt.Sprintf("tag%d", i))
 		if err != nil {
