@@ -603,7 +603,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	<-time.After(time.Second * 6)
+	<-time.After(time.Second * 12)
 	c, err := Get(tag, "")
 	if err != nil {
 		t.Fatal(err)
@@ -1003,7 +1003,7 @@ func TestGroupMemberAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	<-time.After(time.Second * 5)
+	<-time.After(time.Second * 15)
 	_, err = comm1.Node.ReplManager().GroupGetInfo(comm1.Node.AddrInfo().ID, groupId, comm1.Node.GetPrivKey())
 	if err != nil {
 		t.Fatal(err)
