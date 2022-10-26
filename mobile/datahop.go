@@ -105,11 +105,11 @@ type datahop struct {
 }
 
 func init() {
-	_ = logger.SetLogLevel("ipfslite", "Debug")
-	_ = logger.SetLogLevel("datahop", "Debug")
-	_ = logger.SetLogLevel("step", "Debug")
-	_ = logger.SetLogLevel("replication", "Debug")
-	_ = logger.SetLogLevel("matrix", "Debug")
+	_ = logger.SetLogLevel("*", "Error")
+	//_ = logger.SetLogLevel("datahop", "Debug")
+	//_ = logger.SetLogLevel("step", "Debug")
+	//_ = logger.SetLogLevel("replication", "Debug")
+	//_ = logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
