@@ -1,6 +1,10 @@
 SUPPORT := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))/.release
 VERSION_PACKAGE := github.com/datahop/ipfs-lite/version
 
+GO ?= go
+GOLANGCI_LINT ?= $$($(GO) env GOPATH)/bin/golangci-lint
+GOLANGCI_LINT_VERSION ?= v1.50.0
+
 build-mobile: VERSION := $(shell . $(SUPPORT); getMobileVersion)
 build-mobile:
 	@gomobile bind -o ./mobile/datahop.aar -target=android -ldflags "\
@@ -66,3 +70,11 @@ major-cli:
 
 run-tests:
 	go test -json -p 1 -race -v ./...
+
+.PHONY: linter
+linter:
+	test -f $(GOLANGCI_LINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$($(GO) env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
+
+.PHONY: lint
+lint: linter
+	$(GOLANGCI_LINT) run

@@ -13,7 +13,7 @@ import (
 	syncds "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
 func TestGroupCreation(t *testing.T) {
@@ -47,7 +47,7 @@ func TestGroupCreation(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestGroupAddMember(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestGroupAddMember(t *testing.T) {
 		libp2p.Identity(privPeerTwo),
 		libp2p.DisableRelay(),
 	}
-	h2, err := libp2p.New(childCtx, optsPeerTwo...)
+	h2, err := libp2p.New(optsPeerTwo...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestGroupAddContent(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

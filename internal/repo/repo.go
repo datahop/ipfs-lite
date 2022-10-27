@@ -1,10 +1,10 @@
 package repo
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -70,6 +70,7 @@ type FSRepo struct {
 	state       *bloom.BloomFilter
 	mKeeper     *matrix.MatrixKeeper
 	stateKeeper *StateKeeper
+	cancel      context.CancelFunc
 	io.Closer
 }
 
@@ -140,10 +141,13 @@ func (r *FSRepo) Close() error {
 }
 
 func (r *FSRepo) close() error {
+	r.cancel()
+
 	err := r.ds.Close()
 	if err != nil {
 		return err
 	}
+
 	r.closed = true
 	return r.lockfile.Close()
 }
@@ -210,7 +214,9 @@ func open(repoPath string) (Repo, error) {
 		r.close()
 		return nil, err
 	}
-	r.mKeeper = matrix.NewMatrixKeeper(r.ds)
+	ctx, cancel := context.WithCancel(context.Background())
+	r.cancel = cancel
+	r.mKeeper = matrix.NewMatrixKeeper(ctx, r.ds)
 	r.stateKeeper, err = LoadStateKeeper(r.path)
 	if err != nil {
 		return nil, err
@@ -331,7 +337,7 @@ func (r *FSRepo) openState() error {
 		return err
 	}
 	defer f.Close()
-	buf, err := ioutil.ReadAll(f)
+	buf, err := io.ReadAll(f)
 	if err != nil {
 		return err
 	}

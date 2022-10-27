@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -22,10 +21,10 @@ import (
 	"github.com/h2non/filetype"
 	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 	"google.golang.org/protobuf/proto"
 )
@@ -106,11 +105,11 @@ type datahop struct {
 }
 
 func init() {
-	_ = logger.SetLogLevel("ipfslite", "Debug")
-	_ = logger.SetLogLevel("datahop", "Debug")
-	_ = logger.SetLogLevel("step", "Debug")
-	_ = logger.SetLogLevel("replication", "Debug")
-	_ = logger.SetLogLevel("matrix", "Debug")
+	_ = logger.SetLogLevel("*", "Error")
+	//_ = logger.SetLogLevel("datahop", "Debug")
+	//_ = logger.SetLogLevel("step", "Debug")
+	//_ = logger.SetLogLevel("replication", "Debug")
+	//_ = logger.SetLogLevel("matrix", "Debug")
 }
 
 // Init Initialises the .datahop repo, if required at the given location with the given swarm port as config.
@@ -198,7 +197,7 @@ func FilterFromState() (string, error) {
 func DiskUsage() (int64, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
-	du, err := datastore.DiskUsage(hop.comm.Repo.Datastore())
+	du, err := datastore.DiskUsage(context.Background(), hop.comm.Repo.Datastore())
 	if err != nil {
 		return 0, err
 	}
@@ -712,7 +711,7 @@ func Get(tag string, passphrase string) ([]byte, error) {
 			}
 			return byteContent, nil
 		}
-		content, err := ioutil.ReadAll(r)
+		content, err := io.ReadAll(r)
 		if err != nil {
 			return nil, err
 		}

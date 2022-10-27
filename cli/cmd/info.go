@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"strings"
 
 	"github.com/bits-and-blooms/bloom/v3"
@@ -80,7 +81,7 @@ Example:
 					inf.Addresses = addrs
 				}
 				// disk usage
-				du, err := datastore.DiskUsage(comm.Repo.Datastore())
+				du, err := datastore.DiskUsage(context.Background(), comm.Repo.Datastore())
 				if err != nil {
 					log.Error("Unable to get datastore usage ", err)
 					return err

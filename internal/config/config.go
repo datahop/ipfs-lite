@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	logging "github.com/ipfs/go-log/v2"
-	ci "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
+	ci "github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 var log = logging.Logger("config")

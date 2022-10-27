@@ -18,8 +18,8 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type mockDAGSyncer struct{}
@@ -159,7 +159,7 @@ func TestNewManager(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestDownloadManager(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestGetAllCids(t *testing.T) {
 		libp2p.Identity(priv),
 		libp2p.DisableRelay(),
 	}
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/datahop/ipfs-lite/pkg"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/h2non/filetype"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type MockConnManager struct{}
@@ -603,7 +603,7 @@ func TestReplicationGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	<-time.After(time.Second * 6)
+	<-time.After(time.Second * 12)
 	c, err := Get(tag, "")
 	if err != nil {
 		t.Fatal(err)
@@ -783,7 +783,7 @@ func TestContentOwner(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	<-time.After(time.Second * 2)
+	<-time.After(time.Second * 10)
 	for i := 0; i < 10; i++ {
 		meta, err := comm.Node.ReplManager().FindTag(fmt.Sprintf("tag%d", i))
 		if err != nil {
@@ -1003,7 +1003,7 @@ func TestGroupMemberAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	<-time.After(time.Second * 5)
+	<-time.After(time.Second * 15)
 	_, err = comm1.Node.ReplManager().GroupGetInfo(comm1.Node.AddrInfo().ID, groupId, comm1.Node.GetPrivKey())
 	if err != nil {
 		t.Fatal(err)

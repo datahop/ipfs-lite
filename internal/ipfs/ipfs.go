@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	exchange "github.com/ipfs/go-ipfs-exchange-interface"
+
 	"github.com/datahop/ipfs-lite/internal/gateway"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
@@ -34,16 +36,15 @@ import (
 	"github.com/ipfs/go-unixfs/importer/trickle"
 	ufsio "github.com/ipfs/go-unixfs/io"
 	"github.com/libp2p/go-libp2p"
-	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	inet "github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/pnet"
-	"github.com/libp2p/go-libp2p-core/routing"
-	swarm "github.com/libp2p/go-libp2p-swarm"
-	libp2ptls "github.com/libp2p/go-libp2p-tls"
-	"github.com/libp2p/go-tcp-transport"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	inet "github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/pnet"
+	"github.com/libp2p/go-libp2p/core/routing"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multihash"
@@ -82,6 +83,7 @@ type Peer struct {
 	ipld.DAGService // become a DAG service
 	bstore          blockstore.Blockstore
 	bserv           blockservice.BlockService
+	bswap           exchange.Interface
 	online          bool
 	mtx             sync.Mutex
 	Manager         *replication.Manager
@@ -181,14 +183,14 @@ func New(
 		listen, _ := multiaddr.NewMultiaddr(v)
 		listenAddrs = append(listenAddrs, listen)
 	}
-
+	connMgr, _ := connmgr.NewConnManager(100, 600, connmgr.WithGracePeriod(time.Minute))
 	// libp2pOptionsExtra provides some useful libp2p options
 	// to create a fully featured libp2p host. It can be used with
 	// SetupLibp2p.
 	libp2pOptionsExtra := []libp2p.Option{
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.NATPortMap(),
-		libp2p.ConnectionManager(connmgr.NewConnManager(100, 600, time.Minute)),
+		libp2p.ConnectionManager(connMgr),
 		libp2p.EnableNATService(),
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 	}
@@ -303,8 +305,8 @@ func (p *Peer) setupBlockstore() error {
 
 func (p *Peer) setupBlockService() error {
 	bswapnet := network.NewFromIpfsHost(p.Host, p.DHT)
-	bswap := bitswap.New(p.Ctx, bswapnet, p.bstore)
-	p.bserv = blockservice.New(p.bstore, bswap)
+	p.bswap = bitswap.New(p.Ctx, bswapnet, p.bstore)
+	p.bserv = blockservice.New(p.bstore, p.bswap)
 	return nil
 }
 
@@ -577,7 +579,7 @@ func (p *Peer) Download(ctx context.Context, c cid.Cid) error {
 // DeleteFile removes content from blockstore by its root CID. The file
 // must have been added as a UnixFS DAG (default for IPFS).
 func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
-	found, err := p.BlockStore().Has(c)
+	found, err := p.BlockStore().Has(ctx, c)
 	if err != nil {
 		log.Error("Unable to find block ", err)
 		return err
@@ -602,7 +604,7 @@ func (p *Peer) DeleteFile(ctx context.Context, c cid.Cid) error {
 	}
 	err = gcs.ForEach(func(c cid.Cid) error {
 		log.Debug(c)
-		err = p.BlockStore().DeleteBlock(c)
+		err = p.BlockStore().DeleteBlock(ctx, c)
 		if err != nil {
 			log.Error("Unable to remove block ", err)
 			return err
@@ -624,7 +626,7 @@ func (p *Peer) BlockStore() blockstore.Blockstore {
 // HasBlock returns whether a given block is available locally. It is
 // a shorthand for .Blockstore().Has().
 func (p *Peer) HasBlock(c cid.Cid) (bool, error) {
-	return p.BlockStore().Has(c)
+	return p.BlockStore().Has(p.Ctx, c)
 }
 
 const connectionManagerTag = "user-connect"
@@ -636,9 +638,6 @@ func (p *Peer) Connect(ctx context.Context, pi peer.AddrInfo) error {
 		return errors.New("peer is offline")
 	}
 
-	if swrm, ok := p.Host.Network().(*swarm.Swarm); ok {
-		swrm.Backoff().Clear(pi.ID)
-	}
 	if p.Host.Network().Connectedness(pi.ID) != inet.Connected {
 		if err := p.Host.Connect(ctx, pi); err != nil {
 			return err
@@ -818,4 +817,12 @@ func lookupAndConnect(ctx context.Context, action func(*zeroconf.ServiceEntry)) 
 		}
 	}()
 	return nil
+}
+
+func (p *Peer) BitswapStat() (*bitswap.Stat, error) {
+	bs, ok := p.bswap.(*bitswap.Bitswap)
+	if !ok {
+		return nil, fmt.Errorf("unable to access bitswap")
+	}
+	return bs.Stat()
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 var (
@@ -67,10 +67,11 @@ type MatrixKeeper struct {
 	db            datastore.Datastore
 	NodeMatrix    *NodeMatrix
 	ContentMatrix map[string]*ContentMatrix
+	context       context.Context
 }
 
 // NewMatrixKeeper creates a new matrix keeper
-func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
+func NewMatrixKeeper(ctx context.Context, ds datastore.Datastore) *MatrixKeeper {
 	mKeeper := &MatrixKeeper{
 		db: ds,
 		NodeMatrix: &NodeMatrix{
@@ -78,13 +79,14 @@ func NewMatrixKeeper(ds datastore.Datastore) *MatrixKeeper {
 			NodesDiscovered: map[string]*DiscoveredNodeMatrix{},
 		},
 		ContentMatrix: map[string]*ContentMatrix{},
+		context:       ctx,
 	}
-	n, err := mKeeper.db.Get(nodeMatrixKey)
+	n, err := mKeeper.db.Get(ctx, nodeMatrixKey)
 	if err != nil {
 		log.Error("Unable to get nodeMatrixKey : ", err)
 		return mKeeper
 	}
-	c, err := mKeeper.db.Get(contentMatrixKey)
+	c, err := mKeeper.db.Get(ctx, contentMatrixKey)
 	if err != nil {
 		return mKeeper
 	}
@@ -135,12 +137,12 @@ func (mKeeper *MatrixKeeper) flush() error {
 		log.Error(err)
 		return err
 	}
-	err = mKeeper.db.Put(nodeMatrixKey, nm)
+	err = mKeeper.db.Put(mKeeper.context, nodeMatrixKey, nm)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	err = mKeeper.db.Put(contentMatrixKey, cm)
+	err = mKeeper.db.Put(mKeeper.context, contentMatrixKey, cm)
 	if err != nil {
 		log.Error(err)
 		return err

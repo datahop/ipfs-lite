@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	relay "github.com/libp2p/go-libp2p-circuit"
+	//relay "github.com/libp2p/go-libp2p-circuit"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -14,13 +14,13 @@ import (
 	dag "github.com/ipfs/go-merkledag"
 	"github.com/ipfs/go-verifcid"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/routing"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dualdht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	record "github.com/libp2p/go-libp2p-record"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -63,8 +63,9 @@ func SetupLibp2p(
 	finalOpts := []libp2p.Option{
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
-		libp2p.EnableRelay(relay.OptHop),
-		libp2p.EnableAutoRelay(),
+		//libp2p.EnableRelay(relay.OptHop),
+		//libp2p.EnableAutoRelay(),
+		libp2p.DisableRelay(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			ddht, err = newDHT(ctx, h, ds)
 			return ddht, err
@@ -72,7 +73,6 @@ func SetupLibp2p(
 	}
 	finalOpts = append(finalOpts, opts...)
 	h, err := libp2p.New(
-		ctx,
 		finalOpts...,
 	)
 	if err != nil {

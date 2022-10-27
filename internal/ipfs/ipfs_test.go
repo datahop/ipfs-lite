@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,7 +16,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -191,11 +191,11 @@ func TestDAG(t *testing.T) {
 		t.Error(err)
 	}
 
-	if ok, err := p1.BlockStore().Has(node.Cid()); ok || err != nil {
+	if ok, err := p1.BlockStore().Has(ctx, node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
 
-	if ok, err := p2.BlockStore().Has(node.Cid()); ok || err != nil {
+	if ok, err := p2.BlockStore().Has(ctx, node.Cid()); ok || err != nil {
 		t.Error("block should have been deleted")
 	}
 }
@@ -257,7 +257,7 @@ func TestAddFile(t *testing.T) {
 	}
 	defer rsc.Close()
 
-	content2, err := ioutil.ReadAll(rsc)
+	content2, err := io.ReadAll(rsc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestDeleteFile(t *testing.T) {
 	}
 	defer rsc.Close()
 
-	content2, err := ioutil.ReadAll(rsc)
+	content2, err := io.ReadAll(rsc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Error(string(content2))
 		t.Error("different content put and retrieved")
 	}
-	has, err := p1.BlockStore().Has(n.Cid())
+	has, err := p1.BlockStore().Has(p1.Ctx, n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	has, err = p1.BlockStore().Has(n.Cid())
+	has, err = p1.BlockStore().Has(p1.Ctx, n.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -439,7 +439,7 @@ func TestStateDualPeer(t *testing.T) {
 		}
 	}
 	for _, v := range cids {
-		inStore, _ := p2.bstore.Has(v)
+		inStore, _ := p2.bstore.Has(p1.Ctx, v)
 		if !inStore {
 			t.Fatalf("%s is not in State", v.String())
 		}
@@ -561,7 +561,7 @@ func TestFilesWithCRDT(t *testing.T) {
 	}
 	b2 := bytes.NewReader(c2)
 
-	content2, err := ioutil.ReadAll(b2)
+	content2, err := io.ReadAll(b2)
 	if err != nil {
 		t.Fatal(err)
 	}

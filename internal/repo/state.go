@@ -3,7 +3,6 @@ package repo
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -45,13 +44,13 @@ func LoadStateKeeper(root string) (*StateKeeper, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = ioutil.WriteFile(filepath.Join(root, stateKeeperFile), d, 0664)
+		err = os.WriteFile(filepath.Join(root, stateKeeperFile), d, 0664)
 		if err != nil {
 			return nil, err
 		}
 		return sk, nil
 	}
-	data, err := ioutil.ReadFile(filepath.Join(root, stateKeeperFile))
+	data, err := os.ReadFile(filepath.Join(root, stateKeeperFile))
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +82,7 @@ func (s *StateKeeper) saveStates() (map[string]*State, error) {
 	if err != nil {
 		return s.states, err
 	}
-	err = ioutil.WriteFile(filepath.Join(s.root, stateKeeperFile), d, 0664)
+	err = os.WriteFile(filepath.Join(s.root, stateKeeperFile), d, 0664)
 	if err != nil {
 		return s.states, err
 	}
