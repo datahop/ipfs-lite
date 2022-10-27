@@ -78,3 +78,7 @@ linter:
 .PHONY: lint
 lint: linter
 	$(GOLANGCI_LINT) run
+
+binary: VERSION := $(shell . $(SUPPORT); getCliVersion)
+binary:
+	go build -trimpath -ldflags "-s -w -X '$(VERSION_PACKAGE).CliVersion=$(VERSION)'" -o dist/datahop ./cli

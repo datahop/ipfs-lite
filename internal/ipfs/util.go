@@ -27,6 +27,10 @@ import (
 var (
 	defaultBootstrapAddresses = []string{
 		"/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo",
+		"/ip4/3.7.249.218/tcp/4503/p2p/QmNbJmax1tGuz74zLfeqDMAQ1rji2QJrUi8AfAihoLDUPh",
+		"/ip4/3.7.249.218/tcp/4504/p2p/QmTeYZvtCXUfJzuvzB2P6G6ALoCg2NMSbsqMRpRWv55btZ",
+		"/ip4/3.7.249.218/tcp/4505/p2p/Qmf3pAqQurwU552G3wVmp6GVJgAefVvR7tMs1vco2LXioq",
+		"/ip4/3.7.249.218/tcp/4506/p2p/QmdnjSHRGgYMQKH8A863NnWSrgdHH1vyGXKRWJdZsugNkQ",
 	}
 
 	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo"
@@ -63,8 +67,6 @@ func SetupLibp2p(
 	finalOpts := []libp2p.Option{
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
-		//libp2p.EnableRelay(relay.OptHop),
-		//libp2p.EnableAutoRelay(),
 		libp2p.DisableRelay(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			ddht, err = newDHT(ctx, h, ds)

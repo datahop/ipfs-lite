@@ -136,9 +136,16 @@ func (I *IPFSNode) Connect(info peer.AddrInfo) error {
 }
 
 func (I *IPFSNode) AddrInfo() *peer.AddrInfo {
+	addrs, err := I.peer.Host.Network().InterfaceListenAddresses()
+	if err != nil {
+		return &peer.AddrInfo{
+			ID:    I.peer.Host.ID(),
+			Addrs: I.peer.Host.Addrs(),
+		}
+	}
 	return &peer.AddrInfo{
 		ID:    I.peer.Host.ID(),
-		Addrs: I.peer.Host.Addrs(),
+		Addrs: addrs,
 	}
 }
 

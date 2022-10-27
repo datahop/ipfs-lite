@@ -42,6 +42,9 @@ func init() {
 }
 
 func main() {
+	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
+	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "pretty json output")
+
 	usr, err := user.Current()
 	if err != nil {
 		fmt.Printf("Failed getting user home directory. Is USER set?\n")
@@ -65,9 +68,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
-	rootCmd.PersistentFlags().BoolP("json", "j", false, "json output")
-	rootCmd.PersistentFlags().BoolP("pretty", "p", false, "pretty json output")
 
 	var allCommands []*cobra.Command
 	allCommands = append(
