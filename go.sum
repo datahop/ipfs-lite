@@ -638,8 +638,6 @@ github.com/libp2p/go-libp2p-circuit v0.1.0/go.mod h1:Ahq4cY3V9VJcHcn1SBXjr78AbFk
 github.com/libp2p/go-libp2p-circuit v0.1.4/go.mod h1:CY67BrEjKNDhdTk8UgBX1Y/H5c3xkAcs3gnksxY7osU=
 github.com/libp2p/go-libp2p-circuit v0.2.1/go.mod h1:BXPwYDN5A8z4OEY9sOfr2DUQMLQvKt/6oku45YUmjIo=
 github.com/libp2p/go-libp2p-circuit v0.4.0/go.mod h1:t/ktoFIUzM6uLQ+o1G6NuBl2ANhBKN9Bc8jRIk31MoA=
-github.com/libp2p/go-libp2p-connmgr v0.4.0 h1:q/KZUS1iMDIQckMZarMYwhQisJqiFPHAVC1c4DR3hDE=
-github.com/libp2p/go-libp2p-connmgr v0.4.0/go.mod h1:exFQQm19PFAx+QuJmBPw4MM58QejzPJRFFFYnNmgi2w=
 github.com/libp2p/go-libp2p-core v0.0.1/go.mod h1:g/VxnTZ/1ygHxH3dKok7Vno1VfpvGcGip57wjTU4fco=
 github.com/libp2p/go-libp2p-core v0.0.2/go.mod h1:9dAcntw/n46XycV4RnlBq3BpgrmyUi9LuoTNdPrbUco=
 github.com/libp2p/go-libp2p-core v0.0.3/go.mod h1:j+YQMNz9WNSkNezXOsahp9kwZBKBvxLpKD316QWSJXE=
@@ -727,8 +725,6 @@ github.com/libp2p/go-libp2p-testing v0.3.0/go.mod h1:efZkql4UZ7OVsEfaxNHZPzIehts
 github.com/libp2p/go-libp2p-testing v0.4.0/go.mod h1:Q+PFXYoiYFN5CAEG2w3gLPEzotlKsNSbKQ/lImlOWF0=
 github.com/libp2p/go-libp2p-testing v0.12.0 h1:EPvBb4kKMWO29qP4mZGyhVzUyR25dvfUIK5WDu6iPUA=
 github.com/libp2p/go-libp2p-tls v0.1.3/go.mod h1:wZfuewxOndz5RTnCAxFliGjvYSDA40sKitV4c50uI1M=
-github.com/libp2p/go-libp2p-tls v0.5.0 h1:aRNTeOI8Ljm1r4L2uMGxkMsVnyZoPwaqQqMw23qAsQs=
-github.com/libp2p/go-libp2p-tls v0.5.0/go.mod h1:1a4tq0xQSZ0kAkDkZVAppuP3SAIUHcnzi2djJ/2EN4I=
 github.com/libp2p/go-libp2p-transport-upgrader v0.1.1/go.mod h1:IEtA6or8JUbsV07qPW4r01GnTenLW4oi3lOPbUMGJJA=
 github.com/libp2p/go-libp2p-transport-upgrader v0.2.0/go.mod h1:mQcrHj4asu6ArfSoMuyojOdjx73Q47cYD7s5+gZOlns=
 github.com/libp2p/go-libp2p-transport-upgrader v0.3.0/go.mod h1:i+SKzbRnvXdVbU3D1dwydnTmKRPXiAR/fyvi1dXuL4o=
@@ -792,8 +788,6 @@ github.com/libp2p/go-tcp-transport v0.1.0/go.mod h1:oJ8I5VXryj493DEJ7OsBieu8fcg2
 github.com/libp2p/go-tcp-transport v0.1.1/go.mod h1:3HzGvLbx6etZjnFlERyakbaYPdfjg2pWP97dFZworkY=
 github.com/libp2p/go-tcp-transport v0.2.0/go.mod h1:vX2U0CnWimU4h0SGSEsg++AzvBcroCGYw28kh94oLe0=
 github.com/libp2p/go-tcp-transport v0.2.3/go.mod h1:9dvr03yqrPyYGIEN6Dy5UvdJZjyPFvl1S/igQ5QD1SU=
-github.com/libp2p/go-tcp-transport v0.6.1 h1:oLOEy8J9WuzaWpz9pi86lQz2E0A5DwuKASn4hXYIAkk=
-github.com/libp2p/go-tcp-transport v0.6.1/go.mod h1:HjaB4sPkp5Qkd5l9f9cDJR8m0s2oJtY3tNHdAOioYeY=
 github.com/libp2p/go-testutil v0.1.0/go.mod h1:81b2n5HypcVyrCg/MJx4Wgfp/VHojytjVe/gLzZ2Ehc=
 github.com/libp2p/go-ws-transport v0.1.0/go.mod h1:rjw1MG1LU9YDC6gzmwObkPd/Sqwhw7yT74kj3raBFuo=
 github.com/libp2p/go-ws-transport v0.2.0/go.mod h1:9BHJz/4Q5A9ludYWKoGCFC5gUElzlHoKzu0yY9p/klM=
