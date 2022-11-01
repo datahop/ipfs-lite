@@ -356,8 +356,18 @@ FindProvider:
 			if provider.ID.String() == "" {
 				break FindProvider
 			}
-			providerAddresses = append(providerAddresses, provider.ID)
-		case <-time.After(time.Second):
+			log.Debugf("FindProviders: found peer %s for : %s\n", provider.ID, id.String())
+			conn := p.Host.Network().Connectedness(provider.ID)
+			if conn != inet.Connected {
+				err := p.Host.Connect(ctx, provider)
+				if err == nil {
+					log.Debug("connection established with ", provider)
+					providerAddresses = append(providerAddresses, provider.ID)
+				}
+			} else {
+				providerAddresses = append(providerAddresses, provider.ID)
+			}
+		case <-time.After(time.Second * 5):
 			break FindProvider
 		case <-ctx.Done():
 			break FindProvider

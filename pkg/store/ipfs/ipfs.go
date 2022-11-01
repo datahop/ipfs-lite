@@ -35,6 +35,11 @@ func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) 
 	if err != nil {
 		return "", err
 	}
+
+	err = I.peer.DHT.Provide(ctx, n.Cid(), true)
+	if err != nil {
+		// Todo log provide failed
+	}
 	meta := &replication.ContentMetatag{
 		Size:        info.Size,
 		Type:        info.Type,
@@ -56,6 +61,10 @@ func (I *IPFSNode) AddDir(ctx context.Context, dir string, info *store.Info) (st
 	n, err := I.peer.AddDir(ctx, dir, nil)
 	if err != nil {
 		return "", err
+	}
+	err = I.peer.DHT.Provide(ctx, n.Cid(), true)
+	if err != nil {
+		// Todo log provide failed
 	}
 	meta := &replication.ContentMetatag{
 		Size:        info.Size,
