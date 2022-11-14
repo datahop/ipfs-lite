@@ -26,14 +26,14 @@ import (
 
 var (
 	defaultBootstrapAddresses = []string{
-		"/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo",
-		"/ip4/3.7.249.218/tcp/4503/p2p/QmNbJmax1tGuz74zLfeqDMAQ1rji2QJrUi8AfAihoLDUPh",
-		"/ip4/3.7.249.218/tcp/4504/p2p/QmTeYZvtCXUfJzuvzB2P6G6ALoCg2NMSbsqMRpRWv55btZ",
-		"/ip4/3.7.249.218/tcp/4505/p2p/Qmf3pAqQurwU552G3wVmp6GVJgAefVvR7tMs1vco2LXioq",
-		"/ip4/3.7.249.218/tcp/4506/p2p/QmdnjSHRGgYMQKH8A863NnWSrgdHH1vyGXKRWJdZsugNkQ",
+		"/ip4/3.7.249.218/tcp/4501/p2p/QmdoyRYnEbtFuVwSVXbGKSudkbEJ8X17hGnyc1EtWDHdFJ",
+		"/ip4/3.7.249.218/tcp/4503/p2p/QmXf177ZFqzkVtMYq8pqG7EWz9AZNiKvtm9nfAmzpBA95R",
+		"/ip4/3.7.249.218/tcp/4504/p2p/QmPhjvFNfJLK7kg6CBMhr7jWUzzZ9zaLn18CqvzfR6BZ9e",
+		"/ip4/3.7.249.218/tcp/4505/p2p/QmSAqX7eYdXU64j5jjdiwQ88pq7Mc69MjcjgpB6kpsTscJ",
+		"/ip4/3.7.249.218/tcp/4506/p2p/QmNuz7cmJRxeJYHHjkKiPzCvMKjCuMhjovr2zK9HGY9wJJ",
 	}
 
-	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo"
+	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmdoyRYnEbtFuVwSVXbGKSudkbEJ8X17hGnyc1EtWDHdFJ"
 )
 
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
