@@ -497,6 +497,18 @@ func ConnectWithPeerInfo(peerInfoByteString string) error {
 	return nil
 }
 
+// BitswapStat logs node's bitswap stat
+func BitswapStat() error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	stat, err := hop.comm.Node.BitswapStat()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%+v\n", stat)
+	return nil
+}
+
 // BootstrapWithPeerInfo bootstraps to a given peerInfo string of a node
 func BootstrapWithPeerInfo(peerInfoByteString string) error {
 	var peerInfo peer.AddrInfo

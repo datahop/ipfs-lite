@@ -70,6 +70,11 @@ func (m mockSyncer) Download(ctx context.Context, c cid.Cid) error {
 	return nil
 }
 
+func (m mockSyncer) HasBlock(c cid.Cid) (bool, error) {
+	// do something
+	return false, nil
+}
+
 func (m mockSyncer) FindProviders(ctx context.Context, id cid.Cid) []peer.ID {
 	// do something
 	return []peer.ID{}

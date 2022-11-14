@@ -26,10 +26,14 @@ import (
 
 var (
 	defaultBootstrapAddresses = []string{
-		"/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo",
+		"/ip4/3.7.249.218/tcp/4501/p2p/QmdoyRYnEbtFuVwSVXbGKSudkbEJ8X17hGnyc1EtWDHdFJ",
+		"/ip4/3.7.249.218/tcp/4503/p2p/QmXf177ZFqzkVtMYq8pqG7EWz9AZNiKvtm9nfAmzpBA95R",
+		"/ip4/3.7.249.218/tcp/4504/p2p/QmPhjvFNfJLK7kg6CBMhr7jWUzzZ9zaLn18CqvzfR6BZ9e",
+		"/ip4/3.7.249.218/tcp/4505/p2p/QmSAqX7eYdXU64j5jjdiwQ88pq7Mc69MjcjgpB6kpsTscJ",
+		"/ip4/3.7.249.218/tcp/4506/p2p/QmNuz7cmJRxeJYHHjkKiPzCvMKjCuMhjovr2zK9HGY9wJJ",
 	}
 
-	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmVi5g82WvrDd8dTi1LvhWPhmNKGkC9R1rzth4nicTz6Wo"
+	relayAddr = "/ip4/3.7.249.218/tcp/4501/p2p/QmdoyRYnEbtFuVwSVXbGKSudkbEJ8X17hGnyc1EtWDHdFJ"
 )
 
 // DefaultBootstrapPeers returns the default datahop bootstrap peers (for use
@@ -63,8 +67,6 @@ func SetupLibp2p(
 	finalOpts := []libp2p.Option{
 		libp2p.Identity(hostKey),
 		libp2p.ListenAddrs(listenAddrs...),
-		//libp2p.EnableRelay(relay.OptHop),
-		//libp2p.EnableAutoRelay(),
 		libp2p.DisableRelay(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			ddht, err = newDHT(ctx, h, ds)

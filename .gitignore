@@ -15,7 +15,8 @@
 *.out
 
 # editor cache
-.idea
+.idea/
+.dist/
 
 test/
 

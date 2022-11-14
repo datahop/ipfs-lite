@@ -345,7 +345,16 @@ func (mKeeper *MatrixKeeper) ContentAddProvider(hash string, provider peer.ID) {
 	mKeeper.mtx.Lock()
 	defer mKeeper.mtx.Unlock()
 	contentMatrix := mKeeper.ContentMatrix[hash]
-	contentMatrix.ProvidedBy = append(contentMatrix.ProvidedBy, provider)
+	found := false
+	for _, v := range contentMatrix.ProvidedBy {
+		if v == provider {
+			found = true
+			break
+		}
+	}
+	if !found {
+		contentMatrix.ProvidedBy = append(contentMatrix.ProvidedBy, provider)
+	}
 }
 
 // NodeMatrixSnapshot returns a snapshot of the node connectivity matrix

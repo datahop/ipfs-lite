@@ -55,6 +55,7 @@ $$    $$ |$$    $$ |  $$  $$/ $$    $$ |$$ |  $$ |$$    $$/ $$    $$/         $$
 `
 			fmt.Println(datahopCli)
 			fmt.Println("Datahop daemon running on port", cfg.SwarmPort)
+
 			sigChan := make(chan os.Signal, 1)
 			signal.Notify(sigChan, os.Interrupt)
 			for {

@@ -11,16 +11,16 @@ from [ipfs-lite](https://github.com/hsanjuan/ipfs-lite).
 It offers all the features of main [ipfs-lite](https://github.com/hsanjuan/ipfs-lite). For certain requirements of
 datahop it adds some more features of full ipfs, such as config, repo, leveldb etc.
 
-## Examples
+## Build
+```
+// build cli for all platforms
+$ make build-cli
 
-### cli client
-```
- go run ./examples/litepeer/litepeer.go
-```
+// build cli for current platform
+$ make binary
 
-### mobile client
-```
-  go run ./examples/mobilepeer/mobilepeer.go
+// docker 
+docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t datahop/datahop:latest
 ```
 
 ## Objectives
