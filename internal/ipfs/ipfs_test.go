@@ -432,7 +432,7 @@ func TestStateDualPeer(t *testing.T) {
 		}
 		cids = append(cids, n.Cid())
 	}
-	<-time.After(time.Second * 5)
+	<-time.After(time.Second * 10)
 	for i := 0; i < 10; i++ {
 		if !p2.Repo.State().Test([]byte(fmt.Sprintf("tag%d", i))) {
 			t.Fatal("tag should in bloom")

@@ -66,6 +66,7 @@ type Manager struct {
 // Syncer gets the file and finds file provider from the network
 type Syncer interface {
 	Download(context.Context, cid.Cid) error
+	HasBlock(c cid.Cid) (bool, error)
 	FindProviders(context.Context, cid.Cid) []peer.ID
 	ConnectIfNotConnectedUsingRelay(context.Context, []peer.ID)
 }
@@ -370,6 +371,15 @@ func (m *Manager) StartContentWatcher() {
 				id := meta.Hash
 				log.Debugf("got %s\n", id.String())
 				go func() {
+					has, err := m.syncer.HasBlock(id)
+					if err != nil {
+						log.Errorf("content watcher: unable to check if content already downloaded %s : %s", meta.Name, err.Error())
+						return
+					}
+					if has {
+						log.Debug("content already available in block store")
+						return
+					}
 					mat := m.repo.Matrix()
 					mat.NewContent(id.String())
 					providers := m.syncer.FindProviders(m.ctx, id)
