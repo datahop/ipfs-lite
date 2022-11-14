@@ -353,17 +353,21 @@ FindProvider:
 			if provider.ID == p.Host.ID() {
 				continue
 			}
+			fmt.Println("find", provider)
 			if provider.ID.String() == "" {
 				break FindProvider
 			}
 			log.Debugf("FindProviders: found peer %s for : %s\n", provider.ID, id.String())
 			conn := p.Host.Network().Connectedness(provider.ID)
+
+			fmt.Println("conn != inet.Connected ", conn != inet.Connected)
 			if conn != inet.Connected {
 				err := p.Host.Connect(ctx, provider)
 				if err == nil {
 					log.Debug("connection established with ", provider)
 					providerAddresses = append(providerAddresses, provider.ID)
 				}
+				fmt.Println("err", err)
 			} else {
 				providerAddresses = append(providerAddresses, provider.ID)
 			}

@@ -74,6 +74,7 @@ func main() {
 		allCommands,
 		cmd.InitDaemonCmd(comm),
 		cmd.InitInfoCmd(comm),
+		cmd.InitBitswapStatCmd(comm),
 		cmd.InitStopCmd(comm),
 		cmd.InitAddCmd(comm),
 		cmd.InitAddDirCmd(comm),
