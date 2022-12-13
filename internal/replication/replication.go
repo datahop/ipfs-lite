@@ -322,19 +322,17 @@ func (m *Manager) DownloadManagerStatus() (res map[string]taskmanager.TaskStatus
 
 // StartUnfinishedDownload starts unfinished downloads once peer comes back
 func (m *Manager) StartUnfinishedDownload(pid peer.ID) {
-	cm := m.repo.Matrix().ContentMatrix
+	matrix := m.repo.Matrix()
+	cm := matrix.ContentMatrix
 	for i, v := range cm {
 		if v.DownloadFinishedAt == 0 {
 			log.Debug("Got unfinished download : ", i, v.ProvidedBy)
-			for _, provider := range v.ProvidedBy {
-				if provider == pid {
-					meta, err := m.FindTag(v.Tag)
-					if err != nil {
-						continue
-					}
-					m.download <- *meta
-				}
+			meta, err := m.FindTag(v.Tag)
+			if err != nil {
+				log.Error("failed to find meta for tag ", v.Tag, err.Error())
+				continue
 			}
+			m.download <- *meta
 		}
 	}
 }
@@ -369,17 +367,17 @@ func (m *Manager) StartContentWatcher() {
 				return
 			case meta := <-m.download:
 				id := meta.Hash
-				log.Debugf("got %s\n", id.String())
+				log.Debugf("StartContentWatcher got %s\n", id.String())
 				go func() {
-					has, err := m.syncer.HasBlock(id)
-					if err != nil {
-						log.Errorf("content watcher: unable to check if content already downloaded %s : %s", meta.Name, err.Error())
-						return
-					}
-					if has {
-						log.Debug("content already available in block store")
-						return
-					}
+					//has, err := m.syncer.HasBlock(id)
+					//if err != nil {
+					//	log.Errorf("content watcher: unable to check if content already downloaded %s : %s", meta.Name, err.Error())
+					//	return
+					//}
+					//if has {
+					//	log.Debug("content already available in block store")
+					//	return
+					//}
 					mat := m.repo.Matrix()
 					mat.NewContent(id.String())
 					providers := m.syncer.FindProviders(m.ctx, id)

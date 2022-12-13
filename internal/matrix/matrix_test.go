@@ -109,6 +109,7 @@ func TestMatrixKeeperFlushWithData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	mKeeper.Close()
 	mKeeper2 := NewMatrixKeeper(context.Background(), mKeeper.db)
 	if mKeeper.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].IPFSConnectedAt != mKeeper2.NodeMatrix.NodesDiscovered["discoveredNodeTwo"].IPFSConnectedAt {
 		t.Fatal("discoveredNodeTwo IPFSConnectedAt mismatch")

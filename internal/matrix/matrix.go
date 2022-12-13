@@ -109,6 +109,7 @@ func (mKeeper *MatrixKeeper) StartTicker(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-time.After(time.Second * 30):
+				log.Debugf("MatrixKeeper ticker called %+v", mKeeper.ContentMatrix)
 				mKeeper.mtx.Lock()
 				mKeeper.NodeMatrix.TotalUptime += 30
 				mKeeper.flush()
