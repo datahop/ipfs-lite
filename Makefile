@@ -7,7 +7,7 @@ GOLANGCI_LINT_VERSION ?= v1.50.0
 
 build-mobile: VERSION := $(shell . $(SUPPORT); getMobileVersion)
 build-mobile:
-	@gomobile bind -o ./mobile/datahop.aar -target=android -ldflags "\
+	@gomobile bind -o ./mobile/datahop.aar -androidapi=33 -target=android -ldflags "\
 	-X '$(VERSION_PACKAGE).MobileVersion=$(VERSION)'" \
 	github.com/datahop/ipfs-lite/mobile
 
