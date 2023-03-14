@@ -6,7 +6,7 @@ require (
 	github.com/asabya/go-ipc-uds v0.1.2
 	github.com/bits-and-blooms/bloom/v3 v3.3.1
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/h2non/filetype v1.1.3
 	github.com/ipfs/go-blockservice v0.5.0
@@ -158,12 +158,12 @@ require (
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
-	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
-	golang.org/x/tools v0.3.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
