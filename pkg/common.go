@@ -3,7 +3,7 @@ package pkg
 import (
 	"context"
 
-	"github.com/ipfs/go-bitswap"
+	"github.com/ipfs/go-libipfs/bitswap"
 
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/internal/repo"
