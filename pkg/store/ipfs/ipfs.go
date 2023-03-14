@@ -5,11 +5,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/ipfs/go-bitswap"
-
 	"github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
+	"github.com/ipfs/go-bitswap"
 	"github.com/ipfs/go-datastore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
