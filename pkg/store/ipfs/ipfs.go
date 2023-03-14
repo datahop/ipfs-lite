@@ -5,17 +5,21 @@ import (
 	"io"
 	"time"
 
-	"github.com/ipfs/go-bitswap"
-
 	"github.com/datahop/ipfs-lite/internal/ipfs"
 	"github.com/datahop/ipfs-lite/internal/replication"
 	"github.com/datahop/ipfs-lite/pkg/store"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-libipfs/bitswap"
+	logger "github.com/ipfs/go-log/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+)
+
+var (
+	log = logger.Logger("ipfs-store")
 )
 
 type IPFSNode struct {
@@ -38,7 +42,7 @@ func (I *IPFSNode) Add(ctx context.Context, reader io.Reader, info *store.Info) 
 
 	err = I.peer.DHT.Provide(ctx, n.Cid(), true)
 	if err != nil {
-		// Todo log provide failed
+		log.Error("provide failed", err)
 	}
 	meta := &replication.ContentMetatag{
 		Size:        info.Size,
@@ -64,7 +68,7 @@ func (I *IPFSNode) AddDir(ctx context.Context, dir string, info *store.Info) (st
 	}
 	err = I.peer.DHT.Provide(ctx, n.Cid(), true)
 	if err != nil {
-		// Todo log provide failed
+		log.Error("provide failed", err)
 	}
 	meta := &replication.ContentMetatag{
 		Size:        info.Size,

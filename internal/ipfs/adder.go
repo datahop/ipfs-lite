@@ -11,9 +11,9 @@ import (
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
-	files "github.com/ipfs/go-ipfs-files"
 	posinfo "github.com/ipfs/go-ipfs-posinfo"
 	ipld "github.com/ipfs/go-ipld-format"
+	"github.com/ipfs/go-libipfs/files"
 	dag "github.com/ipfs/go-merkledag"
 	"github.com/ipfs/go-mfs"
 	"github.com/ipfs/go-unixfs"
@@ -75,7 +75,10 @@ func (adder *Adder) mfsRoot() (*mfs.Root, error) {
 		return adder.mroot, nil
 	}
 	rnode := unixfs.EmptyDirNode()
-	rnode.SetCidBuilder(adder.CidBuilder)
+	err := rnode.SetCidBuilder(adder.CidBuilder)
+	if err != nil {
+		return nil, err
+	}
 	mr, err := mfs.NewRoot(adder.ctx, adder.dagService, rnode, nil)
 	if err != nil {
 		return nil, err
@@ -301,7 +304,10 @@ func (adder *Adder) addSymlink(path string, l *files.Symlink) error {
 	}
 
 	dagnode := dag.NodeWithData(sdata)
-	dagnode.SetCidBuilder(adder.CidBuilder)
+	err = dagnode.SetCidBuilder(adder.CidBuilder)
+	if err != nil {
+		return err
+	}
 	err = adder.dagService.Add(adder.ctx, dagnode)
 	if err != nil {
 		return err
